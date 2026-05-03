@@ -1,0 +1,4 @@
+specs/*
+.claude
+docs/*
+.env
