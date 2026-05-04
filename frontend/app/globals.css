@@ -6,6 +6,8 @@
   --surface-2: #ece4d5;
   --card: #fcfaf3;
   --ink: #1f1b16;
+  --ink-deep: #14140f;
+  --black: #000000;
   --muted: #6b6258;
   --muted-2: #8f8775;
   --blue: #2b4fff;
@@ -20,6 +22,7 @@
   --ochre: #c8841e;
   --hairline: #e5ddd0;
   --hairline-strong: #d8cfbe;
+  --tape: #fff0b4;
 }
 
 @theme inline {
@@ -55,8 +58,16 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(181, 72, 42, 0.03), transparent 40%),
-    radial-gradient(circle at 80% 60%, rgba(45, 74, 62, 0.03), transparent 40%);
+    radial-gradient(
+      circle at 20% 10%,
+      color-mix(in srgb, var(--terracotta) 3%, transparent),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 80% 60%,
+      color-mix(in srgb, var(--forest) 3%, transparent),
+      transparent 40%
+    );
 }
 
 body::before {
@@ -114,7 +125,12 @@ button {
   right: -2%;
   bottom: -0.18em;
   height: 0.42em;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 25 1 50 6 T 100 6 T 150 6 T 198 6' stroke='%232B4FFF' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>")
+  background: var(--blue);
+  -webkit-mask:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 25 1 50 6 T 100 6 T 150 6 T 198 6' stroke='black' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>")
+    center / 100% 100% no-repeat;
+  mask:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 25 1 50 6 T 100 6 T 150 6 T 198 6' stroke='black' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>")
     center / 100% 100% no-repeat;
   z-index: -1;
   pointer-events: none;
@@ -123,11 +139,24 @@ button {
 .underline-wave {
   position: relative;
   display: inline-block;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8'><path d='M2 5 Q 15 1 28 5 T 54 5 T 80 5 T 100 5' fill='none' stroke='%232B4FFF' stroke-width='2.2' stroke-linecap='round'/></svg>");
-  background-repeat: no-repeat;
-  background-position: 0 100%;
-  background-size: 100% 0.45em;
-  padding-bottom: 0.18em;
+  padding-bottom: 0.22em;
+}
+.underline-wave::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.1em;
+  height: 0.32em;
+  background-color: var(--blue);
+  -webkit-mask:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M2 5 Q 15 1 28 5 T 54 5 T 80 5 T 100 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/></svg>")
+    center / 100% 100% no-repeat;
+  mask:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M2 5 Q 15 1 28 5 T 54 5 T 80 5 T 100 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/></svg>")
+    center / 100% 100% no-repeat;
+  z-index: -1;
+  pointer-events: none;
 }
 
 @keyframes draw {

@@ -1,0 +1,1 @@
+export { MemoryMini } from "./MemoryMini";
