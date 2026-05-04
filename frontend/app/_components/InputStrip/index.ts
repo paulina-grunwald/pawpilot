@@ -1,0 +1,1 @@
+export { InputStrip } from "./InputStrip";

@@ -1,4 +1,23 @@
-specs/*
 .claude
-docs/*
 .env
+.env.*
+.DS_Store
+.vscode/
+docs/*
+
+# frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+frontend/.vercel/
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+specs/*
+
+# raw exports — real GPS + biometric data, never commit
+data/*
+!data/README.md
