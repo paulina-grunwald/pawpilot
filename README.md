@@ -27,3 +27,25 @@ pnpm test:e2e         # Playwright smoke tests (boots dev server)
 ```
 
 Other scripts: `pnpm format` (Prettier write), `pnpm format:check`, `pnpm test:watch`.
+
+---
+
+## Backend
+
+FastAPI + Python 3.12, managed with [uv](https://docs.astral.sh/uv/), tested with pytest. Lives in `backend/`.
+
+**Requirements:** [uv](https://docs.astral.sh/uv/getting-started/installation/) (uv installs the pinned Python 3.12 automatically).
+
+```bash
+cd backend
+uv sync
+make dev              # http://localhost:8000  →  GET /health → {"status":"ok"}
+```
+
+Quality gate (run before committing):
+
+```bash
+make check            # ruff lint + mypy strict + pytest
+```
+
+Other targets: `make format` (ruff format + autofix), `make lint`, `make typecheck`, `make test`.
