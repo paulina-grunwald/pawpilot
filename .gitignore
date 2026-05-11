@@ -16,6 +16,15 @@ frontend/test-results/
 frontend/.vercel/
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
+
+# backend
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+
 specs/*
 
 # raw exports — real GPS + biometric data, never commit
