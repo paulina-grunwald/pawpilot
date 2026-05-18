@@ -12,9 +12,6 @@ The fixtures here implement the test-isolation contract from
     application use ``join_transaction_mode="create_savepoint"`` so
     ``session.commit()`` inside endpoint code commits a SAVEPOINT, not the
     outer transaction.
-  * `EmailSender` is overridden with `InMemoryEmailSender` so password-reset
-    tests can assert on captured (email, reset_url) tuples without depending
-    on stdout.
 """
 
 from __future__ import annotations
@@ -32,11 +29,9 @@ os.environ.setdefault(
 )
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-32-bytes-of-padding")
 os.environ.setdefault("RESET_PASSWORD_TOKEN_SECRET", "test-reset-secret-32-bytes-of-padding")
-os.environ.setdefault("APP_ENCRYPTION_KEY", "dGVzdC1lbmNyeXB0aW9uLWtleS0zMmJ5dGVzLWxvbmcA")
 os.environ.setdefault("FRONTEND_BASE_URL", "http://localhost:3000")
 
 from collections.abc import AsyncIterator, Iterator
-from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
@@ -49,10 +44,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from testcontainers.postgres import PostgresContainer  # type: ignore[import-untyped]
-
-if TYPE_CHECKING:
-    from app.email.sender import InMemoryEmailSender
-
 
 # ---------------------------------------------------------------------------
 # Session-scoped infrastructure: Postgres container + env vars + engine.
@@ -121,19 +112,9 @@ async def db_session(db_connection: AsyncConnection) -> AsyncIterator[AsyncSessi
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def email_sender() -> InMemoryEmailSender:
-    from app.email.sender import InMemoryEmailSender
-
-    return InMemoryEmailSender()
-
-
 @pytest_asyncio.fixture
-async def client(
-    db_connection: AsyncConnection,
-    email_sender: InMemoryEmailSender,
-) -> AsyncIterator[AsyncClient]:
-    """Async HTTP client whose backing app uses the test DB + in-memory sender.
+async def client(db_connection: AsyncConnection) -> AsyncIterator[AsyncClient]:
+    """Async HTTP client whose backing app uses the test DB.
 
     Each request inside an endpoint gets a *fresh* SQLAlchemy session bound to
     the same underlying connection as `db_session`, so:
@@ -143,7 +124,6 @@ async def client(
         the database clean for the next test.
     """
     from app.db.base import get_session
-    from app.email.sender import get_email_sender
     from app.main import app
 
     request_factory = async_sessionmaker(
@@ -156,11 +136,7 @@ async def client(
         async with request_factory() as session:
             yield session
 
-    def override_get_email_sender() -> InMemoryEmailSender:
-        return email_sender
-
     app.dependency_overrides[get_session] = override_get_session
-    app.dependency_overrides[get_email_sender] = override_get_email_sender
 
     transport = ASGITransport(app=app)
     try:
@@ -168,7 +144,6 @@ async def client(
             yield http_client
     finally:
         app.dependency_overrides.pop(get_session, None)
-        app.dependency_overrides.pop(get_email_sender, None)
 
 
 # ---------------------------------------------------------------------------

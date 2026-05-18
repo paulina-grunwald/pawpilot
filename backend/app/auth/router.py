@@ -14,8 +14,6 @@ from app.auth.schemas import UserCreate, UserRead, UserUpdate
 
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
 
-current_active_user = fastapi_users.current_user(active=True)
-
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 auth_router.include_router(fastapi_users.get_auth_router(auth_backend))
 auth_router.include_router(fastapi_users.get_register_router(UserRead, UserCreate))

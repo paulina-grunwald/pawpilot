@@ -24,7 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import User
 from app.config import settings
 from app.db.base import get_session
-from app.email.sender import EmailSender, get_email_sender
 
 MIN_PASSWORD_LENGTH = 8
 
@@ -39,28 +38,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     # harmless placeholder. No verification endpoint is mounted.
     verification_token_secret = settings.reset_password_token_secret
 
-    def __init__(self, user_db: SQLAlchemyUserDatabase[User, uuid.UUID], email_sender: EmailSender):
-        super().__init__(user_db)
-        self.email_sender = email_sender
-
     async def validate_password(self, password: str, user: User | Any) -> None:
         if len(password) < MIN_PASSWORD_LENGTH:
             raise exceptions.InvalidPasswordException(
                 reason=f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
             )
-
-    async def on_after_register(self, user: User, request: Request | None = None) -> None:
-        # Hook reserved for welcome-email work in a follow-up spec.
-        return None
-
-    async def on_after_forgot_password(
-        self, user: User, token: str, request: Request | None = None
-    ) -> None:
-        reset_url = f"{settings.frontend_base_url}/reset-password?token={token}"
-        await self.email_sender.send_password_reset(user.email, reset_url)
-
-    async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
-        return None
 
     async def forgot_password(self, user: User, request: Request | None = None) -> None:
         if not user.is_active:
@@ -79,6 +61,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             self.reset_password_token_secret,
             self.reset_password_token_lifetime_seconds,
         )
+        # TODO(email-provider): the reset token is generated and the JTI is
+        # persisted, but no email provider is wired so the token is currently
+        # discarded. Pick a provider (Resend / Postmark / SES), reintroduce a
+        # small EmailSender abstraction, and dispatch the reset URL here. See
+        # todo.md.
         await self.on_after_forgot_password(user, token, request)
 
     async def reset_password(
@@ -133,6 +120,5 @@ async def get_user_db(
 
 async def get_user_manager(
     user_db: SQLAlchemyUserDatabase[User, uuid.UUID] = Depends(get_user_db),
-    email_sender: EmailSender = Depends(get_email_sender),
 ) -> AsyncGenerator[UserManager, None]:
-    yield UserManager(user_db, email_sender)
+    yield UserManager(user_db)

@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     database_url: str
     jwt_secret: str
     reset_password_token_secret: str
-    app_encryption_key: str
     frontend_base_url: str = "http://localhost:3000"
 
     cookie_name: str = "pawpilot_auth"

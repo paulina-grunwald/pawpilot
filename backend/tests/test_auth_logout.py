@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
 from httpx import AsyncClient
@@ -20,14 +21,11 @@ async def test_logout_clears_cookie(authenticated_client: AsyncClient) -> None:
         'pawpilot_auth=""' in set_cookie_header or "pawpilot_auth=;" in set_cookie_header
     )
     has_past_expiry = False
-    for piece in set_cookie_header.split(";"):
-        piece = piece.strip()
+    for raw_piece in set_cookie_header.split(";"):
+        piece = raw_piece.strip()
         if piece.lower().startswith("expires="):
             expires_at = parsedate_to_datetime(piece.split("=", 1)[1])
-            # Past timestamp == invalidated.
-            import datetime as _dt
-
-            has_past_expiry = expires_at < _dt.datetime.now(_dt.UTC)
+            has_past_expiry = expires_at < datetime.now(UTC)
         if piece.lower() == "max-age=0":
             has_past_expiry = True
     assert has_empty_value or has_past_expiry, set_cookie_header
