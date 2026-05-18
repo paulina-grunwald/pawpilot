@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  loginSchema,
-  signupSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-} from "./auth.schemas";
+import { loginSchema, signupSchema } from "./auth.schemas";
 
 function firstError(
   result: { success: true } | { success: false; error: { issues: { path: PropertyKey[]; message: string }[] } },
@@ -58,63 +53,6 @@ describe("signupSchema", () => {
     const result = signupSchema.safeParse({
       email: "a@b.co",
       password: "12345678",
-    });
-    expect(result.success).toBe(true);
-  });
-});
-
-describe("forgotPasswordSchema", () => {
-  it("rejects empty email", () => {
-    const result = forgotPasswordSchema.safeParse({ email: "" });
-    expect(firstError(result, "email")).toBe("Email is required");
-  });
-
-  it("rejects malformed email", () => {
-    const result = forgotPasswordSchema.safeParse({ email: "foo" });
-    expect(firstError(result, "email")).toBe("Enter a valid email address");
-  });
-
-  it("accepts valid email", () => {
-    const result = forgotPasswordSchema.safeParse({ email: "a@b.co" });
-    expect(result.success).toBe(true);
-  });
-});
-
-describe("resetPasswordSchema", () => {
-  it("rejects password shorter than 8 chars", () => {
-    const result = resetPasswordSchema.safeParse({
-      token: "tok",
-      password: "short",
-      passwordConfirm: "short",
-    });
-    expect(firstError(result, "password")).toBe(
-      "Password must be at least 8 characters",
-    );
-  });
-
-  it("rejects mismatched confirm password", () => {
-    const result = resetPasswordSchema.safeParse({
-      token: "tok",
-      password: "12345678",
-      passwordConfirm: "12345679",
-    });
-    expect(firstError(result, "passwordConfirm")).toBe("Passwords don't match");
-  });
-
-  it("rejects empty token", () => {
-    const result = resetPasswordSchema.safeParse({
-      token: "",
-      password: "12345678",
-      passwordConfirm: "12345678",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts valid input", () => {
-    const result = resetPasswordSchema.safeParse({
-      token: "tok",
-      password: "12345678",
-      passwordConfirm: "12345678",
     });
     expect(result.success).toBe(true);
   });

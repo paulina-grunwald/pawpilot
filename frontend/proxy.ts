@@ -2,12 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE_NAME } from "@/lib/auth.constants";
 
 const PROTECTED_PATH_PREFIXES = ["/dashboard"];
-const AUTH_PATH_PREFIXES = [
-  "/login",
-  "/signup",
-  "/forgot-password",
-  "/reset-password",
-];
+const AUTH_PATH_PREFIXES = ["/login", "/signup"];
 
 export function buildAuthRedirect(input: {
   pathname: string;
@@ -45,11 +40,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/login",
-    "/signup",
-    "/forgot-password",
-    "/reset-password",
-  ],
+  matcher: ["/dashboard/:path*", "/login", "/signup"],
 };

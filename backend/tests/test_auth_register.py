@@ -65,7 +65,7 @@ async def test_register_invalid_email_returns_422(client: AsyncClient) -> None:
 
 
 async def test_register_response_omits_internal_columns(client: AsyncClient) -> None:
-    """`hashed_password` and `reset_token_jti` must never appear in API output."""
+    """`hashed_password` must never appear in API output."""
     response = await client.post(
         "/auth/register",
         json={"email": "shape@example.com", "password": "supersecret"},

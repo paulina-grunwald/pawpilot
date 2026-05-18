@@ -1,22 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { Field } from "@/components/auth/Field";
 import { SubmitButton } from "@/components/auth/SubmitButton";
-import { FlashMessage } from "@/components/auth/FlashMessage";
 import { loginErrorCopy } from "@/components/auth/errorCopy";
 import { AuthError, login } from "@/lib/auth";
 import { loginSchema, type LoginInput } from "@/lib/auth.schemas";
 
-function LoginPageContent() {
+export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const flash = searchParams.get("flash");
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -57,7 +54,6 @@ function LoginPageContent() {
         </span>
       }
     >
-      <FlashMessage flashKey={flash} />
       <form
         noValidate
         className="mt-4 flex flex-col gap-4"
@@ -77,15 +73,6 @@ function LoginPageContent() {
           error={errors.password?.message}
           {...register("password")}
         />
-        <div className="-mt-2 text-right text-[13px]">
-          <Link
-            href="/forgot-password"
-            className="underline"
-            style={{ color: "var(--muted)" }}
-          >
-            Forgot password?
-          </Link>
-        </div>
         {formError && (
           <p
             role="alert"
@@ -104,13 +91,5 @@ function LoginPageContent() {
         </SubmitButton>
       </form>
     </AuthCard>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={null}>
-      <LoginPageContent />
-    </Suspense>
   );
 }

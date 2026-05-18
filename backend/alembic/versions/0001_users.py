@@ -30,7 +30,6 @@ def upgrade() -> None:
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("is_superuser", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("is_verified", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("reset_token_jti", sa.String(length=64), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

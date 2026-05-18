@@ -8,11 +8,9 @@ import { getApiBaseUrl } from "@/lib/auth";
 
 const replaceSpy = vi.fn();
 const refreshSpy = vi.fn();
-let mockSearchParams = new URLSearchParams();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceSpy, refresh: refreshSpy }),
-  useSearchParams: () => mockSearchParams,
 }));
 
 const server = setupServer();
@@ -22,7 +20,6 @@ afterEach(() => {
   server.resetHandlers();
   replaceSpy.mockClear();
   refreshSpy.mockClear();
-  mockSearchParams = new URLSearchParams();
 });
 afterAll(() => server.close());
 
@@ -100,21 +97,11 @@ describe("LoginPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders 'Create account' link to /signup and 'Forgot password?' to /forgot-password", () => {
+  it("renders 'Create account' link to /signup", () => {
     render(<LoginPage />);
     expect(screen.getByRole("link", { name: /create account/i })).toHaveAttribute(
       "href",
       "/signup",
     );
-    expect(screen.getByRole("link", { name: /forgot password/i })).toHaveAttribute(
-      "href",
-      "/forgot-password",
-    );
-  });
-
-  it("renders the password-reset-success flash banner when ?flash=password-reset-success", () => {
-    mockSearchParams = new URLSearchParams("flash=password-reset-success");
-    render(<LoginPage />);
-    expect(screen.getByRole("status")).toHaveTextContent(/password updated/i);
   });
 });

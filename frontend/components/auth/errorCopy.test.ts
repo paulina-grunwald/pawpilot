@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GENERIC_ERROR_COPY,
   NETWORK_ERROR_COPY,
-  flashCopy,
   loginErrorCopy,
-  resetPasswordErrorCopy,
   signupErrorCopy,
 } from "./errorCopy";
 
@@ -33,23 +31,5 @@ describe("errorCopy", () => {
 
   it("signup falls back to generic copy for unrelated codes", () => {
     expect(signupErrorCopy.LOGIN_BAD_CREDENTIALS).toBe(GENERIC_ERROR_COPY);
-  });
-
-  it("reset maps bad token to invalid/expired copy", () => {
-    expect(resetPasswordErrorCopy.RESET_PASSWORD_BAD_TOKEN).toContain(
-      "invalid or has expired",
-    );
-  });
-
-  it("reset maps invalid password to dedicated copy", () => {
-    expect(resetPasswordErrorCopy.RESET_PASSWORD_INVALID_PASSWORD).toContain(
-      "doesn't meet",
-    );
-  });
-
-  it("password-reset-success flash maps to the documented copy", () => {
-    expect(flashCopy["password-reset-success"]).toBe(
-      "Password updated — please log in.",
-    );
   });
 });

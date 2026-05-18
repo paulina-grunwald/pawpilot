@@ -28,7 +28,6 @@ os.environ.setdefault(
     "DATABASE_URL", "postgresql+asyncpg://placeholder:placeholder@localhost/placeholder"
 )
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-32-bytes-of-padding")
-os.environ.setdefault("RESET_PASSWORD_TOKEN_SECRET", "test-reset-secret-32-bytes-of-padding")
 os.environ.setdefault("FRONTEND_BASE_URL", "http://localhost:3000")
 
 from collections.abc import AsyncIterator, Iterator

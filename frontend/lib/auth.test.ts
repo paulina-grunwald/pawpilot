@@ -3,12 +3,10 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import {
   AuthError,
-  forgotPassword,
   getApiBaseUrl,
   getCurrentUser,
   login,
   logout,
-  resetPassword,
   signup,
 } from "./auth";
 
@@ -148,79 +146,6 @@ describe("logout", () => {
     );
     await logout();
     expect(called).toBe(true);
-  });
-});
-
-describe("forgotPassword", () => {
-  it("POSTs JSON body and resolves on 202", async () => {
-    let capturedJson: unknown = null;
-    server.use(
-      http.post(`${API_BASE_URL}/auth/forgot-password`, async ({ request }) => {
-        capturedJson = await request.json();
-        return new HttpResponse(null, { status: 202 });
-      }),
-    );
-    await forgotPassword({ email: "a@b.co" });
-    expect(capturedJson).toEqual({ email: "a@b.co" });
-  });
-});
-
-describe("resetPassword", () => {
-  it("POSTs token + password (omitting confirm) and resolves on 200", async () => {
-    let capturedJson: unknown = null;
-    server.use(
-      http.post(`${API_BASE_URL}/auth/reset-password`, async ({ request }) => {
-        capturedJson = await request.json();
-        return HttpResponse.json({}, { status: 200 });
-      }),
-    );
-    await resetPassword({
-      token: "tok",
-      password: "12345678",
-      passwordConfirm: "12345678",
-    });
-    expect(capturedJson).toEqual({ token: "tok", password: "12345678" });
-  });
-
-  it("throws RESET_PASSWORD_BAD_TOKEN on backend error", async () => {
-    server.use(
-      http.post(`${API_BASE_URL}/auth/reset-password`, () =>
-        HttpResponse.json(
-          { detail: "RESET_PASSWORD_BAD_TOKEN" },
-          { status: 400 },
-        ),
-      ),
-    );
-    await expect(
-      resetPassword({
-        token: "bad",
-        password: "12345678",
-        passwordConfirm: "12345678",
-      }),
-    ).rejects.toMatchObject({ code: "RESET_PASSWORD_BAD_TOKEN" });
-  });
-
-  it("throws RESET_PASSWORD_INVALID_PASSWORD on backend error", async () => {
-    server.use(
-      http.post(`${API_BASE_URL}/auth/reset-password`, () =>
-        HttpResponse.json(
-          {
-            detail: {
-              code: "RESET_PASSWORD_INVALID_PASSWORD",
-              reason: "Password too weak",
-            },
-          },
-          { status: 400 },
-        ),
-      ),
-    );
-    await expect(
-      resetPassword({
-        token: "tok",
-        password: "short123",
-        passwordConfirm: "short123",
-      }),
-    ).rejects.toMatchObject({ code: "RESET_PASSWORD_INVALID_PASSWORD" });
   });
 });
 

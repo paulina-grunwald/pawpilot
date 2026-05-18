@@ -54,16 +54,6 @@ describe("buildAuthRedirect", () => {
     ).toBe("http://localhost:3000/dashboard");
   });
 
-  it("redirects authenticated visits to /reset-password → /dashboard (regardless of ?token=)", () => {
-    expect(
-      buildAuthRedirect({
-        pathname: "/reset-password",
-        hasAuthCookie: true,
-        baseUrl,
-      }).redirectTo,
-    ).toBe("http://localhost:3000/dashboard");
-  });
-
   it("allows unauthenticated visits to auth pages", () => {
     expect(
       buildAuthRedirect({
@@ -75,20 +65,6 @@ describe("buildAuthRedirect", () => {
     expect(
       buildAuthRedirect({
         pathname: "/signup",
-        hasAuthCookie: false,
-        baseUrl,
-      }).redirectTo,
-    ).toBeNull();
-    expect(
-      buildAuthRedirect({
-        pathname: "/forgot-password",
-        hasAuthCookie: false,
-        baseUrl,
-      }).redirectTo,
-    ).toBeNull();
-    expect(
-      buildAuthRedirect({
-        pathname: "/reset-password",
         hasAuthCookie: false,
         baseUrl,
       }).redirectTo,

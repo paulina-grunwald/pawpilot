@@ -1,9 +1,4 @@
-import type {
-  ForgotPasswordInput,
-  LoginInput,
-  ResetPasswordInput,
-  SignupInput,
-} from "./auth.schemas";
+import type { LoginInput, SignupInput } from "./auth.schemas";
 
 export type UserRead = {
   id: string;
@@ -18,8 +13,6 @@ export type AuthErrorCode =
   | "REGISTER_INVALID_PASSWORD"
   | "LOGIN_BAD_CREDENTIALS"
   | "LOGIN_USER_NOT_VERIFIED"
-  | "RESET_PASSWORD_BAD_TOKEN"
-  | "RESET_PASSWORD_INVALID_PASSWORD"
   | "VALIDATION_ERROR"
   | "NETWORK_ERROR"
   | "UNKNOWN";
@@ -45,8 +38,6 @@ const KNOWN_AUTH_ERROR_CODES: ReadonlySet<AuthErrorCode> = new Set([
   "REGISTER_INVALID_PASSWORD",
   "LOGIN_BAD_CREDENTIALS",
   "LOGIN_USER_NOT_VERIFIED",
-  "RESET_PASSWORD_BAD_TOKEN",
-  "RESET_PASSWORD_INVALID_PASSWORD",
   "VALIDATION_ERROR",
   "NETWORK_ERROR",
   "UNKNOWN",
@@ -146,30 +137,6 @@ export async function login(
 export async function logout(fetchImpl?: FetchFn): Promise<void> {
   await authRequest<undefined, void>({
     path: "/auth/logout",
-    parse: async () => undefined,
-    fetchImpl,
-  });
-}
-
-export async function forgotPassword(
-  input: ForgotPasswordInput,
-  fetchImpl?: FetchFn,
-): Promise<void> {
-  await authRequest<ForgotPasswordInput, void>({
-    path: "/auth/forgot-password",
-    body: input,
-    parse: async () => undefined,
-    fetchImpl,
-  });
-}
-
-export async function resetPassword(
-  input: ResetPasswordInput,
-  fetchImpl?: FetchFn,
-): Promise<void> {
-  await authRequest<{ token: string; password: string }, void>({
-    path: "/auth/reset-password",
-    body: { token: input.token, password: input.password },
     parse: async () => undefined,
     fetchImpl,
   });
