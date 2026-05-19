@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import os
 
-
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://placeholder:placeholder@localhost/placeholder"
 os.environ["JWT_SECRET"] = "test-jwt-secret-32-bytes-of-padding"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:3000"
@@ -69,7 +68,6 @@ async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
         await test_engine.dispose()
 
 
-
 @pytest_asyncio.fixture
 async def db_connection(engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
     async with engine.connect() as connection:
@@ -90,7 +88,6 @@ async def db_session(db_connection: AsyncConnection) -> AsyncIterator[AsyncSessi
     )
     async with factory() as session:
         yield session
-
 
 
 @pytest_asyncio.fixture
@@ -125,7 +122,6 @@ async def client(db_connection: AsyncConnection) -> AsyncIterator[AsyncClient]:
             yield http_client
     finally:
         app.dependency_overrides.pop(get_session, None)
-
 
 
 @pytest_asyncio.fixture

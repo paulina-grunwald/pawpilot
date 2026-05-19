@@ -17,11 +17,7 @@ export function LogoutButton() {
       await logout();
     } catch (caught) {
       if (!(caught instanceof AuthError)) throw caught;
-      // 401 means the session was already invalid server-side — treat as a
-      // successful logout: continue to /login. Any other status (5xx, network
-      // failure) means the cookie may still be valid and we cannot clear it
-      // client-side (HttpOnly); surface the failure instead of redirecting
-      // the user into a state where the proxy bounces them back to /dashboard.
+
       if (caught.status !== 401) {
         setErrorMessage("Could not log out — please try again.");
         setIsLoggingOut(false);
@@ -49,11 +45,7 @@ export function LogoutButton() {
         {isLoggingOut ? "Logging out…" : "Log out"}
       </button>
       {errorMessage && (
-        <p
-          role="alert"
-          className="text-[12px]"
-          style={{ color: "var(--terracotta)" }}
-        >
+        <p role="alert" className="text-[12px]" style={{ color: "var(--terracotta)" }}>
           {errorMessage}
         </p>
       )}

@@ -15,7 +15,7 @@ Next.js (App Router) + TypeScript + Tailwind, tested with Vitest and Playwright.
 ```bash
 cd frontend
 pnpm install
-pnpm dev              # http://localhost:3000
+pnpm dev
 ```
 
 Quality gate (run before committing):
@@ -34,18 +34,23 @@ Other scripts: `pnpm format` (Prettier write), `pnpm format:check`, `pnpm test:w
 
 FastAPI + Python 3.12, managed with [uv](https://docs.astral.sh/uv/), tested with pytest. Lives in `backend/`.
 
-**Requirements:** [uv](https://docs.astral.sh/uv/getting-started/installation/) (uv installs the pinned Python 3.12 automatically).
+**Requirements:**
+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (uv installs the pinned Python 3.12 automatically).
+- Docker — required for `make test` / `make check`, which spin up an ephemeral Postgres via [testcontainers](https://testcontainers-python.readthedocs.io/). Also required for `make db-up`, which runs the local dev Postgres from `infra/docker-compose.yml`.
 
 ```bash
 cd backend
+cp .env.example .env
 uv sync
-make dev              # http://localhost:8000  →  GET /health → {"status":"ok"}
+make db-up
+make dev
 ```
 
 Quality gate (run before committing):
 
 ```bash
-make check            # ruff lint + mypy strict + pytest
+make check
 ```
 
-Other targets: `make format` (ruff format + autofix), `make lint`, `make typecheck`, `make test`.
+Other targets: `make format` (ruff format + autofix), `make lint`, `make typecheck`, `make test`, `make db-upgrade`, `make db-revision name="describe change"`.

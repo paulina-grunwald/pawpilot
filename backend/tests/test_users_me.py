@@ -31,15 +31,15 @@ async def test_get_me_without_cookie_returns_401(client: AsyncClient) -> None:
 async def test_get_me_with_tampered_cookie_returns_401(
     authenticated_client: AsyncClient,
 ) -> None:
+
+    import jwt
+
+    from app.config import settings
+
     original = authenticated_client.cookies["pawpilot_auth"]
-    last_dot = original.rfind(".")
-    assert last_dot != -1, "JWT must have three segments"
-    signature_start = last_dot + 1
-    target_index = signature_start + 1
-    target_char = original[target_index]
-    replacement = "A" if target_char != "A" else "B"
-    tampered = original[:target_index] + replacement + original[target_index + 1 :]
-    authenticated_client.cookies.set("pawpilot_auth", tampered)
+    payload = jwt.decode(original, options={"verify_signature": False})
+    forged = jwt.encode(payload, settings.jwt_secret + "-attacker", algorithm="HS256")
+    authenticated_client.cookies.set("pawpilot_auth", forged)
 
     response = await authenticated_client.get("/users/me")
     assert response.status_code == 401
