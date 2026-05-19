@@ -15,7 +15,7 @@ describe("TrustBand", () => {
     const { container } = render(<TrustBand />);
     const images = container.querySelectorAll("img");
     const sources = Array.from(images).map((image) => image.getAttribute("src") ?? "");
-    expect(sources.some((source) => source.includes("aussie-running"))).toBe(true);
+    expect(sources.some((source) => source.includes("pawdoc-badge"))).toBe(true);
     expect(sources.some((source) => source.includes("owner-and-dog"))).toBe(true);
   });
 });

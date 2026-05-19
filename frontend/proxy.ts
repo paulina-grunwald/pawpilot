@@ -30,7 +30,7 @@ export function buildAuthRedirect(input: {
   return { redirectTo: null };
 }
 
-export default function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const hasAuthCookie = request.cookies.has(AUTH_COOKIE_NAME);
   const sessionExpired =
     request.nextUrl.searchParams.get(SESSION_EXPIRED_QUERY_KEY) ===

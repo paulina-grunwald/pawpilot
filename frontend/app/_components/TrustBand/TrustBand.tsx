@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { PawMark } from "../PawMark";
 
 const sources = [
   "WSAVA",
@@ -56,28 +57,20 @@ export function TrustBand() {
 
           <div className="relative min-h-[320px]">
             <div
-              className="absolute top-5 right-[60px] bg-(--paper) p-[10px] pb-8 border border-(--hairline) shadow-[0_14px_30px_-10px_color-mix(in_srgb,var(--ink)_18%,transparent)]"
-              style={{ transform: "rotate(6deg)" }}
+              className="absolute -top-6 left-0 z-[1] text-center"
+              style={{
+                transform: "rotate(-6deg)",
+                filter:
+                  "drop-shadow(0 18px 30px color-mix(in srgb, var(--ink) 20%, transparent))",
+              }}
             >
-              <Image
-                src="/img/aussie-running.png"
-                alt="An Australian shepherd mid-run"
-                width={220}
-                height={160}
-                style={{
-                  display: "block",
-                  objectFit: "cover",
-                  width: 220,
-                  height: 160,
-                  filter: "saturate(0.92)",
-                }}
-              />
-              <div className="mono text-[10px] text-muted text-center mt-2">
-                14 hr sleep · normal for her
+              <PawMark size={220} />
+              <div className="mono text-[11px] text-muted mt-3">
+                smart answers · healthier dogs
               </div>
             </div>
             <div
-              className="absolute top-[110px] right-0 bg-(--paper) p-[10px] pb-8 border border-(--hairline) shadow-[0_14px_30px_-10px_color-mix(in_srgb,var(--ink)_22%,transparent)]"
+              className="absolute top-[110px] right-0 bg-(--paper) p-[10px] pb-8 border border-(--hairline) shadow-[0_14px_30px_-10px_color-mix(in_srgb,var(--ink)_22%,transparent)] z-[2]"
               style={{ transform: "rotate(-5deg)" }}
             >
               <Image
@@ -93,8 +86,10 @@ export function TrustBand() {
                   filter: "saturate(0.92)",
                 }}
               />
-              <div className="mono text-[10px] text-muted text-center mt-2">
+              <div className="mono text-[10px] text-muted text-center mt-2 leading-[1.5]">
                 head tilt · context, please
+                <br />
+                answered in 11s · 3 sources cited
               </div>
             </div>
           </div>

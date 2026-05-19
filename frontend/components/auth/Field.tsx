@@ -16,9 +16,10 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
     : `field-${generatedId}`;
   const errorId = `${inputId}-error`;
   const helpId = `${inputId}-help`;
-  const describedBy = [error ? errorId : null, helpText ? helpId : null]
-    .filter(Boolean)
-    .join(" ") || undefined;
+  const describedBy =
+    [error ? errorId : null, helpText && !error ? helpId : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
