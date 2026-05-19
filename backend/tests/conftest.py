@@ -18,17 +18,10 @@ from __future__ import annotations
 
 import os
 
-# pydantic-settings instantiates `Settings()` at import time the moment any
-# `app.*` module is loaded. Pytest collects test modules — which import
-# `app.main` — *before* fixtures run, so we must populate the required env
-# vars here, at conftest module level, not inside a fixture. The DATABASE_URL
-# is a placeholder; tests override `get_session` to point at an ephemeral
-# Postgres started by the `postgres_container` fixture below.
-os.environ.setdefault(
-    "DATABASE_URL", "postgresql+asyncpg://placeholder:placeholder@localhost/placeholder"
-)
-os.environ.setdefault("JWT_SECRET", "test-jwt-secret-32-bytes-of-padding")
-os.environ.setdefault("FRONTEND_BASE_URL", "http://localhost:3000")
+
+os.environ["DATABASE_URL"] = "postgresql+asyncpg://placeholder:placeholder@localhost/placeholder"
+os.environ["JWT_SECRET"] = "test-jwt-secret-32-bytes-of-padding"
+os.environ["FRONTEND_BASE_URL"] = "http://localhost:3000"
 
 from collections.abc import AsyncIterator, Iterator
 
@@ -42,11 +35,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from testcontainers.postgres import PostgresContainer  # type: ignore[import-untyped]
-
-# ---------------------------------------------------------------------------
-# Session-scoped infrastructure: Postgres container + env vars + engine.
-# ---------------------------------------------------------------------------
+from testcontainers.postgres import PostgresContainer
 
 
 @pytest.fixture(scope="session")
@@ -68,6 +57,7 @@ def database_url(postgres_container: PostgresContainer) -> str:
 
 @pytest_asyncio.fixture(scope="session")
 async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
+    import app.auth.models
     from app.db.base import Base
 
     test_engine = create_async_engine(database_url, future=True)
@@ -78,10 +68,6 @@ async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
     finally:
         await test_engine.dispose()
 
-
-# ---------------------------------------------------------------------------
-# Per-test isolation: outer transaction rolls back at teardown.
-# ---------------------------------------------------------------------------
 
 
 @pytest_asyncio.fixture
@@ -105,10 +91,6 @@ async def db_session(db_connection: AsyncConnection) -> AsyncIterator[AsyncSessi
     async with factory() as session:
         yield session
 
-
-# ---------------------------------------------------------------------------
-# Application wiring: dependency overrides + httpx client.
-# ---------------------------------------------------------------------------
 
 
 @pytest_asyncio.fixture
@@ -144,10 +126,6 @@ async def client(db_connection: AsyncConnection) -> AsyncIterator[AsyncClient]:
     finally:
         app.dependency_overrides.pop(get_session, None)
 
-
-# ---------------------------------------------------------------------------
-# Convenience builders used across the auth test modules.
-# ---------------------------------------------------------------------------
 
 
 @pytest_asyncio.fixture

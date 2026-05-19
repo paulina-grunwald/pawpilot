@@ -30,6 +30,6 @@ export async function requireCurrentUser(): Promise<UserRead> {
   if (!authCookie) redirect("/login");
   const cookieHeader = `${authCookie.name}=${authCookie.value}`;
   const user = await fetchCurrentUserFromBackend({ cookieHeader });
-  if (!user) redirect("/login");
+  if (!user) redirect("/login?session=expired");
   return user;
 }

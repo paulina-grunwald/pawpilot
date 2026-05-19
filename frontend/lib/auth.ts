@@ -19,10 +19,12 @@ export type AuthErrorCode =
 
 export class AuthError extends Error {
   readonly code: AuthErrorCode;
+  readonly status?: number;
 
-  constructor(code: AuthErrorCode, message: string) {
+  constructor(code: AuthErrorCode, message: string, status?: number) {
     super(message);
     this.code = code;
+    this.status = status;
     this.name = "AuthError";
   }
 }
@@ -102,7 +104,11 @@ async function authRequest<TBody, TResult>(
   }
   if (!response.ok) {
     const code = await parseErrorCode(response);
-    throw new AuthError(code, `Request to ${path} failed with ${response.status}`);
+    throw new AuthError(
+      code,
+      `Request to ${path} failed with ${response.status}`,
+      response.status,
+    );
   }
   return parse(response);
 }
@@ -159,7 +165,11 @@ export async function getCurrentUser(
   }
   if (response.status === 401) return null;
   if (!response.ok) {
-    throw new AuthError("UNKNOWN", `GET /users/me failed with ${response.status}`);
+    throw new AuthError(
+      "UNKNOWN",
+      `GET /users/me failed with ${response.status}`,
+      response.status,
+    );
   }
   return (await response.json()) as UserRead;
 }

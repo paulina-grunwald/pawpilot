@@ -54,6 +54,25 @@ describe("buildAuthRedirect", () => {
     ).toBe("http://localhost:3000/dashboard");
   });
 
+  it("does not redirect /login → /dashboard when session=expired is set", () => {
+    expect(
+      buildAuthRedirect({
+        pathname: "/login",
+        hasAuthCookie: true,
+        baseUrl,
+        sessionExpired: true,
+      }).redirectTo,
+    ).toBeNull();
+    expect(
+      buildAuthRedirect({
+        pathname: "/signup",
+        hasAuthCookie: true,
+        baseUrl,
+        sessionExpired: true,
+      }).redirectTo,
+    ).toBeNull();
+  });
+
   it("allows unauthenticated visits to auth pages", () => {
     expect(
       buildAuthRedirect({

@@ -32,9 +32,14 @@ async def test_get_me_with_tampered_cookie_returns_401(
     authenticated_client: AsyncClient,
 ) -> None:
     original = authenticated_client.cookies["pawpilot_auth"]
-    # Flip the final character so the JWT signature is invalid.
-    flipped = original[:-1] + ("A" if original[-1] != "A" else "B")
-    authenticated_client.cookies.set("pawpilot_auth", flipped)
+    last_dot = original.rfind(".")
+    assert last_dot != -1, "JWT must have three segments"
+    signature_start = last_dot + 1
+    target_index = signature_start + 1
+    target_char = original[target_index]
+    replacement = "A" if target_char != "A" else "B"
+    tampered = original[:target_index] + replacement + original[target_index + 1 :]
+    authenticated_client.cookies.set("pawpilot_auth", tampered)
 
     response = await authenticated_client.get("/users/me")
     assert response.status_code == 401

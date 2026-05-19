@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 from fastapi_users import schemas
-from pydantic import Field
+from pydantic import Field, field_validator
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
@@ -30,8 +30,16 @@ class UserUpdate(schemas.BaseUserUpdate):
 
     Inherits fastapi-users' update schema so the framework's safe
     ``create_update_dict`` strips ``is_active`` / ``is_superuser`` /
-    ``is_verified`` from non-superuser updates. The spec only exercises
-    password updates (email change is deferred); password validation runs
+    ``is_verified`` from non-superuser updates. Password validation runs
     through ``UserManager.validate_password`` so failures surface as
     ``UPDATE_USER_INVALID_PASSWORD``, not a 422.
     """
+
+    @field_validator("email")
+    @classmethod
+    def _reject_email_change(cls, value: str | None) -> None:
+        if value is not None:
+            raise ValueError(
+                "Changing email is not yet supported — a dedicated verification flow is required."
+            )
+        return None

@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
-from sqlalchemy import DateTime
+from sqlalchemy import DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,5 +21,6 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
+        server_default=func.now(),
         nullable=False,
     )
