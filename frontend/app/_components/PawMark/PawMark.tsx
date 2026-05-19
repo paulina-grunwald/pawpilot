@@ -6,18 +6,25 @@ type PawMarkProps = {
   className?: string;
 };
 
-const SOURCES: Record<NonNullable<PawMarkProps["variant"]>, string> = {
-  badge: "/assets/pawdoc-logo.png",
-  wordmark: "/assets/pawdoc-logo-v2.png",
+// Intrinsic aspect ratios of the source PNGs — passing matching width/height
+// to next/image keeps the layout-shift contract correct and silences the
+// "modified one dimension via CSS but not the other" runtime warning.
+const SOURCES: Record<
+  NonNullable<PawMarkProps["variant"]>,
+  { src: string; intrinsicWidth: number; intrinsicHeight: number }
+> = {
+  badge: { src: "/assets/pawdoc-badge-v3.png", intrinsicWidth: 548, intrinsicHeight: 568 },
+  wordmark: { src: "/assets/pawdoc-logo-v3.png", intrinsicWidth: 683, intrinsicHeight: 880 },
 };
 
 export function PawMark({ size = 56, variant = "badge", className }: PawMarkProps) {
-  const source = SOURCES[variant];
+  const { src, intrinsicWidth, intrinsicHeight } = SOURCES[variant];
+  const width = Math.round((size * intrinsicWidth) / intrinsicHeight);
   return (
     <Image
-      src={source}
+      src={src}
       alt=""
-      width={size}
+      width={width}
       height={size}
       priority
       className={className}

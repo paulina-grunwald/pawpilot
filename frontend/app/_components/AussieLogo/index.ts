@@ -1,1 +1,0 @@
-export { AussieLogo } from "./AussieLogo";

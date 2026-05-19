@@ -57,7 +57,8 @@ export function Nav() {
           </a>
           <Link
             href="/login"
-            className="bg-ink text-paper px-4 py-[9px] rounded-full text-[14px] font-medium no-underline inline-flex items-center gap-[6px]"
+            className="px-6 py-[14px] rounded-full text-[15px] font-semibold no-underline inline-flex items-center gap-[6px] shadow-[0_6px_20px_-8px_color-mix(in_srgb,var(--blue)_60%,transparent)]"
+            style={{ background: "var(--blue)", color: "var(--paper)" }}
           >
             Log in <ArrowRightIcon />
           </Link>

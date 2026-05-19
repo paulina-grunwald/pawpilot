@@ -6,13 +6,13 @@ describe("PawMark", () => {
   it("renders the badge variant by default", () => {
     const { container } = render(<PawMark />);
     const image = container.querySelector("img")!;
-    expect(image.getAttribute("src")).toContain("pawdoc-logo.png");
+    expect(image.getAttribute("src")).toContain("pawdoc-badge-v3.png");
   });
 
   it("renders the wordmark variant when requested", () => {
     const { container } = render(<PawMark variant="wordmark" />);
     const image = container.querySelector("img")!;
-    expect(image.getAttribute("src")).toContain("pawdoc-logo-v2.png");
+    expect(image.getAttribute("src")).toContain("pawdoc-logo-v3.png");
   });
 
   it("respects size and className", () => {

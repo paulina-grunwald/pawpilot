@@ -52,6 +52,37 @@ describe("LogoutButton", () => {
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith("/login"));
   });
 
+  it("surfaces an inline error and does not redirect on 500", async () => {
+    server.use(
+      http.post(`${getApiBaseUrl()}/auth/logout`, () =>
+        HttpResponse.json({ detail: "Boom" }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<LogoutButton />);
+    await user.click(screen.getByRole("button", { name: /log out/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/could not log out/i),
+    );
+    expect(replaceSpy).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: /log out/i }),
+    ).not.toBeDisabled();
+  });
+
+  it("surfaces an inline error on network failure", async () => {
+    server.use(
+      http.post(`${getApiBaseUrl()}/auth/logout`, () => HttpResponse.error()),
+    );
+    const user = userEvent.setup();
+    render(<LogoutButton />);
+    await user.click(screen.getByRole("button", { name: /log out/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/could not log out/i),
+    );
+    expect(replaceSpy).not.toHaveBeenCalled();
+  });
+
   it("shows a loading label while logging out", async () => {
     server.use(
       http.post(

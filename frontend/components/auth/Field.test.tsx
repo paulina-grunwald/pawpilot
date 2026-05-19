@@ -42,6 +42,19 @@ describe("Field", () => {
     expect(screen.queryByText("At least 8 characters")).not.toBeInTheDocument();
   });
 
+  it("omits the help id from aria-describedby when help text is hidden by error", () => {
+    render(
+      <Field
+        label="Password"
+        name="password"
+        helpText="At least 8 characters"
+        error="Password is required"
+      />,
+    );
+    const input = screen.getByLabelText("Password");
+    expect(input).toHaveAttribute("aria-describedby", "field-password-error");
+  });
+
   it("forwards arbitrary props to the input (autoComplete, type)", () => {
     render(
       <Field
