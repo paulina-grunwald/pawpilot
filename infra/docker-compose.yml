@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: pawpilot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pawpilot
+      POSTGRES_PASSWORD: pawpilot
+      POSTGRES_DB: pawpilot
+    ports:
+      - "5433:5432"
+    volumes:
+      - pawpilot-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pawpilot -d pawpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pawpilot-postgres-data:
+    name: pawpilot-postgres-data

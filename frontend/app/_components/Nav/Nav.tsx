@@ -55,12 +55,12 @@ export function Nav() {
           >
             The science
           </a>
-          <a
-            href="#waitlist"
+          <Link
+            href="/login"
             className="bg-ink text-paper px-4 py-[9px] rounded-full text-[14px] font-medium no-underline inline-flex items-center gap-[6px]"
           >
-            Join waitlist <ArrowRightIcon />
-          </a>
+            Log in <ArrowRightIcon />
+          </Link>
         </nav>
       </div>
     </header>
