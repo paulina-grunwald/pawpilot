@@ -19,6 +19,6 @@ describe("PawMark", () => {
     const { container } = render(<PawMark size={120} className="custom-mark" />);
     const image = container.querySelector("img")!;
     expect(image).toHaveClass("custom-mark");
-    expect(image.style.height).toBe("120px");
+    expect(image.getAttribute("height")).toBe("120");
   });
 });

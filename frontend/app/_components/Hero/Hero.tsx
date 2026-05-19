@@ -71,6 +71,7 @@ export function Hero() {
           onSubmit={submit}
           id="waitlist"
           className="flex justify-center gap-2 max-w-[480px] mx-auto mb-[14px] flex-wrap relative"
+          suppressHydrationWarning
         >
           <label htmlFor="email-hero" className="absolute left-[-9999px]">
             Email

@@ -6,9 +6,6 @@ type PawMarkProps = {
   className?: string;
 };
 
-// Intrinsic aspect ratios of the source PNGs — passing matching width/height
-// to next/image keeps the layout-shift contract correct and silences the
-// "modified one dimension via CSS but not the other" runtime warning.
 const SOURCES: Record<
   NonNullable<PawMarkProps["variant"]>,
   { src: string; intrinsicWidth: number; intrinsicHeight: number }
@@ -30,8 +27,6 @@ export function PawMark({ size = 56, variant = "badge", className }: PawMarkProp
       className={className}
       style={{
         display: "block",
-        height: size,
-        width: "auto",
         objectFit: "contain",
         flexShrink: 0,
       }}
