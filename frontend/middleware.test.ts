@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAuthRedirect } from "./proxy";
+import { buildAuthRedirect } from "./middleware";
 
 const baseUrl = "http://localhost:3000";
 

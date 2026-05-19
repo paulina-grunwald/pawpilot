@@ -4,6 +4,12 @@ import { PawMark } from "@/app/_components/PawMark";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { requireCurrentUser } from "@/lib/auth.server";
 
+// Layer 2 of the two-layer auth gating model (see middleware.ts).
+// Middleware does a cookie-presence redirect for anonymous users; the
+// real identity check happens here via requireCurrentUser(), which
+// validates the session cookie against the backend. Do not remove this
+// in the belief that middleware is sufficient — middleware only checks
+// for cookie *presence*, not validity.
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireCurrentUser();
 
