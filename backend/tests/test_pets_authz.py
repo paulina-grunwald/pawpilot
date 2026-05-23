@@ -29,11 +29,21 @@ async def test_create_pet_unauthenticated_returns_401(
     assert response.status_code == 401
 
 
+async def test_get_pet_by_id_unauthenticated_returns_401(client: AsyncClient) -> None:
+    response = await client.get("/pets/00000000-0000-0000-0000-000000000000")
+    assert response.status_code == 401
+
+
 async def test_patch_pet_unauthenticated_returns_401(client: AsyncClient) -> None:
     response = await client.patch(
         "/pets/00000000-0000-0000-0000-000000000000",
         json={"name": "Rex"},
     )
+    assert response.status_code == 401
+
+
+async def test_delete_pet_unauthenticated_returns_401(client: AsyncClient) -> None:
+    response = await client.delete("/pets/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 401
 
 

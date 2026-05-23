@@ -76,6 +76,25 @@ async def test_upload_photo_rejects_unsupported_media_type(
     assert response.json()["detail"] == "PET_PHOTO_UNSUPPORTED_MEDIA_TYPE"
 
 
+async def test_upload_photo_rejects_content_type_signature_mismatch(
+    authenticated_client: AsyncClient,
+    media_root_override: Path,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+
+    created = await authenticated_client.post("/pets", json=valid_pet_payload())
+    pet_id = created.json()["id"]
+
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"x" * 20
+    response = await authenticated_client.post(
+        f"/pets/{pet_id}/photo",
+        files={"file": ("photo.png", png_bytes, "image/jpeg")},
+    )
+
+    assert response.status_code == 415
+    assert response.json()["detail"] == "PET_PHOTO_UNSUPPORTED_MEDIA_TYPE"
+
+
 async def test_upload_photo_rejects_missing_content_type(
     authenticated_client: AsyncClient,
     media_root_override: Path,

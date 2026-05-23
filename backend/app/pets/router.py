@@ -100,9 +100,13 @@ async def delete_pet(
 ) -> None:
     pet = await _load_owned_pet(pet_id, user, session)
     owner_dir_id = pet.id
+    # Delete files before committing the DB row. If unlink raises, the commit
+    # never happens and the DB still references the pet — consistent on retry.
+    # Committing first would risk a crash window leaving orphan files on disk
+    # with no DB reference (GDPR right-to-erasure gap).
+    media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
     await session.delete(pet)
     await session.commit()
-    media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
 
 
 @pets_router.post("/{pet_id}/photo", response_model=PetRead)
@@ -136,7 +140,13 @@ async def upload_pet_photo(
 
     prior_path = pet.photo_path
     pet.photo_path = stored.relative_path
-    await session.commit()
+    try:
+        await session.commit()
+    except Exception:
+        # Roll back the on-disk write so a commit failure does not leak the
+        # freshly written file (DB still points at prior_path, which is fine).
+        media.delete(stored.relative_path)
+        raise
     await session.refresh(pet)
 
     if prior_path and prior_path != stored.relative_path:
@@ -154,8 +164,11 @@ async def delete_pet_photo(
 ) -> Pet:
     pet = await _load_owned_pet(pet_id, user, session)
     prior_path = pet.photo_path
+    # Delete the file before committing. If unlink raises, the commit never
+    # happens and the DB still references the file — consistent on retry.
+    # MediaStorage.delete is a no-op when prior_path is None or missing.
+    media.delete(prior_path)
     pet.photo_path = None
     await session.commit()
     await session.refresh(pet)
-    media.delete(prior_path)
     return pet
