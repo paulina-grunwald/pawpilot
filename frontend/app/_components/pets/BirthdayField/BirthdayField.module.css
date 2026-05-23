@@ -1,0 +1,65 @@
+.wrapper {
+  position: relative;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.trigger:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 20%, transparent);
+}
+
+.trigger[data-invalid="true"] {
+  border-color: var(--terracotta);
+}
+
+.placeholder {
+  color: var(--muted-2);
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  background: var(--card);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 8px 28px -12px color-mix(in srgb, var(--ink-deep) 18%, transparent);
+}
+
+.calendar {
+  --rdp-accent-color: var(--ink);
+  --rdp-accent-background-color: var(--blue-soft);
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  --rdp-day_button-height: 32px;
+  --rdp-day_button-width: 32px;
+  --rdp-day_button-border-radius: 8px;
+  --rdp-font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+}

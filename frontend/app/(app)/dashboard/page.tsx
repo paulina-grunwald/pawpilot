@@ -1,16 +1,25 @@
+import { DashboardWithPet } from "@/app/_components/dashboard/DashboardWithPet";
+import { OnboardingChecklist } from "@/app/_components/dashboard/OnboardingChecklist";
 import { requireCurrentUser } from "@/lib/auth.server";
+import { fetchPetsForCurrentUser } from "@/lib/pets.server";
+
+function formatTodayLabel(): string {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default async function DashboardPage() {
   const user = await requireCurrentUser();
+  const pets = await fetchPetsForCurrentUser();
+
+  if (pets.length === 0) {
+    return <OnboardingChecklist userEmail={user.email} />;
+  }
 
   return (
-    <main className="container-x py-12">
-      <h1 className="display text-[28px] font-semibold text-ink">
-        Welcome, {user.email}
-      </h1>
-      <p className="mt-3 text-[15px] text-muted">
-        Your dashboard is coming soon.
-      </p>
-    </main>
+    <DashboardWithPet pets={pets} userId={user.id} todayLabel={formatTodayLabel()} />
   );
 }

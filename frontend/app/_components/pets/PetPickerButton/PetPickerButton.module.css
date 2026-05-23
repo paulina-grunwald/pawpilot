@@ -1,0 +1,26 @@
+.button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.default {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--hairline-strong);
+}
+
+.primary {
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+}
+
+.danger {
+  background: var(--card);
+  color: var(--terracotta);
+  border: 1px solid color-mix(in srgb, var(--terracotta) 30%, transparent);
+}

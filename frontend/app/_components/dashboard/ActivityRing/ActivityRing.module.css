@@ -1,0 +1,47 @@
+.wrapper {
+  position: relative;
+}
+
+.center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.centerLabel {
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.centerSublabel {
+  font-size: 10px;
+  color: var(--paper-on-dark-mid);
+  margin-top: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.centerLegend {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  font-size: 10px;
+  color: var(--paper-on-dark-strong);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legendDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}

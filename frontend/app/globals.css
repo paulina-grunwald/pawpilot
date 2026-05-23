@@ -23,17 +23,47 @@
   --hairline: #e5ddd0;
   --hairline-strong: #d8cfbe;
   --tape: #fff0b4;
+
+  --card-dark: #1a1611;
+  --paper-on-dark: #f0e9d8;
+  --paper-on-dark-warm: #fdf8ec;
+  --forest-light: #7fbf95;
+  --warm-light: #e8a47f;
+  --ochre-deep: #6b4413;
+
+  /* Semantic status aliases (used on dark surfaces) */
+  --status-positive: var(--forest-light);
+  --status-caution: var(--warm-light);
+
+  /* Pre-mixed paper-on-dark opacity stops — avoid scattering color-mix() */
+  --paper-on-dark-track: color-mix(in srgb, var(--paper-on-dark) 10%, transparent);
+  --paper-on-dark-faint: color-mix(in srgb, var(--paper-on-dark) 22%, transparent);
+  --paper-on-dark-mid: color-mix(in srgb, var(--paper-on-dark) 45%, transparent);
+  --paper-on-dark-sub: color-mix(in srgb, var(--paper-on-dark) 55%, transparent);
+  --paper-on-dark-strong: color-mix(in srgb, var(--paper-on-dark) 70%, transparent);
 }
 
 @theme inline {
   --color-paper: var(--paper);
   --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-card: var(--card);
+  --color-card-dark: var(--card-dark);
   --color-ink: var(--ink);
+  --color-ink-deep: var(--ink-deep);
   --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
   --color-blue: var(--blue);
+  --color-blue-soft: var(--blue-soft);
   --color-terracotta: var(--terracotta);
   --color-forest: var(--forest);
+  --color-forest-deep: var(--forest-deep);
   --color-ochre: var(--ochre);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-paper-on-dark: var(--paper-on-dark);
+  --color-status-positive: var(--status-positive);
+  --color-status-caution: var(--status-caution);
   --font-sans: var(--font-inter-tight);
   --font-display: var(--font-fraunces);
   --font-mono: var(--font-jetbrains-mono);
