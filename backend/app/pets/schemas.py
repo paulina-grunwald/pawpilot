@@ -116,12 +116,12 @@ class PetRead(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def age_years(self) -> int:
-        return max(0, _age_delta(self.birthday, _today_utc()).years)
+        return max(0, int(_age_delta(self.birthday, _today_utc()).years))
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def age_months(self) -> int:
-        return max(0, _age_delta(self.birthday, _today_utc()).months)
+        return max(0, int(_age_delta(self.birthday, _today_utc()).months))
 
     @computed_field  # type: ignore[prop-decorator]
     @property

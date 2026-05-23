@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+} from "react";
 import styles from "./PhotoUploader.module.css";
 
 const ACCEPTED_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
@@ -28,11 +35,9 @@ export function PhotoUploader({
   onRemoveExisting,
   altText = "Pet photo preview",
 }: PhotoUploaderProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const inputId = useId();
   const [error, setError] = useState<PhotoUploaderError | null>(null);
-  const [dragActive, setDragActive] = useState(false);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!file) {
@@ -46,54 +51,33 @@ export function PhotoUploader({
   }, [file]);
 
   const previewUrl = localPreview ?? (removeRequested ? null : existingPhotoUrl ?? null);
+  const hasLocalFile = file !== null;
+  const hasExistingVisible = !!existingPhotoUrl && !removeRequested;
+  const hasAnyPreview = hasLocalFile || hasExistingVisible;
+  const showRemoveExistingButton =
+    !hasLocalFile && hasExistingVisible && onRemoveExisting !== undefined;
 
-  function validate(candidate: File): PhotoUploaderError | null {
+  function validateFile(candidate: File): PhotoUploaderError | null {
     if (!ACCEPTED_MIMES.includes(candidate.type as (typeof ACCEPTED_MIMES)[number])) {
-      return {
-        type: "mime",
-        message: "Use a PNG, JPG, or WEBP file.",
-      };
+      return { type: "mime", message: "Use a PNG, JPG, or WEBP file." };
     }
     if (candidate.size > MAX_BYTES) {
-      return {
-        type: "size",
-        message: "Image must be 5 MB or smaller.",
-      };
+      return { type: "size", message: "Image must be 5 MB or smaller." };
     }
     return null;
   }
 
-  function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  function acceptFiles(files: FileList | null): boolean {
+    if (!files || files.length === 0) return false;
     const next = files[0];
-    const validation = validate(next);
+    const validation = validateFile(next);
     if (validation) {
       setError(validation);
-      return;
+      return false;
     }
     setError(null);
     onFileChange(next);
-  }
-
-  function onInputChange(event: ChangeEvent<HTMLInputElement>) {
-    handleFiles(event.target.files);
-    event.target.value = "";
-  }
-
-  function onDrop(event: DragEvent<HTMLLabelElement>) {
-    event.preventDefault();
-    setDragActive(false);
-    handleFiles(event.dataTransfer.files);
-  }
-
-  function onDragOver(event: DragEvent<HTMLLabelElement>) {
-    event.preventDefault();
-    if (!dragActive) setDragActive(true);
-  }
-
-  function onDragLeave(event: DragEvent<HTMLLabelElement>) {
-    event.preventDefault();
-    setDragActive(false);
+    return true;
   }
 
   function clearLocalPick() {
@@ -106,22 +90,143 @@ export function PhotoUploader({
     onRemoveExisting?.();
   }
 
-  const dropzoneClasses = `${styles.dropzone} ${dragActive ? styles.dropzoneActive : ""}`;
-  const hasLocalFile = file !== null;
-  const showRemoveExistingButton =
-    !hasLocalFile && existingPhotoUrl && !removeRequested && onRemoveExisting !== undefined;
+  function openModal() {
+    setError(null);
+    setIsModalOpen(true);
+  }
+
+  function closeModal() {
+    setError(null);
+    setIsModalOpen(false);
+  }
+
+  function handleFilesFromModal(files: FileList | null) {
+    if (acceptFiles(files)) setIsModalOpen(false);
+  }
 
   return (
     <div>
-      <div className={styles.wrapper}>
-        <div className={styles.preview}>
-          {previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className={styles.previewImage} src={previewUrl} alt={altText} />
-          ) : (
-            <span className={styles.previewPlaceholder}>No photo</span>
-          )}
-        </div>
+      <div className={styles.preview}>
+        {previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className={styles.previewImage} src={previewUrl} alt={altText} />
+        ) : (
+          <span className={styles.previewPlaceholder}>No photo</span>
+        )}
+      </div>
+
+      <div className={styles.actionsRow}>
+        <button
+          type="button"
+          className={styles.actionButton}
+          onClick={openModal}
+        >
+          {hasAnyPreview ? "Change photo" : "Add photo"}
+        </button>
+        {hasLocalFile && (
+          <button
+            type="button"
+            className={styles.removeButton}
+            onClick={clearLocalPick}
+          >
+            Discard pick
+          </button>
+        )}
+        {showRemoveExistingButton && (
+          <button
+            type="button"
+            className={styles.removeButton}
+            onClick={requestRemoveExisting}
+          >
+            Remove current photo
+          </button>
+        )}
+      </div>
+
+      <PhotoUploadModal
+        open={isModalOpen}
+        error={error}
+        onFiles={handleFilesFromModal}
+        onClose={closeModal}
+      />
+    </div>
+  );
+}
+
+type PhotoUploadModalProps = {
+  open: boolean;
+  error: PhotoUploaderError | null;
+  onFiles: (files: FileList | null) => void;
+  onClose: () => void;
+};
+
+function PhotoUploadModal({ open, error, onFiles, onClose }: PhotoUploadModalProps) {
+  if (!open) return null;
+  return <PhotoUploadModalBody error={error} onFiles={onFiles} onClose={onClose} />;
+}
+
+type PhotoUploadModalBodyProps = Omit<PhotoUploadModalProps, "open">;
+
+function PhotoUploadModalBody({ error, onFiles, onClose }: PhotoUploadModalBodyProps) {
+  const inputId = useId();
+  const headingId = useId();
+  const errorId = useId();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function onInputChange(event: ChangeEvent<HTMLInputElement>) {
+    onFiles(event.target.files);
+    event.target.value = "";
+  }
+
+  function onDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+    onFiles(event.dataTransfer.files);
+  }
+
+  function onDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    if (!dragActive) setDragActive(true);
+  }
+
+  function onDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDragActive(false);
+  }
+
+  const dropzoneClasses = `${styles.dropzone} ${dragActive ? styles.dropzoneActive : ""}`;
+
+  return (
+    <div
+      className={styles.backdrop}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={headingId}
+        aria-describedby={error ? errorId : undefined}
+        className={styles.dialog}
+      >
+        <h2 id={headingId} className={`${styles.dialogHeading} display`}>
+          Choose a photo
+        </h2>
 
         <label
           htmlFor={inputId}
@@ -131,9 +236,11 @@ export function PhotoUploader({
           onDrop={onDrop}
         >
           <span className={styles.dropzonePrimary}>
-            {hasLocalFile ? "Picked a new photo" : "Drop a photo here or click to pick"}
+            Drop a photo here or click to pick
           </span>
-          <span className={styles.dropzoneHint}>PNG, JPG, or WEBP · up to 5 MB</span>
+          <span className={styles.dropzoneHint}>
+            PNG, JPG, or WEBP · up to 5 MB
+          </span>
           <input
             ref={inputRef}
             id={inputId}
@@ -144,32 +251,23 @@ export function PhotoUploader({
             aria-label="Pet photo"
           />
         </label>
-      </div>
 
-      {(hasLocalFile || showRemoveExistingButton) && (
-        <div className={styles.actionsRow}>
-          {hasLocalFile && (
-            <button type="button" className={styles.removeButton} onClick={clearLocalPick}>
-              Discard pick
-            </button>
-          )}
-          {showRemoveExistingButton && (
-            <button
-              type="button"
-              className={styles.removeButton}
-              onClick={requestRemoveExisting}
-            >
-              Remove current photo
-            </button>
-          )}
+        {error && (
+          <p id={errorId} role="alert" className={styles.error}>
+            {error.message}
+          </p>
+        )}
+
+        <div className={styles.dialogActions}>
+          <button
+            type="button"
+            onClick={onClose}
+            className={styles.cancelButton}
+          >
+            Cancel
+          </button>
         </div>
-      )}
-
-      {error && (
-        <p role="alert" className={styles.error}>
-          {error.message}
-        </p>
-      )}
+      </div>
     </div>
   );
 }
