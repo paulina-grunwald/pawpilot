@@ -22,7 +22,8 @@ os.environ["DATABASE_URL"] = "postgresql+asyncpg://placeholder:placeholder@local
 os.environ["JWT_SECRET"] = "test-jwt-secret-32-bytes-of-padding"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:3000"
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from datetime import date
 
 import pytest
 import pytest_asyncio
@@ -57,7 +58,10 @@ def database_url(postgres_container: PostgresContainer) -> str:
 @pytest_asyncio.fixture(scope="session")
 async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
     import app.auth.models
+    import app.pets.models
     from app.db.base import Base
+
+    _ = (app.auth.models, app.pets.models)
 
     test_engine = create_async_engine(database_url, future=True)
     async with test_engine.begin() as connection:
@@ -131,6 +135,24 @@ async def registered_user(client: AsyncClient) -> dict[str, str]:
     response = await client.post("/auth/register", json=credentials)
     assert response.status_code == 201, response.text
     return credentials
+
+
+@pytest.fixture
+def valid_pet_payload() -> Callable[..., dict[str, object]]:
+    def _build(**overrides: object) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "name": "Luna",
+            "breed_other": "Aussie mix",
+            "birthday": str(date(2021, 6, 14)),
+            "sex": "female",
+            "spayed_neutered": True,
+            "weight_grams": 22000,
+            "notes": "Loves frisbee.",
+        }
+        payload.update(overrides)
+        return payload
+
+    return _build
 
 
 @pytest_asyncio.fixture

@@ -4,11 +4,19 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.auth.router import auth_router, users_router
 from app.config import settings
+from app.media.deps import get_media_root
+from app.pets.breeds_router import breeds_router
+from app.pets.router import pets_router
 
 app = FastAPI(title="PawPilot", version="0.0.0")
+
+_media_root = get_media_root()
+_media_root.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=_media_root), name="media")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,6 +28,8 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(pets_router)
+app.include_router(breeds_router)
 
 
 @app.get("/health")
