@@ -31,11 +31,11 @@
   --warm-light: #e8a47f;
   --ochre-deep: #6b4413;
 
-  /* Semantic status aliases (used on dark surfaces) */
   --status-positive: var(--forest-light);
   --status-caution: var(--warm-light);
 
-  /* Pre-mixed paper-on-dark opacity stops — avoid scattering color-mix() */
+  --blue-midnight: color-mix(in srgb, var(--blue) 60%, var(--ink));
+
   --paper-on-dark-track: color-mix(in srgb, var(--paper-on-dark) 10%, transparent);
   --paper-on-dark-faint: color-mix(in srgb, var(--paper-on-dark) 22%, transparent);
   --paper-on-dark-mid: color-mix(in srgb, var(--paper-on-dark) 45%, transparent);
@@ -55,6 +55,7 @@
   --color-muted-2: var(--muted-2);
   --color-blue: var(--blue);
   --color-blue-soft: var(--blue-soft);
+  --color-blue-midnight: var(--blue-midnight);
   --color-terracotta: var(--terracotta);
   --color-forest: var(--forest);
   --color-forest-deep: var(--forest-deep);

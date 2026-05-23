@@ -81,7 +81,7 @@ function DeletePetDialogBody({ petId, petName, onClose }: DialogBodyProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}
-        aria-describedby={errorId}
+        aria-describedby={error ? errorId : undefined}
         className={styles.dialog}
       >
         <h2 id={headingId} className={`${styles.heading} display`}>

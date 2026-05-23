@@ -1,8 +1,11 @@
 import Link from "next/link";
+import type { PetDetailView as PetDetailData } from "@/lib/pets.format";
 import { Chip } from "../Chip";
 import { PetActions } from "../PetActions";
 import { PhotoPlaceholder } from "../PhotoPlaceholder";
 import styles from "./PetDetailView.module.css";
+
+export type { PetDetailData };
 
 type FactStatProps = {
   label: string;
@@ -18,20 +21,6 @@ function FactStat({ label, value, mono }: FactStatProps) {
     </div>
   );
 }
-
-export type PetDetailData = {
-  id: string;
-  name: string;
-  breed: string;
-  sexDisplay: string;
-  spayedNeuteredDisplay: string;
-  lifeStage: string;
-  ageDisplay: string;
-  birthdayDisplay: string;
-  weightDisplay: string;
-  notes: string;
-  photoUrl?: string | null;
-};
 
 type PetDetailViewProps = {
   pet: PetDetailData;
@@ -87,7 +76,7 @@ export function PetDetailView({ pet }: PetDetailViewProps) {
         <article className={styles.card}>
           <h2 className={`${styles.cardHeading} display`}>Wearable</h2>
           <p className={styles.wearableEmpty}>No Tractive collar connected yet.</p>
-          <button type="button" className={styles.connectButton} disabled aria-disabled="true">
+          <button type="button" className={styles.connectButton} disabled>
             Connect Tractive
           </button>
         </article>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { DeletePetDialog } from "../DeletePetDialog";
-import { PetPickerButton } from "../PetPickerButton";
+import { PetActionButton } from "../PetActionButton";
 
 type PetActionsProps = {
   petId: string;
@@ -16,16 +16,16 @@ export function PetActions({ petId, petName }: PetActionsProps) {
   return (
     <>
       <Link href={`/pets/${petId}/edit`} aria-label={`Edit ${petName}`}>
-        <PetPickerButton variant="primary" tabIndex={-1}>
+        <PetActionButton variant="primary" tabIndex={-1}>
           Edit pet
-        </PetPickerButton>
+        </PetActionButton>
       </Link>
-      <PetPickerButton disabled aria-disabled="true">
+      <PetActionButton disabled>
         Connect Tractive
-      </PetPickerButton>
-      <PetPickerButton variant="danger" onClick={() => setDeleteOpen(true)}>
+      </PetActionButton>
+      <PetActionButton variant="danger" onClick={() => setDeleteOpen(true)}>
         Delete
-      </PetPickerButton>
+      </PetActionButton>
       <DeletePetDialog
         open={deleteOpen}
         petId={petId}

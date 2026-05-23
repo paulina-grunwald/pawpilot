@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     frontend_base_url: str = "http://localhost:3000"
     backend_base_url: str = "http://localhost:8000"
 
-    #TO DO: replace with more robust solution before deployment to cloud
+    # TO DO: replace with more robust solution before deployment to cloud
     media_root: str = "./media"
 
     cookie_name: str = "pawpilot_auth"

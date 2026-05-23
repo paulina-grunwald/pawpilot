@@ -54,6 +54,7 @@ export function formatBirthday(isoDate: string): string {
 }
 
 export type DashboardPetView = {
+  id: string;
   name: string;
   breed: string;
   ageDisplay: string;
@@ -79,6 +80,7 @@ export type PetDetailView = {
 
 export function toDashboardPet(pet: PetRead): DashboardPetView {
   return {
+    id: pet.id,
     name: pet.name,
     breed: formatBreed(pet.breed_other),
     ageDisplay: formatAge(pet),

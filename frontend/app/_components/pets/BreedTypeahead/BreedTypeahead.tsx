@@ -49,14 +49,13 @@ export function BreedTypeahead({
   const [results, setResults] = useState<BreedRead[]>([]);
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
-  const [pendingQuery, setPendingQuery] = useState(value);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
-        const fetched = await searchBreeds(pendingQuery.trim(), LIST_LIMIT);
+        const fetched = await searchBreeds(value.trim(), LIST_LIMIT);
         if (!cancelled) {
           setResults(fetched);
           setHighlight(0);
@@ -69,7 +68,7 @@ export function BreedTypeahead({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [pendingQuery, open]);
+  }, [value, open]);
 
   useEffect(() => {
     function onClickOutside(event: MouseEvent) {
@@ -84,7 +83,6 @@ export function BreedTypeahead({
 
   function commitSelection(breed: BreedRead) {
     onChange(breed.name);
-    setPendingQuery(breed.name);
     setOpen(false);
   }
 
@@ -118,11 +116,9 @@ export function BreedTypeahead({
         type="text"
         autoComplete="off"
         className={styles.input}
-        value={pendingQuery}
+        value={value}
         onChange={(event) => {
-          const next = event.target.value;
-          setPendingQuery(next);
-          onChange(next);
+          onChange(event.target.value);
           if (!open) setOpen(true);
         }}
         onFocus={() => setOpen(true)}
@@ -139,15 +135,15 @@ export function BreedTypeahead({
       />
       {open && (
         <div id={listboxId} role="listbox" className={styles.listbox}>
-          {results.length === 0 && pendingQuery.trim() && (
+          {results.length === 0 && value.trim() && (
             <div className={styles.empty}>
               No matches. You can keep typing — we&rsquo;ll save whatever you write.
             </div>
           )}
-          {results.length === 0 && !pendingQuery.trim() && (
+          {results.length === 0 && !value.trim() && (
             <div className={styles.empty}>Loading breeds…</div>
           )}
-          {results.length > 0 && pendingQuery.trim().length === 0 && (
+          {results.length > 0 && value.trim().length === 0 && (
             <div className={styles.hint}>Popular breeds</div>
           )}
           {results.map((breed, index) => {
@@ -170,7 +166,7 @@ export function BreedTypeahead({
                 }}
                 onMouseEnter={() => setHighlight(index)}
               >
-                <span>{highlightMatch(breed.name, pendingQuery.trim())}</span>
+                <span>{highlightMatch(breed.name, value.trim())}</span>
                 {breed.group && <span className={`${styles.optionGroup} mono`}>{breed.group}</span>}
               </div>
             );

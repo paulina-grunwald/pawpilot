@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import styles from "./BirthdayField.module.css";
@@ -52,10 +52,13 @@ export function BirthdayField({
   const [open, setOpen] = useState(false);
 
   const selected = parseIsoDate(value);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const earliest = new Date(today);
-  earliest.setFullYear(today.getFullYear() - MAX_AGE_YEARS);
+  const { today, earliest } = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const oldestAllowed = new Date(startOfToday);
+    oldestAllowed.setFullYear(startOfToday.getFullYear() - MAX_AGE_YEARS);
+    return { today: startOfToday, earliest: oldestAllowed };
+  }, []);
 
   useEffect(() => {
     function onClickOutside(event: MouseEvent) {

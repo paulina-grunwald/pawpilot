@@ -1,20 +1,20 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import styles from "./PetPickerButton.module.css";
+import styles from "./PetActionButton.module.css";
 
 type Variant = "default" | "primary" | "danger";
 
-type PetPickerButtonProps = {
+type PetActionButtonProps = {
   variant?: Variant;
   children: ReactNode;
 } & ButtonHTMLAttributes<HTMLButtonElement>;
 
-export function PetPickerButton({
+export function PetActionButton({
   variant = "default",
   children,
   type = "button",
   className,
   ...rest
-}: PetPickerButtonProps) {
+}: PetActionButtonProps) {
   const classes = [styles.button, styles[variant], className].filter(Boolean).join(" ");
   return (
     <button type={type} className={classes} {...rest}>

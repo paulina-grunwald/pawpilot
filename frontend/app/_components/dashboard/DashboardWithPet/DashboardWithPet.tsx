@@ -35,7 +35,7 @@ export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetP
 
   const activePet =
     (storedPetId && pets.find((pet) => pet.id === storedPetId)) || pets[0];
-  const dashboardPet = { ...toDashboardPet(activePet), id: activePet.id };
+  const dashboardPet = toDashboardPet(activePet);
   const pickerOptions = pets.map((pet) => ({
     id: pet.id,
     name: pet.name,
@@ -58,6 +58,12 @@ export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetP
       )}
     </>
   );
+
+  if (!hydrated && pets.length > 1) {
+    return (
+      <div aria-busy="true" aria-live="polite" className={styles.hydrating} />
+    );
+  }
 
   return (
     <OuraDashboardView

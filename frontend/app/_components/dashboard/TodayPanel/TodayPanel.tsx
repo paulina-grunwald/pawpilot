@@ -130,7 +130,7 @@ export function TodayPanel({ petName, todayLabel, data }: TodayPanelProps) {
             <LineChart
               values={data.sleepWeekMinutes}
               height={160}
-              color="color-mix(in srgb, var(--blue) 60%, var(--ink))"
+              color="var(--blue-midnight)"
               dates={data.weekDates}
               yFormat={(value) =>
                 `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}`

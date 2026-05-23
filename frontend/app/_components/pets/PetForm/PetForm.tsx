@@ -50,7 +50,7 @@ type FieldProps = {
   label: string;
   help?: string;
   error?: FieldError | undefined;
-  children: (controlIds: { inputId: string; errorId: string; describedBy: string | undefined }) => ReactNode;
+  children: (controlIds: { inputId: string; describedBy: string | undefined }) => ReactNode;
 };
 
 function Field({ label, help, error, children }: FieldProps) {
@@ -65,7 +65,7 @@ function Field({ label, help, error, children }: FieldProps) {
       <label htmlFor={inputId} className={styles.fieldLabel}>
         {label}
       </label>
-      {children({ inputId, errorId, describedBy })}
+      {children({ inputId, describedBy })}
       {help && !error && (
         <p id={helpId} className={styles.fieldHelp}>
           {help}
@@ -168,13 +168,13 @@ export function PetForm(props: PetFormProps) {
           await deletePetPhoto(props.petId);
         }
       } catch (photoError) {
-        if (photoError instanceof PetsError) {
-          setFormError(describePhotoError(photoError));
-        } else {
-          setFormError(
-            "We saved the pet but couldn't upload the photo. Try again from the edit page.",
-          );
-        }
+        const message =
+          photoError instanceof PetsError
+            ? describePhotoError(photoError)
+            : "We saved the pet but couldn't upload the photo. Try again from the edit page.";
+        setFormError(message);
+        router.refresh();
+        return;
       }
 
       router.replace(`/pets/${savedPet.id}`);
