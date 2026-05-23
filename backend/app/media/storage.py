@@ -16,6 +16,17 @@ MIME_EXTENSIONS: dict[MediaMimeType, str] = {
 }
 
 MAX_BYTES = 5 * 1024 * 1024
+_SIGNATURE_PEEK_BYTES = 12
+
+
+def _matches_signature(content_type: MediaMimeType, header: bytes) -> bool:
+    if content_type == "image/png":
+        return header.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/jpeg":
+        return header.startswith(b"\xff\xd8\xff")
+    if content_type == "image/webp":
+        return len(header) >= 12 and header[0:4] == b"RIFF" and header[8:12] == b"WEBP"
+    return False
 
 
 class StoredFile(BaseModel):
@@ -49,7 +60,14 @@ class MediaStorage:
             raise UnsupportedMediaTypeError(
                 f"unsupported media type: {content_type!r}",
             )
-        extension = MIME_EXTENSIONS[content_type]
+        validated_content_type: MediaMimeType = content_type
+        extension = MIME_EXTENSIONS[validated_content_type]
+
+        signature = fileobj.read(_SIGNATURE_PEEK_BYTES)
+        if not _matches_signature(validated_content_type, signature):
+            raise UnsupportedMediaTypeError(
+                f"file contents do not match declared media type {content_type!r}",
+            )
 
         target_dir = self._namespace_dir(namespace, owner_id)
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -59,6 +77,8 @@ class MediaStorage:
 
         bytes_written = 0
         with absolute_path.open("wb") as destination:
+            destination.write(signature)
+            bytes_written += len(signature)
             while True:
                 chunk = fileobj.read(64 * 1024)
                 if not chunk:

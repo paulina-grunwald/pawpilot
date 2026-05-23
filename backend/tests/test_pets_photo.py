@@ -11,6 +11,12 @@ from app.main import app
 from app.media.deps import get_media_root
 from app.media.storage import MAX_BYTES
 
+JPEG_HEADER = b"\xff\xd8\xff\xe0"
+
+
+def _jpeg_bytes(trailing: bytes = b"") -> bytes:
+    return JPEG_HEADER + trailing
+
 
 @pytest.fixture
 def media_root_override(tmp_path: Path) -> Iterator[Path]:
@@ -35,9 +41,10 @@ async def test_upload_photo_writes_file_and_sets_photo_url(
     created = await authenticated_client.post("/pets", json=valid_pet_payload())
     pet_id = created.json()["id"]
 
+    upload_bytes = _jpeg_bytes(trailing=b"tail")
     response = await authenticated_client.post(
         f"/pets/{pet_id}/photo",
-        files={"file": ("photo.jpg", b"jpeg-bytes", "image/jpeg")},
+        files={"file": ("photo.jpg", upload_bytes, "image/jpeg")},
     )
 
     assert response.status_code == 200, response.text
@@ -49,7 +56,7 @@ async def test_upload_photo_writes_file_and_sets_photo_url(
 
     written = media_root_override / body["photo_path"]
     assert written.exists()
-    assert written.read_bytes() == b"jpeg-bytes"
+    assert written.read_bytes() == upload_bytes
 
 
 async def test_upload_photo_rejects_unsupported_media_type(
@@ -94,7 +101,7 @@ async def test_upload_photo_rejects_files_above_max_bytes(
     created = await authenticated_client.post("/pets", json=valid_pet_payload())
     pet_id = created.json()["id"]
 
-    too_large = b"x" * (MAX_BYTES + 1)
+    too_large = _jpeg_bytes(trailing=b"x" * (MAX_BYTES + 1))
     response = await authenticated_client.post(
         f"/pets/{pet_id}/photo",
         files={"file": ("photo.jpg", too_large, "image/jpeg")},
@@ -114,13 +121,13 @@ async def test_second_upload_replaces_first_photo_on_disk(
 
     first = await authenticated_client.post(
         f"/pets/{pet_id}/photo",
-        files={"file": ("a.jpg", b"first", "image/jpeg")},
+        files={"file": ("a.jpg", _jpeg_bytes(b"first"), "image/jpeg")},
     )
     first_path = media_root_override / first.json()["photo_path"]
 
     second = await authenticated_client.post(
         f"/pets/{pet_id}/photo",
-        files={"file": ("b.jpg", b"second", "image/jpeg")},
+        files={"file": ("b.jpg", _jpeg_bytes(b"second"), "image/jpeg")},
     )
     second_path = media_root_override / second.json()["photo_path"]
 
@@ -139,7 +146,7 @@ async def test_delete_photo_endpoint_clears_path_and_file(
 
     uploaded = await authenticated_client.post(
         f"/pets/{pet_id}/photo",
-        files={"file": ("p.jpg", b"abc", "image/jpeg")},
+        files={"file": ("p.jpg", _jpeg_bytes(b"abc"), "image/jpeg")},
     )
     photo_path = uploaded.json()["photo_path"]
     on_disk = media_root_override / photo_path
@@ -176,7 +183,7 @@ async def test_delete_pet_also_removes_photo_files(
 
     uploaded = await authenticated_client.post(
         f"/pets/{pet_id}/photo",
-        files={"file": ("p.jpg", b"abc", "image/jpeg")},
+        files={"file": ("p.jpg", _jpeg_bytes(b"abc"), "image/jpeg")},
     )
     photo_path = uploaded.json()["photo_path"]
     on_disk = media_root_override / photo_path
@@ -194,7 +201,7 @@ async def test_upload_photo_requires_authentication(
 ) -> None:
     response = await client.post(
         "/pets/00000000-0000-0000-0000-000000000000/photo",
-        files={"file": ("p.jpg", b"abc", "image/jpeg")},
+        files={"file": ("p.jpg", _jpeg_bytes(b"abc"), "image/jpeg")},
     )
     assert response.status_code == 401
 
@@ -223,7 +230,7 @@ async def test_upload_photo_for_other_users_pet_returns_404(
 
     response = await client.post(
         f"/pets/{pet_id}/photo",
-        files={"file": ("p.jpg", b"abc", "image/jpeg")},
+        files={"file": ("p.jpg", _jpeg_bytes(b"abc"), "image/jpeg")},
     )
     assert response.status_code == 404
 

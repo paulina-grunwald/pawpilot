@@ -13,6 +13,20 @@ from app.media.storage import (
     UnsupportedMediaTypeError,
 )
 
+PNG_HEADER = b"\x89PNG\r\n\x1a\n"
+JPEG_HEADER = b"\xff\xd8\xff\xe0"
+WEBP_HEADER = b"RIFF\x00\x00\x00\x00WEBP"
+
+
+def _valid_bytes_for(mime: str, trailing: bytes = b"") -> bytes:
+    if mime == "image/png":
+        return PNG_HEADER + trailing
+    if mime == "image/jpeg":
+        return JPEG_HEADER + trailing
+    if mime == "image/webp":
+        return WEBP_HEADER + trailing
+    raise ValueError(f"no header fixture for {mime!r}")
+
 
 @pytest.fixture
 def media_storage(tmp_path: Path) -> MediaStorage:
@@ -25,17 +39,18 @@ def _bytes_reader(payload: bytes) -> io.BytesIO:
 
 def test_save_writes_file_under_namespace_owner_path(media_storage: MediaStorage) -> None:
     owner_id = uuid.uuid4()
+    payload = _valid_bytes_for("image/jpeg", trailing=b"-tail")
     stored = media_storage.save(
         namespace="pets",
         owner_id=owner_id,
         content_type="image/jpeg",
-        fileobj=_bytes_reader(b"jpeg-bytes"),
+        fileobj=_bytes_reader(payload),
     )
 
     assert stored.relative_path.startswith(f"pets/{owner_id}/")
     assert stored.relative_path.endswith(".jpg")
     assert stored.absolute_path.exists()
-    assert stored.absolute_path.read_bytes() == b"jpeg-bytes"
+    assert stored.absolute_path.read_bytes() == payload
 
 
 def test_save_assigns_extension_for_each_supported_mime(media_storage: MediaStorage) -> None:
@@ -50,7 +65,7 @@ def test_save_assigns_extension_for_each_supported_mime(media_storage: MediaStor
             namespace="pets",
             owner_id=owner_id,
             content_type=mime,
-            fileobj=_bytes_reader(b"data"),
+            fileobj=_bytes_reader(_valid_bytes_for(mime)),
         )
         assert stored.relative_path.endswith(expected_extension), mime
 
@@ -65,8 +80,20 @@ def test_save_rejects_unsupported_mime_type(media_storage: MediaStorage) -> None
         )
 
 
+def test_save_rejects_when_signature_does_not_match_declared_mime(
+    media_storage: MediaStorage,
+) -> None:
+    with pytest.raises(UnsupportedMediaTypeError):
+        media_storage.save(
+            namespace="pets",
+            owner_id=uuid.uuid4(),
+            content_type="image/jpeg",
+            fileobj=_bytes_reader(b"not-really-an-image"),
+        )
+
+
 def test_save_rejects_payload_exceeding_max_bytes(media_storage: MediaStorage) -> None:
-    too_large = b"x" * (MAX_BYTES + 1)
+    too_large = JPEG_HEADER + b"x" * (MAX_BYTES + 1)
     with pytest.raises(PayloadTooLargeError):
         media_storage.save(
             namespace="pets",
@@ -79,7 +106,7 @@ def test_save_rejects_payload_exceeding_max_bytes(media_storage: MediaStorage) -
 def test_save_cleans_up_partial_file_when_size_check_fails(
     media_storage: MediaStorage, tmp_path: Path
 ) -> None:
-    too_large = b"y" * (MAX_BYTES + 8)
+    too_large = JPEG_HEADER + b"y" * (MAX_BYTES + 8)
     with pytest.raises(PayloadTooLargeError):
         media_storage.save(
             namespace="pets",
@@ -102,7 +129,7 @@ def test_delete_removes_existing_file(media_storage: MediaStorage) -> None:
         namespace="pets",
         owner_id=owner_id,
         content_type="image/png",
-        fileobj=_bytes_reader(b"png"),
+        fileobj=_bytes_reader(_valid_bytes_for("image/png")),
     )
     assert stored.absolute_path.exists()
 
@@ -117,7 +144,7 @@ def test_delete_owner_dir_removes_subtree(media_storage: MediaStorage, tmp_path:
             namespace="pets",
             owner_id=owner_id,
             content_type="image/jpeg",
-            fileobj=_bytes_reader(b"x"),
+            fileobj=_bytes_reader(_valid_bytes_for("image/jpeg")),
         )
     owner_dir = tmp_path / "pets" / str(owner_id)
     assert owner_dir.exists()

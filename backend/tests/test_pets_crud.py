@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 import pytest
+from dateutil.relativedelta import relativedelta
 from httpx import AsyncClient
 
 from app.pets.schemas import _life_stage_from_age
@@ -98,7 +99,7 @@ async def test_age_years_zero_for_pet_under_one(
     valid_pet_payload: Callable[..., dict[str, object]],
 ) -> None:
     today = datetime.now(UTC).date()
-    six_months_ago = date(today.year, max(1, today.month - 6), 1)
+    six_months_ago = today - relativedelta(months=6)
     response = await authenticated_client.post(
         "/pets", json=valid_pet_payload(birthday=str(six_months_ago))
     )

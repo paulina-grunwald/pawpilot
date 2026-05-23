@@ -77,6 +77,59 @@ describe("PetForm — create mode", () => {
     await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith("/pets/pet-created"));
   });
 
+  it("does not create a duplicate pet when retrying after a failed photo upload", async () => {
+    let createCalls = 0;
+    let patchCalls = 0;
+    let photoCalls = 0;
+    server.use(
+      http.post(`${getApiBaseUrl()}/pets`, () => {
+        createCalls += 1;
+        return HttpResponse.json(createdPet, { status: 201 });
+      }),
+      http.patch(`${getApiBaseUrl()}/pets/pet-created`, () => {
+        patchCalls += 1;
+        return HttpResponse.json(createdPet);
+      }),
+      http.post(`${getApiBaseUrl()}/pets/pet-created/photo`, () => {
+        photoCalls += 1;
+        return HttpResponse.json({ detail: "PET_PHOTO_TOO_LARGE" }, { status: 413 });
+      }),
+      http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json([])),
+    );
+    const user = userEvent.setup();
+    render(<PetForm mode="create" />);
+
+    await user.type(screen.getByLabelText(/^name$/i), "Luna");
+    await user.click(screen.getByLabelText(/birthday/i));
+    const cells = screen.getAllByRole("gridcell");
+    const cell = cells.find((c) => {
+      const btn = c.querySelector("button");
+      return btn && !btn.hasAttribute("disabled");
+    });
+    await user.click(cell!.querySelector("button")!);
+    const weightInput = screen.getByLabelText(/weight/i);
+    await user.clear(weightInput);
+    await user.type(weightInput, "22");
+
+    const fileInput = screen.getByLabelText(/pet photo/i) as HTMLInputElement;
+    const photoFile = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "p.jpg", {
+      type: "image/jpeg",
+    });
+    await user.upload(fileInput, photoFile);
+
+    await user.click(screen.getByRole("button", { name: /save pet/i }));
+
+    await waitFor(() => expect(photoCalls).toBe(1));
+    expect(createCalls).toBe(1);
+    expect(replaceSpy).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /save pet/i }));
+
+    await waitFor(() => expect(patchCalls).toBe(1));
+    expect(createCalls).toBe(1);
+    await waitFor(() => expect(replaceSpy).toHaveBeenCalledWith("/pets/pet-created"));
+  });
+
   it("surfaces a friendly error on 422 validation failure", async () => {
     server.use(
       http.post(`${getApiBaseUrl()}/pets`, () =>

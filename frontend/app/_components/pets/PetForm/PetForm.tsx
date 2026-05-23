@@ -130,6 +130,7 @@ export function PetForm(props: PetFormProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
+  const [createdPetId, setCreatedPetId] = useState<string | null>(null);
   const existingPhotoUrl = props.mode === "edit" ? props.existingPhotoUrl ?? null : null;
 
   const {
@@ -155,17 +156,21 @@ export function PetForm(props: PetFormProps) {
 
   async function onSubmit(values: PetFormInput) {
     setFormError(null);
+    const existingPetId = props.mode === "edit" ? props.petId : createdPetId;
     try {
-      const savedPet =
-        props.mode === "create"
-          ? await createPet(toCreateInput(values))
-          : await updatePet(props.petId, toUpdateInput(values));
+      const savedPet = existingPetId
+        ? await updatePet(existingPetId, toUpdateInput(values))
+        : await createPet(toCreateInput(values));
+
+      if (props.mode === "create" && !createdPetId) {
+        setCreatedPetId(savedPet.id);
+      }
 
       try {
         if (photoFile) {
           await uploadPetPhoto(savedPet.id, photoFile);
-        } else if (props.mode === "edit" && removeExistingPhoto) {
-          await deletePetPhoto(props.petId);
+        } else if (existingPetId && removeExistingPhoto) {
+          await deletePetPhoto(existingPetId);
         }
       } catch (photoError) {
         const message =
@@ -173,6 +178,7 @@ export function PetForm(props: PetFormProps) {
             ? describePhotoError(photoError)
             : "We saved the pet but couldn't upload the photo. Try again from the edit page.";
         setFormError(message);
+        setPhotoFile(null);
         router.refresh();
         return;
       }
