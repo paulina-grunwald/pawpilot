@@ -180,3 +180,26 @@ async def test_reprocess_endpoint_rejects_other_users_pet(
 ) -> None:
     response = await authenticated_client.post(f"/pets/{uuid.uuid4()}/tractive/reprocess")
     assert response.status_code == 404
+
+
+async def test_ingest_endpoint_rejects_structurally_invalid_payload(
+    authenticated_client: AsyncClient,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    """A valid zip whose JSON has the wrong shape must yield a clean 400, not an
+    unhandled 500 — the consolidation pipeline indexes raw dicts directly."""
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+
+    malformed = GdprExportPayloads(
+        activity_data=[{"unexpected": "shape"}],
+        position_reports=[],
+        hardware_reports=[],
+        resting_heart_rates=[],
+        resting_respiratory_rates=[],
+    )
+    response = await authenticated_client.post(
+        f"/pets/{pet_id}/tractive/ingest",
+        files={"file": ("malformed.zip", _build_zip(malformed), "application/zip")},
+    )
+    assert response.status_code == 400, response.text
+    assert "TRACTIVE_INVALID_ZIP" in response.json()["detail"]

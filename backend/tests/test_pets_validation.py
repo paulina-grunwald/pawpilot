@@ -4,7 +4,10 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
+from dateutil.relativedelta import relativedelta
 from httpx import AsyncClient
+
+from app.pets import schemas
 
 
 async def test_birthday_in_future_rejected(
@@ -62,9 +65,25 @@ async def test_ancient_birthday_rejected(
     valid_pet_payload: Callable[..., dict[str, object]],
 ) -> None:
     today = datetime.now(UTC).date()
-    ancient = date(today.year - 30, today.month, today.day).isoformat()
+    ancient = (today - relativedelta(years=30)).isoformat()
     response = await authenticated_client.post("/pets", json=valid_pet_payload(birthday=ancient))
     assert response.status_code == 422
+
+
+def test_validate_birthday_does_not_crash_on_leap_day(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: when 'today' is Feb 29, computing the earliest allowed
+    birthday must not raise — ``today.year - MAX_BIRTHDAY_AGE_YEARS`` is not a
+    leap year, so a naive ``date(year, 2, 29)`` would throw and 500 every pet
+    create/update that day.
+    """
+    leap_day = date(2024, 2, 29)
+    monkeypatch.setattr(schemas, "_today_utc", lambda: leap_day)
+
+    earliest = leap_day - relativedelta(years=schemas.MAX_BIRTHDAY_AGE_YEARS)
+    assert schemas._validate_birthday(earliest) == earliest
+    assert schemas._validate_birthday(date(2024, 2, 28)) == date(2024, 2, 28)
+    with pytest.raises(ValueError):
+        schemas._validate_birthday(earliest - timedelta(days=1))
 
 
 async def test_patch_pet_rejects_future_birthday(
@@ -88,7 +107,7 @@ async def test_patch_pet_rejects_ancient_birthday(
     pet_id = created.json()["id"]
 
     today = datetime.now(UTC).date()
-    ancient = date(today.year - 30, today.month, today.day).isoformat()
+    ancient = (today - relativedelta(years=30)).isoformat()
     response = await authenticated_client.patch(f"/pets/{pet_id}", json={"birthday": ancient})
     assert response.status_code == 422
 

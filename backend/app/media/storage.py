@@ -107,6 +107,21 @@ class MediaStorage:
         except FileNotFoundError:
             return
 
+    def resolve_within_root(self, relative_path: str) -> Path | None:
+        """Resolve a stored relative path to an existing file inside the media
+        root, or ``None`` if it would escape the root or doesn't exist.
+
+        Path-traversal guard mirrors ``delete`` — callers that serve files to
+        clients must never follow a ``..`` outside the media root.
+        """
+        media_root_resolved = self.media_root.resolve()
+        absolute_path = (self.media_root / relative_path).resolve()
+        if media_root_resolved not in absolute_path.parents:
+            return None
+        if not absolute_path.is_file():
+            return None
+        return absolute_path
+
     def delete_owner_dir(self, namespace: str, owner_id: uuid.UUID) -> None:
         target = self._namespace_dir(namespace, owner_id)
         if target.exists():

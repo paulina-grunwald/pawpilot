@@ -52,7 +52,8 @@ async def test_upload_photo_writes_file_and_sets_photo_url(
     assert body["photo_path"] is not None
     assert body["photo_path"].startswith(f"pets/{pet_id}/")
     base = settings.backend_base_url.rstrip("/")
-    assert body["photo_url"] == f"{base}/media/{body['photo_path']}"
+    version = body["photo_path"].rsplit("/", 1)[-1].split(".", 1)[0]
+    assert body["photo_url"] == f"{base}/pets/{pet_id}/photo?v={version}"
 
     written = media_root_override / body["photo_path"]
     assert written.exists()
@@ -251,6 +252,76 @@ async def test_upload_photo_for_other_users_pet_returns_404(
         f"/pets/{pet_id}/photo",
         files={"file": ("p.jpg", _jpeg_bytes(b"abc"), "image/jpeg")},
     )
+    assert response.status_code == 404
+
+
+async def test_get_photo_streams_file_for_owner(
+    authenticated_client: AsyncClient,
+    media_root_override: Path,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    created = await authenticated_client.post("/pets", json=valid_pet_payload())
+    pet_id = created.json()["id"]
+    upload_bytes = _jpeg_bytes(trailing=b"pixels")
+    await authenticated_client.post(
+        f"/pets/{pet_id}/photo",
+        files={"file": ("photo.jpg", upload_bytes, "image/jpeg")},
+    )
+
+    response = await authenticated_client.get(f"/pets/{pet_id}/photo")
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("image/jpeg")
+    assert response.content == upload_bytes
+
+
+async def test_get_photo_returns_404_when_pet_has_no_photo(
+    authenticated_client: AsyncClient,
+    media_root_override: Path,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    created = await authenticated_client.post("/pets", json=valid_pet_payload())
+    pet_id = created.json()["id"]
+
+    response = await authenticated_client.get(f"/pets/{pet_id}/photo")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "PET_PHOTO_NOT_FOUND"
+
+
+async def test_get_photo_requires_authentication(
+    client: AsyncClient,
+    media_root_override: Path,
+) -> None:
+    response = await client.get("/pets/00000000-0000-0000-0000-000000000000/photo")
+    assert response.status_code == 401
+
+
+async def test_get_photo_for_other_users_pet_returns_404(
+    authenticated_client: AsyncClient,
+    client: AsyncClient,
+    media_root_override: Path,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    owned = await authenticated_client.post("/pets", json=valid_pet_payload(name="Owned"))
+    pet_id = owned.json()["id"]
+    await authenticated_client.post(
+        f"/pets/{pet_id}/photo",
+        files={"file": ("p.jpg", _jpeg_bytes(b"abc"), "image/jpeg")},
+    )
+
+    other_email = "intruder-getphoto@example.com"
+    other_password = "another-good-password"
+    register = await client.post(
+        "/auth/register",
+        json={"email": other_email, "password": other_password},
+    )
+    assert register.status_code == 201
+    login = await client.post(
+        "/auth/login",
+        data={"username": other_email, "password": other_password},
+    )
+    assert login.status_code == 204
+
+    response = await client.get(f"/pets/{pet_id}/photo")
     assert response.status_code == 404
 
 

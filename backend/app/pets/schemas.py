@@ -42,7 +42,8 @@ def _validate_birthday(value: date) -> date:
     today = _today_utc()
     if value > today:
         raise ValueError("birthday must be in the past")
-    earliest = date(today.year - MAX_BIRTHDAY_AGE_YEARS, today.month, today.day)
+
+    earliest = today - relativedelta(years=MAX_BIRTHDAY_AGE_YEARS)
     if value < earliest:
         raise ValueError(f"birthday cannot be more than {MAX_BIRTHDAY_AGE_YEARS} years ago")
     return value
@@ -138,4 +139,9 @@ class PetRead(BaseModel):
     def photo_url(self) -> str | None:
         if self.photo_path is None:
             return None
-        return f"{settings.backend_base_url.rstrip('/')}/media/{self.photo_path}"
+        base = settings.backend_base_url.rstrip("/")
+        # Authenticated, owner-scoped route (see GET /pets/{id}/photo). The
+        # filename stem (a per-upload uuid) doubles as a cache-buster so a
+        # replaced photo gets a fresh URL despite the stable route path.
+        version = self.photo_path.rsplit("/", 1)[-1].split(".", 1)[0]
+        return f"{base}/pets/{self.id}/photo?v={version}"

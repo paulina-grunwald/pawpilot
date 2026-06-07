@@ -10,11 +10,13 @@ import pytest
 
 from app.integrations.tractive.consolidate import (
     GdprExportPayloads,
+    MalformedTractivePayloadError,
     build_per_day,
     compute_distance_km,
     decode_activity_day,
     haversine_km,
     load_gdpr_export,
+    parse_iso,
     stats_from_samples,
 )
 
@@ -264,3 +266,91 @@ def test_load_gdpr_export_reads_five_json_files(
     assert loaded.activity_data == sample_gdpr_payloads.activity_data
     assert len(loaded.position_reports) == 3
     assert len(loaded.hardware_reports) == 2
+
+
+def test_build_per_day_raises_malformed_error_on_bad_activity_shape() -> None:
+    """A valid-JSON activity day missing required keys raises the domain error
+    (which routes translate to a 400) rather than a bare KeyError."""
+    payloads = GdprExportPayloads(
+        activity_data=[{"unexpected": "shape"}],
+        position_reports=[],
+        hardware_reports=[],
+        resting_heart_rates=[],
+        resting_respiratory_rates=[],
+    )
+    with pytest.raises(MalformedTractivePayloadError):
+        build_per_day(payloads)
+
+
+def test_build_per_day_orders_positions_and_charging_by_time() -> None:
+    """first/last position time and charge-start counts must be derived
+    chronologically, independent of the order the export lists records in."""
+    offset_milliseconds = 3 * 3_600_000
+    activity_data = [
+        {
+            "gmtTime": 1_715_731_200_000,  # 2024-05-15 00:00 UTC
+            "gmtOffset": offset_milliseconds,
+            "activityCategories": [[3600, -1]],
+        }
+    ]
+    # Deliberately shuffled (not chronological).
+    position_reports = [
+        {
+            "time": "2024-05-15T10:00:00Z",
+            "latlong": [44.0, 26.0],
+            "hori_accuracy": 5,
+            "sensor_used": "GPS",
+        },
+        {
+            "time": "2024-05-15T08:00:00Z",
+            "latlong": [44.0, 26.0],
+            "hori_accuracy": 5,
+            "sensor_used": "GPS",
+        },
+        {
+            "time": "2024-05-15T09:00:00Z",
+            "latlong": [44.0, 26.0],
+            "hori_accuracy": 5,
+            "sensor_used": "GPS",
+        },
+    ]
+    hardware_reports = [
+        {
+            "time": "2024-05-15T10:00:00Z",
+            "battery_level": 50,
+            "temperature": 20.0,
+            "charger_connected": True,
+        },
+        {
+            "time": "2024-05-15T07:00:00Z",
+            "battery_level": 80,
+            "temperature": 22.0,
+            "charger_connected": False,
+        },
+        {
+            "time": "2024-05-15T09:00:00Z",
+            "battery_level": 60,
+            "temperature": 21.0,
+            "charger_connected": False,
+        },
+        {
+            "time": "2024-05-15T08:00:00Z",
+            "battery_level": 70,
+            "temperature": 21.5,
+            "charger_connected": True,
+        },
+    ]
+    payloads = GdprExportPayloads(
+        activity_data=activity_data,
+        position_reports=position_reports,
+        hardware_reports=hardware_reports,
+        resting_heart_rates=[],
+        resting_respiratory_rates=[],
+    )
+
+    [rollup] = build_per_day(payloads)
+
+    assert rollup.positions.first_time == parse_iso("2024-05-15T08:00:00Z")
+    assert rollup.positions.last_time == parse_iso("2024-05-15T10:00:00Z")
+    # Chronological charger states: off(07) → on(08) → off(09) → on(10) = 2 starts.
+    assert rollup.tracker.n_charging_starts == 2

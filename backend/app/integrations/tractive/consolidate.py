@@ -29,7 +29,7 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.integrations.tractive.schemas import (
     ActivityMinutes,
@@ -38,6 +38,17 @@ from app.integrations.tractive.schemas import (
     TrackerSummary,
     VitalStats,
 )
+
+
+class MalformedTractivePayloadError(ValueError):
+    """Raised when raw Tractive payloads are syntactically valid JSON but
+    structurally wrong — e.g. an activity day missing ``gmtTime`` or
+    ``activityCategories``, or a record whose shape the pipeline can't read.
+
+    HTTP routes translate this into a 400 so a bad export surfaces as a clean
+    client error instead of an unhandled 500 with a stack trace.
+    """
+
 
 CATEGORY_LABEL: dict[int | None, str] = {
     -1: "active",
@@ -162,11 +173,19 @@ def compute_distance_km(positions: list[dict[str, Any]]) -> tuple[float, int, in
 def index_by_local_date(
     items: list[dict[str, Any]], time_key: str, offset_hours: int
 ) -> dict[str, list[dict[str, Any]]]:
-    """Group items by local date string, using ``offset_hours`` from UTC."""
+    """Group items by local date string, using ``offset_hours`` from UTC.
+
+    Each day's items are returned in chronological order so callers can rely on
+    ``[0]``/``[-1]`` being the day's first/last event and on adjacent-pair scans
+    (e.g. charge-cycle detection) being correct regardless of the order the raw
+    export happened to list records in.
+    """
     by_date: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for item in items:
         local_time = parse_iso(item[time_key]) + timedelta(hours=offset_hours)
         by_date[local_time.strftime("%Y-%m-%d")].append(item)
+    for items_for_date in by_date.values():
+        items_for_date.sort(key=lambda item: parse_iso(item[time_key]))
     return by_date
 
 
@@ -235,10 +254,28 @@ def build_per_day(payloads: GdprExportPayloads) -> list[PerDayRollup]:
     Empty ``activity_data`` produces an empty result — there's nothing to
     anchor days against. Other payloads can be empty without breaking the
     pipeline; their per-day summaries simply come back zero/None.
+
+    Structurally invalid payloads (valid JSON, wrong shape) raise
+    ``MalformedTractivePayloadError`` so HTTP callers can return a 400 rather
+    than leaking an unhandled 500.
     """
     if not payloads.activity_data:
         return []
+    try:
+        return _consolidate_payloads(payloads)
+    except (KeyError, TypeError, ValueError, IndexError, OverflowError, ValidationError) as error:
+        raise MalformedTractivePayloadError(
+            f"Tractive payload is structurally invalid: {error}"
+        ) from error
 
+
+def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
+    """Core consolidation; assumes ``payloads.activity_data`` is non-empty.
+
+    Raises ``KeyError``/``TypeError``/``ValueError``/``ValidationError`` on
+    malformed input — ``build_per_day`` wraps those into
+    ``MalformedTractivePayloadError``.
+    """
     offset_hours = int(payloads.activity_data[0]["gmtOffset"] / 3_600_000)
     positions_by_date = index_by_local_date(payloads.position_reports, "time", offset_hours)
     hardware_by_date = index_by_local_date(payloads.hardware_reports, "time", offset_hours)

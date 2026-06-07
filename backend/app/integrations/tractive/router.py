@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import current_active_user
 from app.auth.models import User
 from app.db.base import get_session
+from app.integrations.tractive.consolidate import MalformedTractivePayloadError
 from app.integrations.tractive.gdpr_zip import (
     MAX_GDPR_ZIP_UNCOMPRESSED_BYTES,
     GdprZipError,
@@ -69,7 +70,13 @@ async def ingest_tractive_export(
         ) from error
 
     service = TractiveIngestService(session)
-    result = await service.ingest_gdpr_export(pet.id, payloads)
+    try:
+        result = await service.ingest_gdpr_export(pet.id, payloads)
+    except MalformedTractivePayloadError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"TRACTIVE_INVALID_ZIP: {error}",
+        ) from error
     await session.commit()
     return result
 
@@ -90,7 +97,13 @@ async def reprocess_tractive_rollups(
     """
     pet = await _load_owned_pet_or_404(pet_id, user, session)
     service = TractiveIngestService(session)
-    result = await service.reprocess_latest_batch(pet.id)
+    try:
+        result = await service.reprocess_latest_batch(pet.id)
+    except MalformedTractivePayloadError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"TRACTIVE_INVALID_ZIP: {error}",
+        ) from error
     await session.commit()
     return result
 

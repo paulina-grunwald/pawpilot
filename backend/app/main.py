@@ -4,20 +4,18 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.auth.router import auth_router, users_router
 from app.config import settings
 from app.integrations.tractive.router import tractive_router
-from app.media.deps import get_media_root
 from app.pets.breeds_router import breeds_router
 from app.pets.router import pets_router
 
 app = FastAPI(title="PawPilot", version="0.0.0")
 
-_media_root = get_media_root()
-_media_root.mkdir(parents=True, exist_ok=True)
-app.mount("/media", StaticFiles(directory=_media_root), name="media")
+# Pet photos are NOT served from a public static mount — they are streamed by
+# the authenticated, owner-scoped GET /pets/{id}/photo route so a photo is only
+# reachable by its owner. MediaStorage creates upload directories lazily on save.
 
 app.add_middleware(
     CORSMiddleware,
