@@ -39,8 +39,8 @@
 
 .statGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px 28px;
 }
 
 .chipDot {
@@ -66,6 +66,7 @@
   border-radius: 16px;
   border: 1px solid var(--hairline);
   padding: 20px 24px;
+  margin-top: 16px;
 }
 
 .trendHeader {

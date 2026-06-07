@@ -14,11 +14,6 @@ describe("PetActions", () => {
     expect(editLink).toHaveAttribute("href", "/pets/pet-1/edit");
   });
 
-  it("renders a disabled Connect Tractive button", () => {
-    render(<PetActions petId="pet-1" petName="Luna" />);
-    expect(screen.getByRole("button", { name: /connect tractive/i })).toBeDisabled();
-  });
-
   it("opens the delete confirmation dialog on Delete click", async () => {
     const user = userEvent.setup();
     render(<PetActions petId="pet-1" petName="Luna" />);

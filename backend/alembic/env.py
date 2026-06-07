@@ -13,9 +13,10 @@ from alembic import context
 from app.auth.models import User
 from app.config import settings
 from app.db.base import Base
+from app.integrations.tractive.models import TractiveDayRollup, TractiveRawPayload
 from app.pets.models import Pet
 
-_ = (User, Pet)
+_ = (User, Pet, TractiveDayRollup, TractiveRawPayload)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

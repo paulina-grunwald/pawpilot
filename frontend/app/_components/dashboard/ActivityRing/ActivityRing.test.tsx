@@ -20,4 +20,19 @@ describe("ActivityRing", () => {
     expect(screen.getByText("78%")).toBeInTheDocument();
     expect(screen.getByText("of daily goal")).toBeInTheDocument();
   });
+
+  it("caps the visual ring fill at 100% even when percent is much higher", () => {
+    const { container } = render(
+      <ActivityRing percent={425} label="5h 26m" sublabel="425% — goal smashed" size={200} />,
+    );
+    // The filled circle uses strokeDasharray="<filled> <gap>". Find the
+    // foreground stroked circle and assert filled portion ≈ full circumference.
+    const circles = container.querySelectorAll("circle[stroke-dasharray]");
+    expect(circles.length).toBeGreaterThan(0);
+    const dashArrayValue = circles[circles.length - 1].getAttribute("stroke-dasharray") ?? "";
+    const [filled, gap] = dashArrayValue.split(" ").map(Number);
+    // Visual cap means the gap should be ~0 when at or above 100%.
+    expect(gap).toBeLessThan(0.0001);
+    expect(filled).toBeGreaterThan(0);
+  });
 });

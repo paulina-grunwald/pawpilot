@@ -111,6 +111,7 @@ describe("PetForm — create mode", () => {
     await user.clear(weightInput);
     await user.type(weightInput, "22");
 
+    await user.click(screen.getByRole("button", { name: /add photo/i }));
     const fileInput = screen.getByLabelText(/pet photo/i) as HTMLInputElement;
     const photoFile = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "p.jpg", {
       type: "image/jpeg",

@@ -1,0 +1,51 @@
+.container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.legend {
+  display: flex;
+  gap: 18px;
+  font-size: 11px;
+  color: var(--muted-2);
+  padding-left: 44px;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatchNight,
+.swatchDay {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.swatchNight {
+  background: var(--blue-midnight);
+}
+
+.swatchDay {
+  background: color-mix(in srgb, var(--blue-midnight) 35%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--blue-midnight) 20%, transparent);
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--muted-2);
+  text-align: center;
+  padding: 32px 0;
+  margin: 0;
+}

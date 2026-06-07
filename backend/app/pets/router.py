@@ -100,10 +100,7 @@ async def delete_pet(
 ) -> None:
     pet = await _load_owned_pet(pet_id, user, session)
     owner_dir_id = pet.id
-    # Delete files before committing the DB row. If unlink raises, the commit
-    # never happens and the DB still references the pet — consistent on retry.
-    # Committing first would risk a crash window leaving orphan files on disk
-    # with no DB reference (GDPR right-to-erasure gap).
+
     media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
     await session.delete(pet)
     await session.commit()

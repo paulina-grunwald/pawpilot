@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PetDetailView, type PetDetailData } from "./PetDetailView";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 const samplePet: PetDetailData = {
   id: "pet-uuid",
@@ -49,10 +53,9 @@ describe("PetDetailView", () => {
     expect(link).toHaveAttribute("href", "/pets/pet-uuid/edit");
   });
 
-  it("renders disabled 'Connect Tractive' placeholder buttons", () => {
+  it("renders the Tractive upload control in the Wearable card", () => {
     render(<PetDetailView pet={samplePet} />);
-    const buttons = screen.getAllByRole("button", { name: /connect tractive/i });
-    expect(buttons.length).toBeGreaterThan(0);
-    buttons.forEach((button) => expect(button).toBeDisabled());
+    expect(screen.getByRole("button", { name: /upload export/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/tractive export zip/i)).toBeInTheDocument();
   });
 });

@@ -4,17 +4,22 @@ import { TodayPanel, type TodayPanelData } from "./TodayPanel";
 
 const sampleData: TodayPanelData = {
   activityPercent: 78,
-  innerActivityPercent: 64,
-  activityLabel: "78%",
-  activitySublabel: "of daily goal",
+  activityLabel: "5h 26m",
+  activitySublabel: "78% of 90min goal",
   metrics: [
-    { label: "Active", value: "58", unit: "min", delta: "+12 vs avg", tone: "positive" },
-    { label: "Rest", value: "6h 12m", delta: "↓ 18 min", tone: "neutral" },
-    { label: "Resting HR", value: "68", unit: "bpm", delta: "within baseline" },
-    { label: "Respiratory", value: "22", unit: "rpm", delta: "within baseline" },
+    { label: "Active", value: "58", unit: "min", delta: "↑ 12 min vs avg", tone: "positive" },
+    { label: "Sleep", value: "6h 12m", delta: "↓ 18 min vs avg", tone: "neutral" },
+    { label: "Resting HR", value: "68", unit: "bpm" },
+    { label: "Respiratory", value: "22", unit: "rpm" },
+    { label: "Distance", value: "3.4", unit: "km", delta: "↑ 0.6 km vs avg" },
+    { label: "Calm time", value: "4h 50m", delta: "↓ 12 min vs avg" },
   ],
   activityWeekMinutes: [42, 65, 51, 70, 58, 73, 78],
   sleepWeekMinutes: [420, 460, 405, 510, 480, 495, 510],
+  activityGoal: 90,
+  activityWeekMean: 60,
+  sleepWeekMean: 470,
+  vitalsStatus: { label: "All vitals normal", tone: "positive" },
 };
 
 describe("TodayPanel", () => {
@@ -27,7 +32,7 @@ describe("TodayPanel", () => {
     expect(
       screen.getByText(/connect tractive to see today/i),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(4);
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(6);
     expect(screen.getAllByRole("note").length).toBe(2);
   });
 

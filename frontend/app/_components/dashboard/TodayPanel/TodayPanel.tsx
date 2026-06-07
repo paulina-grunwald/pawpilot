@@ -1,6 +1,7 @@
 import { Chip } from "../../pets/Chip";
 import { ActivityRing } from "../ActivityRing";
 import { LineChart } from "../LineChart";
+import { SleepSplitBars, type SleepSplitBar } from "../SleepSplitBars";
 import { StatTile, type StatTileTone } from "../StatTile";
 import styles from "./TodayPanel.module.css";
 
@@ -12,35 +13,58 @@ export type TodayMetric = {
   tone?: StatTileTone;
 };
 
+export type VitalsStatus = {
+  label: string;
+  tone: "positive" | "caution" | "neutral";
+};
+
 export type TodayPanelData = {
   activityPercent: number;
-  innerActivityPercent: number;
   activityLabel: string;
   activitySublabel: string;
   metrics: TodayMetric[];
   activityWeekMinutes: number[];
   sleepWeekMinutes: number[];
   weekDates?: readonly (string | number)[];
+  activityGoal?: number;
+  activityWeekMean?: number;
+  sleepWeekMean?: number;
+  vitalsStatus?: VitalsStatus;
+};
+
+const VITAL_TONE_COLOR: Record<VitalsStatus["tone"], string> = {
+  positive: "var(--status-positive)",
+  caution: "var(--status-caution)",
+  neutral: "var(--paper-on-dark-sub)",
 };
 
 type TodayPanelProps = {
   petName: string;
   todayLabel: string;
   data?: TodayPanelData;
+  sleepSplitBars?: SleepSplitBar[];
+  rangeLabel?: string;
 };
 
 const PLACEHOLDER_METRICS: TodayMetric[] = [
   { label: "Active", value: "—", unit: "min" },
-  { label: "Rest", value: "—" },
+  { label: "Sleep", value: "—" },
   { label: "Resting HR", value: "—", unit: "bpm" },
   { label: "Respiratory", value: "—", unit: "rpm" },
+  { label: "Distance", value: "—", unit: "km" },
+  { label: "Calm time", value: "—" },
 ];
 
-export function TodayPanel({ petName, todayLabel, data }: TodayPanelProps) {
+export function TodayPanel({
+  petName,
+  todayLabel,
+  data,
+  sleepSplitBars,
+  rangeLabel,
+}: TodayPanelProps) {
   const isPlaceholder = data === undefined;
   const metrics = data?.metrics ?? PLACEHOLDER_METRICS;
   const activityPercent = data?.activityPercent ?? 0;
-  const innerActivityPercent = data?.innerActivityPercent ?? 0;
   const activityLabel = data?.activityLabel ?? "—";
   const activitySublabel = data?.activitySublabel ?? "awaiting Tractive";
   const headingText = isPlaceholder
@@ -60,17 +84,20 @@ export function TodayPanel({ petName, todayLabel, data }: TodayPanelProps) {
               aria-hidden
               className={styles.chipDot}
               style={{
-                background: isPlaceholder ? "var(--paper-on-dark-sub)" : "var(--status-positive)",
+                background: isPlaceholder
+                  ? "var(--paper-on-dark-sub)"
+                  : VITAL_TONE_COLOR[data.vitalsStatus?.tone ?? "neutral"],
               }}
             />
-            {isPlaceholder ? "Wearable not connected" : "All vitals normal"}
+            {isPlaceholder
+              ? "Wearable not connected"
+              : (data.vitalsStatus?.label ?? "Vitals status unknown")}
           </Chip>
         </div>
 
         <div className={styles.heroBody}>
           <ActivityRing
             percent={activityPercent}
-            innerPercent={innerActivityPercent}
             size={210}
             label={activityLabel}
             sublabel={activitySublabel}
@@ -101,7 +128,7 @@ export function TodayPanel({ petName, todayLabel, data }: TodayPanelProps) {
       <section aria-label="Weekly trends" className={styles.trends}>
         <TrendCard
           title="Activity"
-          subtitle="Past 7 days · minutes"
+          subtitle={`Past ${rangeLabel ?? "7d"} · minutes`}
           value={isPlaceholder ? "—" : `${data.activityWeekMinutes.at(-1)}`}
           unit={isPlaceholder ? "min today" : "min today"}
         >
@@ -113,14 +140,16 @@ export function TodayPanel({ petName, todayLabel, data }: TodayPanelProps) {
               height={160}
               color="var(--warm)"
               dates={data.weekDates}
-              yFormat={(value) => `${value}m`}
+              yFormat={(value) => `${value} min`}
               accessibleLabel="Activity, past 7 days"
+              mean={data.activityWeekMean}
+              goal={data.activityGoal}
             />
           )}
         </TrendCard>
         <TrendCard
           title="Sleep"
-          subtitle="Past 7 days · minutes asleep"
+          subtitle={`Past ${rangeLabel ?? "7d"} · minutes asleep`}
           value={isPlaceholder ? "—" : formatSleep(data.sleepWeekMinutes.at(-1)!)}
           unit="last night"
         >
@@ -136,10 +165,28 @@ export function TodayPanel({ petName, todayLabel, data }: TodayPanelProps) {
                 `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}`
               }
               accessibleLabel="Sleep, past 7 days"
+              mean={data.sleepWeekMean}
             />
           )}
         </TrendCard>
       </section>
+
+      {!isPlaceholder && sleepSplitBars && sleepSplitBars.length > 0 && (
+        <section aria-label="Sleep split per day" className={styles.trendCard}>
+          <div className={styles.trendHeader}>
+            <div>
+              <h3 className={styles.trendTitle}>Sleep split</h3>
+              <p className={styles.trendSubtitle}>
+                Past {rangeLabel ?? "7d"} · night vs day naps
+              </p>
+            </div>
+          </div>
+          <SleepSplitBars
+            bars={sleepSplitBars}
+            accessibleLabel={`Sleep split per day, past ${rangeLabel ?? "7 days"}`}
+          />
+        </section>
+      )}
     </>
   );
 }

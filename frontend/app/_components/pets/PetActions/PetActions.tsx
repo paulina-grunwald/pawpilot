@@ -20,9 +20,6 @@ export function PetActions({ petId, petName }: PetActionsProps) {
           Edit pet
         </PetActionButton>
       </Link>
-      <PetActionButton disabled>
-        Connect Tractive
-      </PetActionButton>
       <PetActionButton variant="danger" onClick={() => setDeleteOpen(true)}>
         Delete
       </PetActionButton>

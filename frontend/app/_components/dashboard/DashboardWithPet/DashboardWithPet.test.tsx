@@ -1,8 +1,18 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PetRead } from "@/lib/pets";
 import { DashboardWithPet, activePetStorageKey } from "./DashboardWithPet";
+
+const fetchRollupsMock = vi.fn();
+vi.mock("@/lib/tractive", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/tractive")>("@/lib/tractive");
+  return {
+    ...actual,
+    fetchTractiveRollups: (...args: Parameters<typeof actual.fetchTractiveRollups>) =>
+      fetchRollupsMock(...args),
+  };
+});
 
 function makePet(overrides: Partial<PetRead> = {}): PetRead {
   return {
@@ -27,6 +37,11 @@ function makePet(overrides: Partial<PetRead> = {}): PetRead {
 }
 
 const USER_ID = "user-uuid";
+
+beforeEach(() => {
+  fetchRollupsMock.mockReset();
+  fetchRollupsMock.mockResolvedValue({ daily: [] });
+});
 
 afterEach(() => {
   window.localStorage.clear();
@@ -87,6 +102,60 @@ describe("DashboardWithPet", () => {
     render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
     const addLink = screen.getByRole("link", { name: /^\+ add$/i });
     expect(addLink).toHaveAttribute("href", "/pets/new");
+  });
+
+  it("fetches rollups for the active pet on mount", async () => {
+    render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 7));
+  });
+
+  it("re-fetches rollups when the active pet changes", async () => {
+    const pets = [
+      makePet({ id: "pet-1", name: "Luna" }),
+      makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
+    ];
+    const user = userEvent.setup();
+    render(<DashboardWithPet pets={pets} userId={USER_ID} todayLabel="Sat, May 23" />);
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 7));
+
+    await user.click(await screen.findByRole("button", { name: /luna/i }));
+    await user.click(screen.getByRole("option", { name: /bowie/i }));
+
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-2", 7));
+  });
+
+  it("renders activity ring numbers once rollups arrive", async () => {
+    fetchRollupsMock.mockResolvedValue({
+      daily: [
+        {
+          date: "2024-05-15",
+          minutes_active: 90,
+          minutes_low_intensity: 10,
+          minutes_moderate: 5,
+          minutes_night_sleep: 420,
+          minutes_day_sleep: 60,
+          minutes_no_signal: 30,
+          hourly_minutes_by_category: {},
+          heart_rate_mean: 62,
+          respiratory_rate_mean: 17,
+          gps_distance_km: 3.0,
+        },
+      ],
+    });
+    render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
+    // The active-minutes value lands in both the ring label and the stat tile.
+    await waitFor(() => expect(screen.getAllByText(/1h 30m/i).length).toBeGreaterThan(0));
+    expect(
+      screen.queryByRole("heading", { name: /connect tractive to see/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("falls back to the placeholder state on a fetch error", async () => {
+    fetchRollupsMock.mockRejectedValue(new Error("boom"));
+    render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
+    expect(
+      await screen.findByRole("heading", { name: /connect tractive to see/i }),
+    ).toBeInTheDocument();
   });
 
   it("hides the standalone Add link when more than one pet exists (picker has its own)", async () => {

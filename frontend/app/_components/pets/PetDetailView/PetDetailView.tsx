@@ -3,6 +3,7 @@ import type { PetDetailView as PetDetailData } from "@/lib/pets.format";
 import { Chip } from "../Chip";
 import { PetActions } from "../PetActions";
 import { PhotoPlaceholder } from "../PhotoPlaceholder";
+import { TractiveUpload } from "../TractiveUpload";
 import styles from "./PetDetailView.module.css";
 
 export type { PetDetailData };
@@ -75,10 +76,7 @@ export function PetDetailView({ pet }: PetDetailViewProps) {
 
         <article className={styles.card}>
           <h2 className={`${styles.cardHeading} display`}>Wearable</h2>
-          <p className={styles.wearableEmpty}>No Tractive collar connected yet.</p>
-          <button type="button" className={styles.connectButton} disabled>
-            Connect Tractive
-          </button>
+          <TractiveUpload petId={pet.id} />
         </article>
       </section>
 

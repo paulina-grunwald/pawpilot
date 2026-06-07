@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { SleepSplitBar } from "../SleepSplitBars";
 import { PetCard, type PetCardData } from "../../pets/PetCard";
 import { TodayPanel, type TodayPanelData } from "../TodayPanel";
 import styles from "./OuraDashboardView.module.css";
@@ -10,6 +11,8 @@ type OuraDashboardViewProps = {
   headerActions?: ReactNode;
   todayLabel: string;
   todayData?: TodayPanelData;
+  sleepSplitBars?: SleepSplitBar[];
+  rangeLabel?: string;
 };
 
 export function OuraDashboardView({
@@ -17,6 +20,8 @@ export function OuraDashboardView({
   headerActions,
   todayLabel,
   todayData,
+  sleepSplitBars,
+  rangeLabel,
 }: OuraDashboardViewProps) {
   return (
     <main className={styles.page}>
@@ -25,7 +30,13 @@ export function OuraDashboardView({
         {headerActions && <div className="flex gap-2 items-center">{headerActions}</div>}
       </section>
 
-      <TodayPanel petName={pet.name} todayLabel={todayLabel} data={todayData} />
+      <TodayPanel
+        petName={pet.name}
+        todayLabel={todayLabel}
+        data={todayData}
+        sleepSplitBars={sleepSplitBars}
+        rangeLabel={rangeLabel}
+      />
     </main>
   );
 }
