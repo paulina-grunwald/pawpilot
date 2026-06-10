@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import current_active_user
@@ -22,22 +21,44 @@ from app.integrations.tractive.read_service import (
     fetch_recent_rollups,
 )
 from app.integrations.tractive.service import IngestResult, TractiveIngestService
-from app.pets.models import Pet
+from app.pets.deps import load_owned_pet
 
 MAX_GDPR_ZIP_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB compressed cap on the request
 MAX_ROLLUP_QUERY_DAYS = 90
+_UPLOAD_CHUNK_BYTES = 64 * 1024
 
 tractive_router = APIRouter(prefix="/pets", tags=["tractive"])
 
 
-async def _load_owned_pet_or_404(pet_id: uuid.UUID, user: User, session: AsyncSession) -> Pet:
-    pet_row = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.owner_user_id == user.id)
+async def _read_upload_within_cap(file: UploadFile, max_bytes: int) -> bytes:
+    """Read an upload in bounded chunks, raising 413 as soon as the running
+    total exceeds ``max_bytes``.
+
+    Unlike ``await file.read()``, this never fully buffers an oversized body in
+    memory — it stops at the first chunk that crosses the cap.
+    """
+    chunks: list[bytes] = []
+    total_bytes = 0
+    while True:
+        chunk = await file.read(_UPLOAD_CHUNK_BYTES)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="TRACTIVE_UPLOAD_TOO_LARGE",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _invalid_zip_error(error: Exception) -> HTTPException:
+    """The 400 that an unreadable or structurally-invalid Tractive export maps to."""
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"TRACTIVE_INVALID_ZIP: {error}",
     )
-    pet = pet_row.scalar_one_or_none()
-    if pet is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PET_NOT_FOUND")
-    return pet
 
 
 @tractive_router.post(
@@ -52,31 +73,20 @@ async def ingest_tractive_export(
     session: AsyncSession = Depends(get_session),
 ) -> IngestResult:
     """Upload a Tractive GDPR-export zip for this pet."""
-    pet = await _load_owned_pet_or_404(pet_id, user, session)
+    pet = await load_owned_pet(pet_id, user, session)
 
-    content = await file.read()
-    if len(content) > MAX_GDPR_ZIP_UPLOAD_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail="TRACTIVE_UPLOAD_TOO_LARGE",
-        )
+    content = await _read_upload_within_cap(file, MAX_GDPR_ZIP_UPLOAD_BYTES)
 
     try:
         payloads = load_gdpr_export_zip(content)
     except GdprZipError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"TRACTIVE_INVALID_ZIP: {error}",
-        ) from error
+        raise _invalid_zip_error(error) from error
 
     service = TractiveIngestService(session)
     try:
         result = await service.ingest_gdpr_export(pet.id, payloads)
     except MalformedTractivePayloadError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"TRACTIVE_INVALID_ZIP: {error}",
-        ) from error
+        raise _invalid_zip_error(error) from error
     await session.commit()
     return result
 
@@ -95,15 +105,12 @@ async def reprocess_tractive_rollups(
 
     Use after consolidation logic changes — avoids re-uploading the GDPR zip.
     """
-    pet = await _load_owned_pet_or_404(pet_id, user, session)
+    pet = await load_owned_pet(pet_id, user, session)
     service = TractiveIngestService(session)
     try:
         result = await service.reprocess_latest_batch(pet.id)
     except MalformedTractivePayloadError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"TRACTIVE_INVALID_ZIP: {error}",
-        ) from error
+        raise _invalid_zip_error(error) from error
     await session.commit()
     return result
 
@@ -119,7 +126,7 @@ async def list_tractive_rollups(
     session: AsyncSession = Depends(get_session),
 ) -> TractiveRollupsResponse:
     """Return the most recent ``days`` rollups for this pet, oldest-first."""
-    pet = await _load_owned_pet_or_404(pet_id, user, session)
+    pet = await load_owned_pet(pet_id, user, session)
     return await fetch_recent_rollups(session, pet.id, days)
 
 

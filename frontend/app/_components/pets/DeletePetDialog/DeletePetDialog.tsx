@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { PetsError, deletePet } from "@/lib/pets";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import styles from "./DeletePetDialog.module.css";
 
 type DeletePetDialogProps = {
@@ -25,7 +26,9 @@ type DialogBodyProps = {
 
 function DeletePetDialogBody({ petId, petName, onClose }: DialogBodyProps) {
   const router = useRouter();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  useFocusTrap(dialogRef);
   const headingId = useId();
   const inputId = useId();
   const errorId = useId();
@@ -78,6 +81,8 @@ function DeletePetDialogBody({ petId, petName, onClose }: DialogBodyProps) {
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}

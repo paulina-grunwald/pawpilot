@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 import pytest_asyncio
 from sqlalchemy import func, select
@@ -41,6 +41,32 @@ async def pet_id(db_session: AsyncSession) -> uuid.UUID:
     db_session.add(pet)
     await db_session.flush()
     return pet.id
+
+
+async def test_ingest_refreshes_ingested_at_on_re_ingest(
+    db_session: AsyncSession,
+    pet_id: uuid.UUID,
+    sample_gdpr_payloads: GdprExportPayloads,
+) -> None:
+    service = TractiveIngestService(db_session)
+
+    async def read_ingested_at() -> datetime:
+        value = await db_session.scalar(
+            select(TractiveDayRollup.ingested_at).where(
+                TractiveDayRollup.pet_id == pet_id,
+                TractiveDayRollup.date == date(2024, 5, 15),
+            )
+        )
+        assert value is not None
+        return value
+
+    await service.ingest_gdpr_export(pet_id, sample_gdpr_payloads)
+    first_ingested_at = await read_ingested_at()
+
+    await service.ingest_gdpr_export(pet_id, sample_gdpr_payloads)
+    second_ingested_at = await read_ingested_at()
+
+    assert second_ingested_at > first_ingested_at
 
 
 async def test_ingest_gdpr_export_persists_rollups_and_raw_payloads(

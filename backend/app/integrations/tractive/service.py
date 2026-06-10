@@ -9,6 +9,7 @@ Takes computed rollups + raw payload blobs and writes them to the DB:
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from datetime import date as date_type
 from typing import Any
 
@@ -215,7 +216,11 @@ class TractiveIngestService:
     ) -> None:
         if not rollups:
             return
-        values = [_rollup_to_row(pet_id, rollup, source) for rollup in rollups]
+        # One explicit timestamp for the whole batch. Passing it in (rather than
+        # leaning on the column's server_default) makes the on-conflict update of
+        # ``ingested_at`` deterministic and testable on re-ingest.
+        ingested_at = datetime.now(UTC)
+        values = [_rollup_to_row(pet_id, rollup, source, ingested_at) for rollup in rollups]
         statement = postgres_insert(TractiveDayRollup).values(values)
         statement = statement.on_conflict_do_update(
             index_elements=["pet_id", "date"],
@@ -235,7 +240,7 @@ _RAW_PAYLOAD_FIELDS: tuple[tuple[str, TractivePayloadType], ...] = (
 
 
 def _rollup_to_row(
-    pet_id: uuid.UUID, rollup: PerDayRollup, source: TractiveSource
+    pet_id: uuid.UUID, rollup: PerDayRollup, source: TractiveSource, ingested_at: datetime
 ) -> dict[str, Any]:
     """Flatten a PerDayRollup into the column dict expected by INSERT."""
     minutes = rollup.minutes
@@ -279,4 +284,5 @@ def _rollup_to_row(
         "temperature_max": tracker.temperature_max,
         "n_charging_starts": tracker.n_charging_starts,
         "source": source.value,
+        "ingested_at": ingested_at,
     }

@@ -8,6 +8,7 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from "react";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import styles from "./PhotoUploader.module.css";
 
 const ACCEPTED_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
@@ -171,8 +172,10 @@ function PhotoUploadModalBody({ error, onFiles, onClose }: PhotoUploadModalBodyP
   const inputId = useId();
   const headingId = useId();
   const errorId = useId();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  useFocusTrap(dialogRef);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -218,6 +221,8 @@ function PhotoUploadModalBody({ error, onFiles, onClose }: PhotoUploadModalBodyP
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}

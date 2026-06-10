@@ -21,9 +21,11 @@ Category mapping — empirically verified against the API's
 
 from __future__ import annotations
 
+import bisect
 import json
 import math
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
@@ -170,10 +172,48 @@ def compute_distance_km(positions: list[dict[str, Any]]) -> tuple[float, int, in
     return round(total_km, 2), segments_counted, segments_dropped
 
 
+def offset_selector_from_activity(
+    activity_data: list[dict[str, Any]],
+) -> Callable[[datetime], float]:
+    """Build a function mapping a UTC moment → the GMT offset (in hours, may be
+    fractional) in effect then, using the nearest activity day's ``gmtOffset``.
+
+    Activity days carry a per-day ``gmtOffset``; position/hardware reports do
+    not. Picking the temporally-nearest activity day's offset keeps each report
+    on the correct local date across a DST change or a half-hour timezone
+    (e.g. +05:30), instead of truncating to whole hours and applying a single
+    global offset to the entire export.
+    """
+    day_offsets = sorted(
+        (
+            datetime.fromtimestamp(day["gmtTime"] / 1000, tz=UTC),
+            float(day["gmtOffset"]) / 3_600_000,
+        )
+        for day in activity_data
+    )
+    instants = [instant for instant, _ in day_offsets]
+    offsets = [offset for _, offset in day_offsets]
+
+    def offset_for(moment: datetime) -> float:
+        index = bisect.bisect_left(instants, moment)
+        if index == 0:
+            return offsets[0]
+        if index == len(instants):
+            return offsets[-1]
+        before_gap = moment - instants[index - 1]
+        after_gap = instants[index] - moment
+        return offsets[index - 1] if before_gap <= after_gap else offsets[index]
+
+    return offset_for
+
+
 def index_by_local_date(
-    items: list[dict[str, Any]], time_key: str, offset_hours: int
+    items: list[dict[str, Any]],
+    time_key: str,
+    offset_selector: Callable[[datetime], float],
 ) -> dict[str, list[dict[str, Any]]]:
-    """Group items by local date string, using ``offset_hours`` from UTC.
+    """Group items by local date string, choosing each item's UTC offset via
+    ``offset_selector`` (so DST/half-hour timezones bucket correctly).
 
     Each day's items are returned in chronological order so callers can rely on
     ``[0]``/``[-1]`` being the day's first/last event and on adjacent-pair scans
@@ -182,7 +222,8 @@ def index_by_local_date(
     """
     by_date: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for item in items:
-        local_time = parse_iso(item[time_key]) + timedelta(hours=offset_hours)
+        moment = parse_iso(item[time_key])
+        local_time = moment + timedelta(hours=offset_selector(moment))
         by_date[local_time.strftime("%Y-%m-%d")].append(item)
     for items_for_date in by_date.values():
         items_for_date.sort(key=lambda item: parse_iso(item[time_key]))
@@ -276,9 +317,9 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
     malformed input — ``build_per_day`` wraps those into
     ``MalformedTractivePayloadError``.
     """
-    offset_hours = int(payloads.activity_data[0]["gmtOffset"] / 3_600_000)
-    positions_by_date = index_by_local_date(payloads.position_reports, "time", offset_hours)
-    hardware_by_date = index_by_local_date(payloads.hardware_reports, "time", offset_hours)
+    offset_selector = offset_selector_from_activity(payloads.activity_data)
+    positions_by_date = index_by_local_date(payloads.position_reports, "time", offset_selector)
+    hardware_by_date = index_by_local_date(payloads.hardware_reports, "time", offset_selector)
     heart_rates_by_date = {
         entry["local_date"]: entry["records"] for entry in payloads.resting_heart_rates
     }

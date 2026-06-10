@@ -71,3 +71,15 @@ def test_rejects_zip_with_excessive_uncompressed_size(
     monkeypatch.setattr("app.integrations.tractive.gdpr_zip.MAX_GDPR_ZIP_UNCOMPRESSED_BYTES", 10)
     with pytest.raises(GdprZipError, match="exceed"):
         load_gdpr_export_zip(_zip_with_all_files(sample_gdpr_payloads))
+
+
+def test_raises_on_duplicate_required_file(sample_gdpr_payloads: GdprExportPayloads) -> None:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, mode="w") as archive:
+        for field, filename in GDPR_FILENAMES.items():
+            archive.writestr(f"a/{filename}", json.dumps(getattr(sample_gdpr_payloads, field)))
+        # A second copy of one required file in a different folder — ambiguous.
+        archive.writestr("b/activity_data.json", json.dumps(sample_gdpr_payloads.activity_data))
+
+    with pytest.raises(GdprZipError, match="duplicate"):
+        load_gdpr_export_zip(buffer.getvalue())

@@ -12,35 +12,24 @@ from app.auth.models import User
 from app.db.base import get_session
 from app.media.deps import get_media_storage
 from app.media.storage import (
+    MIME_EXTENSIONS,
     MediaStorage,
     PayloadTooLargeError,
     UnsupportedMediaTypeError,
 )
+from app.pets.deps import load_owned_pet
 from app.pets.models import Pet
 from app.pets.schemas import PetCreate, PetRead, PetUpdate
 
 PET_PHOTO_NAMESPACE = "pets"
 
-# Map stored photo extensions back to a response content-type for the
-# authenticated photo-serving route. Mirrors media.storage.MIME_EXTENSIONS.
+# Inverse of MIME_EXTENSIONS — single source of truth for the content-type the
+# authenticated photo route streams. Keyed by stored file suffix (e.g. ".jpg").
 _PHOTO_MEDIA_TYPES: dict[str, str] = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
+    f".{extension}": mime_type for mime_type, extension in MIME_EXTENSIONS.items()
 }
 
 pets_router = APIRouter(prefix="/pets", tags=["pets"])
-
-
-async def _load_owned_pet(pet_id: uuid.UUID, user: User, session: AsyncSession) -> Pet:
-    result = await session.execute(
-        select(Pet).where(Pet.id == pet_id, Pet.owner_user_id == user.id)
-    )
-    pet = result.scalar_one_or_none()
-    if pet is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PET_NOT_FOUND")
-    return pet
 
 
 @pets_router.get("", response_model=list[PetRead])
@@ -82,7 +71,7 @@ async def get_pet(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_session),
 ) -> Pet:
-    return await _load_owned_pet(pet_id, user, session)
+    return await load_owned_pet(pet_id, user, session)
 
 
 @pets_router.patch("/{pet_id}", response_model=PetRead)
@@ -92,7 +81,7 @@ async def update_pet(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_session),
 ) -> Pet:
-    pet = await _load_owned_pet(pet_id, user, session)
+    pet = await load_owned_pet(pet_id, user, session)
     changes = payload.model_dump(exclude_unset=True)
     for field, value in changes.items():
         setattr(pet, field, value)
@@ -108,7 +97,7 @@ async def delete_pet(
     session: AsyncSession = Depends(get_session),
     media: MediaStorage = Depends(get_media_storage),
 ) -> None:
-    pet = await _load_owned_pet(pet_id, user, session)
+    pet = await load_owned_pet(pet_id, user, session)
     owner_dir_id = pet.id
 
     media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
@@ -130,7 +119,7 @@ async def get_pet_photo(
     route. The ``?v=`` cache-buster carried on ``PetRead.photo_url`` is an
     ignored query param here.
     """
-    pet = await _load_owned_pet(pet_id, user, session)
+    pet = await load_owned_pet(pet_id, user, session)
     if pet.photo_path is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PET_PHOTO_NOT_FOUND")
     absolute_path = media.resolve_within_root(pet.photo_path)
@@ -152,13 +141,13 @@ async def upload_pet_photo(
     session: AsyncSession = Depends(get_session),
     media: MediaStorage = Depends(get_media_storage),
 ) -> Pet:
-    pet = await _load_owned_pet(pet_id, user, session)
+    pet = await load_owned_pet(pet_id, user, session)
 
     content_type = file.content_type or ""
     try:
         stored = media.save(
             namespace=PET_PHOTO_NAMESPACE,
-            owner_id=pet.id,
+            subject_id=pet.id,
             content_type=content_type,
             fileobj=file.file,
         )
@@ -197,7 +186,7 @@ async def delete_pet_photo(
     session: AsyncSession = Depends(get_session),
     media: MediaStorage = Depends(get_media_storage),
 ) -> Pet:
-    pet = await _load_owned_pet(pet_id, user, session)
+    pet = await load_owned_pet(pet_id, user, session)
     prior_path = pet.photo_path
     # Delete the file before committing. If unlink raises, the commit never
     # happens and the DB still references the file — consistent on retry.

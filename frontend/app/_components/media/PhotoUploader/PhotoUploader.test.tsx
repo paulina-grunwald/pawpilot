@@ -74,6 +74,24 @@ describe("PhotoUploader", () => {
     expect(screen.getByText(/drop a photo here/i)).toBeInTheDocument();
   });
 
+  it("traps Tab focus within the upload modal", async () => {
+    const user = userEvent.setup();
+    render(<ControlledHarness />);
+    await user.click(screen.getByRole("button", { name: /add photo/i }));
+    const fileInput = screen.getByLabelText(/pet photo/i);
+    const cancel = screen.getByRole("button", { name: /cancel/i });
+
+    fileInput.focus();
+    await user.tab();
+    expect(cancel).toHaveFocus();
+    // Wrap forward past the last focusable back to the first.
+    await user.tab();
+    expect(fileInput).toHaveFocus();
+    // Wrap backward from the first to the last.
+    await user.tab({ shift: true });
+    expect(cancel).toHaveFocus();
+  });
+
   it("closes the modal when 'Cancel' is clicked", async () => {
     const user = userEvent.setup();
     render(<ControlledHarness initialExisting="https://media/luna.jpg" />);

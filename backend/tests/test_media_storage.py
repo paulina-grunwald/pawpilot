@@ -42,7 +42,7 @@ def test_save_writes_file_under_namespace_owner_path(media_storage: MediaStorage
     payload = _valid_bytes_for("image/jpeg", trailing=b"-tail")
     stored = media_storage.save(
         namespace="pets",
-        owner_id=owner_id,
+        subject_id=owner_id,
         content_type="image/jpeg",
         fileobj=_bytes_reader(payload),
     )
@@ -63,7 +63,7 @@ def test_save_assigns_extension_for_each_supported_mime(media_storage: MediaStor
     for mime, expected_extension in pairs.items():
         stored = media_storage.save(
             namespace="pets",
-            owner_id=owner_id,
+            subject_id=owner_id,
             content_type=mime,
             fileobj=_bytes_reader(_valid_bytes_for(mime)),
         )
@@ -74,7 +74,7 @@ def test_save_rejects_unsupported_mime_type(media_storage: MediaStorage) -> None
     with pytest.raises(UnsupportedMediaTypeError):
         media_storage.save(
             namespace="pets",
-            owner_id=uuid.uuid4(),
+            subject_id=uuid.uuid4(),
             content_type="image/heic",
             fileobj=_bytes_reader(b"x"),
         )
@@ -86,7 +86,7 @@ def test_save_rejects_when_signature_does_not_match_declared_mime(
     with pytest.raises(UnsupportedMediaTypeError):
         media_storage.save(
             namespace="pets",
-            owner_id=uuid.uuid4(),
+            subject_id=uuid.uuid4(),
             content_type="image/jpeg",
             fileobj=_bytes_reader(b"not-really-an-image"),
         )
@@ -97,7 +97,7 @@ def test_save_rejects_payload_exceeding_max_bytes(media_storage: MediaStorage) -
     with pytest.raises(PayloadTooLargeError):
         media_storage.save(
             namespace="pets",
-            owner_id=uuid.uuid4(),
+            subject_id=uuid.uuid4(),
             content_type="image/jpeg",
             fileobj=_bytes_reader(too_large),
         )
@@ -110,7 +110,7 @@ def test_save_cleans_up_partial_file_when_size_check_fails(
     with pytest.raises(PayloadTooLargeError):
         media_storage.save(
             namespace="pets",
-            owner_id=uuid.uuid4(),
+            subject_id=uuid.uuid4(),
             content_type="image/jpeg",
             fileobj=_bytes_reader(too_large),
         )
@@ -127,7 +127,7 @@ def test_delete_removes_existing_file(media_storage: MediaStorage) -> None:
     owner_id = uuid.uuid4()
     stored = media_storage.save(
         namespace="pets",
-        owner_id=owner_id,
+        subject_id=owner_id,
         content_type="image/png",
         fileobj=_bytes_reader(_valid_bytes_for("image/png")),
     )
@@ -142,7 +142,7 @@ def test_delete_owner_dir_removes_subtree(media_storage: MediaStorage, tmp_path:
     for _ in range(3):
         media_storage.save(
             namespace="pets",
-            owner_id=owner_id,
+            subject_id=owner_id,
             content_type="image/jpeg",
             fileobj=_bytes_reader(_valid_bytes_for("image/jpeg")),
         )

@@ -46,13 +46,13 @@ class MediaStorage:
     def __init__(self, media_root: Path) -> None:
         self.media_root = media_root
 
-    def _namespace_dir(self, namespace: str, owner_id: uuid.UUID) -> Path:
-        return self.media_root / namespace / str(owner_id)
+    def _namespace_dir(self, namespace: str, subject_id: uuid.UUID) -> Path:
+        return self.media_root / namespace / str(subject_id)
 
     def save(
         self,
         namespace: str,
-        owner_id: uuid.UUID,
+        subject_id: uuid.UUID,
         content_type: str,
         fileobj: IO[bytes],
     ) -> StoredFile:
@@ -69,7 +69,7 @@ class MediaStorage:
                 f"file contents do not match declared media type {content_type!r}",
             )
 
-        target_dir = self._namespace_dir(namespace, owner_id)
+        target_dir = self._namespace_dir(namespace, subject_id)
         target_dir.mkdir(parents=True, exist_ok=True)
 
         new_name = f"{uuid.uuid4().hex}.{extension}"
@@ -92,37 +92,40 @@ class MediaStorage:
                     )
                 destination.write(chunk)
 
-        relative_path = f"{namespace}/{owner_id}/{new_name}"
+        relative_path = f"{namespace}/{subject_id}/{new_name}"
         return StoredFile(relative_path=relative_path, absolute_path=absolute_path)
 
-    def delete(self, relative_path: str | None) -> None:
-        if not relative_path:
-            return
-        media_root_resolved = self.media_root.resolve()
-        absolute_path = (self.media_root / relative_path).resolve()
-        if media_root_resolved not in absolute_path.parents:
-            return
-        try:
-            absolute_path.unlink()
-        except FileNotFoundError:
-            return
-
-    def resolve_within_root(self, relative_path: str) -> Path | None:
-        """Resolve a stored relative path to an existing file inside the media
-        root, or ``None`` if it would escape the root or doesn't exist.
-
-        Path-traversal guard mirrors ``delete`` — callers that serve files to
-        clients must never follow a ``..`` outside the media root.
+    def _contained_path(self, relative_path: str) -> Path | None:
+        """Resolve ``relative_path`` under the media root, or ``None`` if it
+        would escape the root (path-traversal guard). Existence is not checked.
         """
         media_root_resolved = self.media_root.resolve()
         absolute_path = (self.media_root / relative_path).resolve()
         if media_root_resolved not in absolute_path.parents:
             return None
-        if not absolute_path.is_file():
+        return absolute_path
+
+    def delete(self, relative_path: str | None) -> None:
+        if not relative_path:
+            return
+        absolute_path = self._contained_path(relative_path)
+        if absolute_path is None:
+            return
+        absolute_path.unlink(missing_ok=True)
+
+    def resolve_within_root(self, relative_path: str) -> Path | None:
+        """Resolve a stored relative path to an existing file inside the media
+        root, or ``None`` if it would escape the root or doesn't exist.
+
+        Callers that serve files to clients must never follow a ``..`` outside
+        the media root — the containment check lives in ``_contained_path``.
+        """
+        absolute_path = self._contained_path(relative_path)
+        if absolute_path is None or not absolute_path.is_file():
             return None
         return absolute_path
 
-    def delete_owner_dir(self, namespace: str, owner_id: uuid.UUID) -> None:
-        target = self._namespace_dir(namespace, owner_id)
+    def delete_owner_dir(self, namespace: str, subject_id: uuid.UUID) -> None:
+        target = self._namespace_dir(namespace, subject_id)
         if target.exists():
             shutil.rmtree(target, ignore_errors=True)

@@ -2,11 +2,11 @@ import type { ReactNode } from "react";
 import type { SleepSplitBar } from "../SleepSplitBars";
 import { PetCard, type PetCardData } from "../../pets/PetCard";
 import { TodayPanel, type TodayPanelData } from "../TodayPanel";
-import styles from "./OuraDashboardView.module.css";
+import styles from "./PetDashboardView.module.css";
 
 export type DashboardPet = PetCardData;
 
-type OuraDashboardViewProps = {
+type PetDashboardViewProps = {
   pet: DashboardPet;
   headerActions?: ReactNode;
   todayLabel: string;
@@ -15,14 +15,14 @@ type OuraDashboardViewProps = {
   rangeLabel?: string;
 };
 
-export function OuraDashboardView({
+export function PetDashboardView({
   pet,
   headerActions,
   todayLabel,
   todayData,
   sleepSplitBars,
   rangeLabel,
-}: OuraDashboardViewProps) {
+}: PetDashboardViewProps) {
   return (
     <main className={styles.page}>
       <section aria-label="Pet header" className={styles.petHeader}>

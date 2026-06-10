@@ -354,3 +354,37 @@ def test_build_per_day_orders_positions_and_charging_by_time() -> None:
     assert rollup.positions.last_time == parse_iso("2024-05-15T10:00:00Z")
     # Chronological charger states: off(07) → on(08) → off(09) → on(10) = 2 starts.
     assert rollup.tracker.n_charging_starts == 2
+
+
+def test_build_per_day_buckets_half_hour_timezone_without_truncation() -> None:
+    """A +05:30 offset must not be truncated to 5h — a position 15 min past
+    local midnight belongs to the new local day, not the previous one."""
+    offset_milliseconds = 5 * 3_600_000 + 30 * 60_000  # +05:30 (e.g. IST)
+    activity_data = [
+        {
+            "gmtTime": 1_715_731_200_000,  # 2024-05-15 00:00 UTC
+            "gmtOffset": offset_milliseconds,
+            "activityCategories": [[3600, -1]],
+        }
+    ]
+    # 18:45Z + 05:30 = 2024-05-15 00:15 local → belongs to 2024-05-15, not the
+    # 14th (which is what a truncated 5h offset would produce: 23:45 on the 14th).
+    position_reports = [
+        {
+            "time": "2024-05-14T18:45:00Z",
+            "latlong": [44.0, 26.0],
+            "hori_accuracy": 5,
+            "sensor_used": "GPS",
+        }
+    ]
+    payloads = GdprExportPayloads(
+        activity_data=activity_data,
+        position_reports=position_reports,
+        hardware_reports=[],
+        resting_heart_rates=[],
+        resting_respiratory_rates=[],
+    )
+
+    [rollup] = build_per_day(payloads)
+    assert rollup.date == date(2024, 5, 15)
+    assert rollup.positions.count == 1

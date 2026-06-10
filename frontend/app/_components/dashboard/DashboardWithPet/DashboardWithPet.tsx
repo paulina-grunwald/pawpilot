@@ -7,7 +7,7 @@ import { toDashboardPet } from "@/lib/pets.format";
 import { fetchTractiveRollups, type TractiveDailySummary } from "@/lib/tractive";
 import { toSleepSplitBars, toTodayPanelData } from "@/lib/tractive.format";
 import { PetPicker } from "../../pets/PetPicker";
-import { OuraDashboardView } from "../OuraDashboardView";
+import { PetDashboardView } from "../PetDashboardView";
 import { RangeToggle, type RangeOption } from "../RangeToggle";
 import styles from "./DashboardWithPet.module.css";
 
@@ -105,7 +105,7 @@ export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetP
   }
 
   return (
-    <OuraDashboardView
+    <PetDashboardView
       pet={dashboardPet}
       headerActions={headerActions}
       todayLabel={todayLabel}

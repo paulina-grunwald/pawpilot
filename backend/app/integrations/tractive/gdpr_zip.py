@@ -42,11 +42,15 @@ def load_gdpr_export_zip(content: bytes) -> GdprExportPayloads:
                 f"zip contents exceed {MAX_GDPR_ZIP_UNCOMPRESSED_BYTES} bytes uncompressed"
             )
 
-        members_by_basename = {
-            info.filename.rsplit("/", 1)[-1]: info
-            for info in archive.infolist()
-            if not info.is_dir()
-        }
+        required_basenames = set(GDPR_FILENAMES.values())
+        members_by_basename: dict[str, zipfile.ZipInfo] = {}
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+            basename = info.filename.rsplit("/", 1)[-1]
+            if basename in required_basenames and basename in members_by_basename:
+                raise GdprZipError(f"zip contains duplicate required file: {basename}")
+            members_by_basename[basename] = info
 
         loaded: dict[str, list[dict[str, object]]] = {}
         for field, filename in GDPR_FILENAMES.items():

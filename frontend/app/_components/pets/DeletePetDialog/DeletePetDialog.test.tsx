@@ -100,4 +100,22 @@ describe("DeletePetDialog", () => {
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("traps Tab focus within the dialog", async () => {
+    const user = userEvent.setup();
+    render(<DeletePetDialog open petId="pet-1" petName="Luna" onClose={() => {}} />);
+    const input = screen.getByRole("textbox");
+    const cancel = screen.getByRole("button", { name: /cancel/i });
+
+    // Delete is disabled until the name matches, so Cancel is the last stop.
+    input.focus();
+    await user.tab();
+    expect(cancel).toHaveFocus();
+    // Tabbing past the last focusable wraps back to the first.
+    await user.tab();
+    expect(input).toHaveFocus();
+    // Shift+Tab from the first wraps to the last.
+    await user.tab({ shift: true });
+    expect(cancel).toHaveFocus();
+  });
 });
