@@ -1,0 +1,1 @@
+export { JournalTeaserCard } from "./JournalTeaserCard";
