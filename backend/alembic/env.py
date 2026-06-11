@@ -10,11 +10,13 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-
-# Import application metadata so autogenerate sees every model.
-from app.auth.models import User  # noqa: F401 — registers User on Base.metadata
+from app.auth.models import User
 from app.config import settings
 from app.db.base import Base
+from app.integrations.tractive.models import TractiveDayRollup, TractiveRawPayload
+from app.pets.models import Pet
+
+_ = (User, Pet, TractiveDayRollup, TractiveRawPayload)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

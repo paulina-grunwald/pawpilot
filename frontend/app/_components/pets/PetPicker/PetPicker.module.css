@@ -1,0 +1,101 @@
+.wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.trigger {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--hairline-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.caret {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px -12px color-mix(in srgb, var(--ink-deep) 18%, transparent);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  width: 100%;
+}
+
+.option:hover,
+.option:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+
+.optionActive {
+  background: var(--blue-soft);
+}
+
+.optionMeta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 4px 0;
+}
+
+.addLink {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.addLink:hover,
+.addLink:focus-visible {
+  background: var(--surface);
+  outline: none;
+}

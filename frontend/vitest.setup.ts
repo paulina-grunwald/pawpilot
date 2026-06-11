@@ -11,4 +11,11 @@ class IntersectionObserverStub {
   thresholds: ReadonlyArray<number> = [];
 }
 
+class ResizeObserverStub {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
 vi.stubGlobal("IntersectionObserver", IntersectionObserverStub);
+vi.stubGlobal("ResizeObserver", ResizeObserverStub);

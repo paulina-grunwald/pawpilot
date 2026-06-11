@@ -1,6 +1,8 @@
 .claude
 .env
 .env.*
+!.env.example
+!**/.env.example
 .DS_Store
 .vscode/
 docs/*
@@ -24,6 +26,7 @@ backend/**/__pycache__/
 backend/.pytest_cache/
 backend/.mypy_cache/
 backend/.ruff_cache/
+backend/media/*
 
 specs/*
 

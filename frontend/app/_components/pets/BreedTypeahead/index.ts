@@ -1,0 +1,1 @@
+export { BreedTypeahead } from "./BreedTypeahead";

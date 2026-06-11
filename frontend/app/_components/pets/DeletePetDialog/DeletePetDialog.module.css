@@ -1,0 +1,102 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink-deep) 55%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.dialog {
+  background: var(--card);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  padding: 28px;
+  max-width: 460px;
+  width: calc(100% - 32px);
+  box-shadow: 0 24px 48px -16px color-mix(in srgb, var(--ink-deep) 32%, transparent);
+}
+
+.heading {
+  margin: 0 0 8px 0;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink-deep);
+}
+
+.body {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.label {
+  display: block;
+  margin-top: 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.input {
+  width: 100%;
+  margin-top: 8px;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+}
+
+.input:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 20%, transparent);
+}
+
+.error {
+  margin: 12px 0 0 0;
+  font-size: 13px;
+  color: var(--terracotta);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.cancelButton {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--hairline-strong);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.deleteButton {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--terracotta);
+  color: var(--paper);
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.deleteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,39 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.default {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+}
+
+.blue {
+  background: var(--blue-soft);
+  color: var(--blue-deep);
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, transparent);
+}
+
+.forest {
+  background: color-mix(in srgb, var(--forest) 12%, transparent);
+  color: var(--forest-deep);
+  border: 1px solid color-mix(in srgb, var(--forest) 25%, transparent);
+}
+
+.ochre {
+  background: color-mix(in srgb, var(--ochre) 18%, transparent);
+  color: var(--ochre-deep);
+  border: 1px solid color-mix(in srgb, var(--ochre) 40%, transparent);
+}
+
+.dark {
+  background: color-mix(in srgb, var(--card-dark) 92%, var(--ink-deep));
+  color: var(--paper-on-dark);
+  border: 1px solid color-mix(in srgb, var(--paper-on-dark) 18%, transparent);
+}
