@@ -59,10 +59,16 @@ def database_url(postgres_container: PostgresContainer) -> str:
 async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
     import app.auth.models
     import app.integrations.tractive.models
+    import app.journal.models
     import app.pets.models
     from app.db.base import Base
 
-    _ = (app.auth.models, app.pets.models, app.integrations.tractive.models)
+    _ = (
+        app.auth.models,
+        app.pets.models,
+        app.integrations.tractive.models,
+        app.journal.models,
+    )
 
     test_engine = create_async_engine(database_url, future=True)
     async with test_engine.begin() as connection:
@@ -166,3 +172,55 @@ async def authenticated_client(client: AsyncClient, registered_user: dict[str, s
     assert login_response.status_code == 204, login_response.text
     assert "pawpilot_auth" in client.cookies
     return client
+
+
+@pytest_asyncio.fixture
+async def journal_pet(
+    authenticated_client: AsyncClient,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> dict[str, object]:
+    """A created pet to hang journal entries off."""
+    response = await authenticated_client.post("/pets", json=valid_pet_payload())
+    assert response.status_code == 201, response.text
+    return dict(response.json())
+
+
+JOURNAL_PAYLOAD_EXAMPLES: dict[str, dict[str, object]] = {
+    "meal": {
+        "entry_type": "meal",
+        "food_name": "Acana Grain-Free",
+        "brand": "Acana",
+        "amount_grams": 100,
+        "category": "kibble",
+    },
+    "bathroom": {"entry_type": "bathroom", "kind": "poop", "bristol_score": 4, "color": "brown"},
+    "symptom": {"entry_type": "symptom", "severity": 3, "body_area": "ears"},
+    "mood": {"entry_type": "mood", "score": 5},
+    "medication": {
+        "entry_type": "medication",
+        "drug_name": "Apoquel",
+        "dose": "16 mg",
+        "missed_dose": False,
+    },
+    "weight": {"entry_type": "weight", "weight_grams": 21400, "source": "home_scale"},
+    "vet_visit": {
+        "entry_type": "vet_visit",
+        "reason": "Annual exam",
+        "diagnosis": "Healthy",
+        "follow_up": "In 2 weeks",
+        "vet_name": "Dr. Patel",
+    },
+    "free_note": {"entry_type": "free_note", "text": "Met a friendly poodle at the park."},
+}
+
+
+@pytest.fixture
+def valid_journal_entry() -> Callable[..., dict[str, object]]:
+    def _build(entry_type: str = "meal", **overrides: object) -> dict[str, object]:
+        body: dict[str, object] = {"payload": dict(JOURNAL_PAYLOAD_EXAMPLES[entry_type])}
+        if entry_type == "symptom":
+            body["tags"] = ["scratch"]
+        body.update(overrides)
+        return body
+
+    return _build
