@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
+from pydantic import ValidationError
 
 from app.auth.deps import current_active_user
 from app.auth.models import User
@@ -43,6 +44,11 @@ async def search_corpus(
             sources=payload.sources,
             source_tiers=payload.source_tiers,
         )
+    except ValidationError as error:  # a stored Qdrant payload is corrupt
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="RAG_PAYLOAD_CORRUPT",
+        ) from error
     except Exception as error:  # Qdrant / Gateway unreachable
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -4,10 +4,20 @@ from collections.abc import Callable, Iterator
 
 import pytest
 from httpx import AsyncClient
+from pydantic import ValidationError
 
 from app.main import app
 from app.rag.router import get_retriever
 from app.rag.schemas import RetrievalMode, RetrievedChunk, SourceTier
+
+
+def _payload_validation_error() -> ValidationError:
+    """A real ValidationError, as `_to_chunk` raises on a corrupt Qdrant payload."""
+    try:
+        RetrievedChunk.model_validate({})
+    except ValidationError as error:
+        return error
+    raise AssertionError("expected RetrievedChunk validation to fail")
 
 
 class _FakeRetriever:
@@ -102,3 +112,13 @@ async def test_search_returns_503_when_retriever_fails(
     response = await authenticated_client.post("/rag/search", json={"query": "anything"})
     assert response.status_code == 503
     assert response.json()["detail"] == "RAG_UNAVAILABLE"
+
+
+async def test_search_returns_500_on_corrupt_payload(
+    authenticated_client: AsyncClient,
+    install_retriever: Callable[[_FakeRetriever], None],
+) -> None:
+    install_retriever(_FakeRetriever(error=_payload_validation_error()))
+    response = await authenticated_client.post("/rag/search", json={"query": "anything"})
+    assert response.status_code == 500
+    assert response.json()["detail"] == "RAG_PAYLOAD_CORRUPT"

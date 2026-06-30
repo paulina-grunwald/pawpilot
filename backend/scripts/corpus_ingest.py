@@ -38,6 +38,8 @@ def main() -> None:
     sources = load_manifest(corpus_dir / "sources.json")
     if args.source_id:
         sources = [source for source in sources if source.source_id == args.source_id]
+        if not sources:
+            raise SystemExit(f"source_id not found in manifest: {args.source_id!r}")
     if args.limit is not None:
         sources = sources[: args.limit]
 

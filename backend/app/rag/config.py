@@ -37,17 +37,17 @@ class RagSettings(BaseSettings):
     )
     gateway_base_url: str = Field(
         default="https://ai-gateway.vercel.sh/v1",
-        validation_alias=AliasChoices("AIM_GATEWAY_BASE_URL", "RAG_GATEWAY_BASE_URL"),
+        validation_alias="RAG_GATEWAY_BASE_URL",
     )
 
     embed_model: str = Field(
         default="openai/text-embedding-3-small",
-        validation_alias=AliasChoices("RAG_EMBED_MODEL", "AIM_EMBEDDING_MODEL"),
+        validation_alias="RAG_EMBED_MODEL",
     )
     embed_dimensions: int = Field(default=1536, validation_alias="RAG_EMBED_DIMENSIONS")
     gen_model: str = Field(
         default="openai/gpt-5.4-mini",
-        validation_alias=AliasChoices("RAG_GEN_MODEL", "AIM_GENERATOR_MODEL", "AIM_JUDGE_MODEL"),
+        validation_alias="RAG_GEN_MODEL",
     )
 
     qdrant_url: str = Field(default="http://localhost:6333", validation_alias="QDRANT_URL")

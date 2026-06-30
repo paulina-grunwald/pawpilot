@@ -20,6 +20,7 @@ from typing import Any
 
 from ragas.metrics.collections import ContextEntityRecall, ContextRecall
 
+from app.rag.config import get_rag_settings
 from app.rag.observability import configure_langsmith
 from app.rag.retriever import VetCorpusRetriever, build_retriever
 from evals.rag.golden import DEFAULT_KS, load_golden, recall_at_k
@@ -39,7 +40,9 @@ def _mean(values: Sequence[float]) -> float | None:
     return round(sum(values) / len(values), 4) if values else None
 
 
-def evaluate_golden(retriever: VetCorpusRetriever, top_k: int = 20) -> dict[str, float]:
+def evaluate_golden(
+    retriever: VetCorpusRetriever, top_k: int = max(DEFAULT_KS)
+) -> dict[str, float]:
     golden = load_golden()
     per_k: dict[int, list[float]] = {k: [] for k in DEFAULT_KS}
     for item in golden:
@@ -64,10 +67,11 @@ async def _score_context_metrics(
 ) -> dict[str, float | None]:
     context_recall = ContextRecall(llm=judge)
     entity_recall = ContextEntityRecall(llm=judge)
+    context_depth = get_rag_settings().default_top_k
     recall_scores: list[float] = []
     entity_scores: list[float] = []
     for row in rows:
-        retrieved = retriever.retrieve(row["user_input"], top_k=8)
+        retrieved = retriever.retrieve(row["user_input"], top_k=context_depth)
         contexts = [chunk.text for chunk in retrieved]
         reference = row["reference"]
         recall = await context_recall.ascore(
