@@ -1,4 +1,16 @@
 {
-  "_comment": "Dense-baseline retrieval metrics, written by `make rag-eval --write-baseline`. Update via reviewed diff only; phases 009b/009c compare against this.",
-  "retrieval": {}
+  "retrieval": {
+    "mode": "dense",
+    "golden": {
+      "recall@5": 0.7368,
+      "recall@8": 0.8421,
+      "recall@10": 0.8947,
+      "recall@20": 0.9474
+    },
+    "context": {
+      "context_recall": 0.7361,
+      "context_entity_recall": 0.4265,
+      "cases": 12
+    }
+  }
 }

@@ -45,6 +45,9 @@ evals = [
     "instructor>=1.15,<2",
     "datasets>=3",
     "openevals>=0.2,<0.3",
+    # Required by the RAGAS fork's testset relationship builders (string-distance
+    # overlap), but not declared as a dependency by the fork itself.
+    "rapidfuzz>=3,<4",
 ]
 
 [tool.uv]

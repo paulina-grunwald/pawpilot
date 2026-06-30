@@ -40,9 +40,35 @@ def build_generator_llm(settings: RagSettings | None = None) -> Any:
     return generator
 
 
+def _guard_empty_embedding_inputs(embeddings: Any) -> Any:
+    """Coerce blank embedding inputs to a single space.
+
+    The RAGAS prechunked transform pipeline can emit empty/whitespace-only
+    nodes (e.g. zero-length headline splits). The Gateway rejects empty
+    embedding inputs with a 400 (``input cannot be an empty string``), so we
+    substitute a single space, which embeds cleanly and never matches real
+    retrieval content.
+    """
+    embed_text = embeddings.embed_text
+    embed_texts = embeddings.embed_texts
+
+    def safe_embed_text(text: str, **kwargs: Any) -> Any:
+        return embed_text(text if text.strip() else " ", **kwargs)
+
+    def safe_embed_texts(texts: list[str], **kwargs: Any) -> Any:
+        return embed_texts([text if text.strip() else " " for text in texts], **kwargs)
+
+    embeddings.embed_text = safe_embed_text
+    embeddings.embed_texts = safe_embed_texts
+    return embeddings
+
+
 def build_generator_embeddings(settings: RagSettings | None = None) -> Any:
     resolved = settings or get_rag_settings()
-    return embedding_factory("openai", model=resolved.embed_model, client=_gateway_client(resolved))
+    embeddings = embedding_factory(
+        "openai", model=resolved.embed_model, client=_gateway_client(resolved)
+    )
+    return _guard_empty_embedding_inputs(embeddings)
 
 
 def build_sync_judge_llm(settings: RagSettings | None = None) -> Any:
