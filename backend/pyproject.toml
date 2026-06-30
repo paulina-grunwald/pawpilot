@@ -14,6 +14,11 @@ dependencies = [
     "pydantic[email]>=2.9",
     "pyjwt>=2.10",
     "python-dateutil>=2.9.0.post0",
+    # RAG (spec 009) — request-path runtime deps only.
+    "openai>=2.0,<3",
+    "qdrant-client>=1.12,<2",
+    "langchain-text-splitters>=1.1,<2",
+    "langsmith>=0.8,<0.9",
 ]
 
 [dependency-groups]
@@ -27,6 +32,25 @@ dev = [
     "psycopg2-binary>=2.9",
     "types-python-dateutil>=2.9.0.20260518",
 ]
+# Corpus ingest (offline script only — never in the serving image).
+rag = [
+    "pypdf>=5",
+]
+# RAGAS eval harness (offline only). Pinned to the AIE10 course fork: the
+# `ragas.metrics.collections` + `generate_with_chunks` API only exists on this
+# commit, and the fork imports a legacy module removed in langchain-community 0.4.
+evals = [
+    "ragas @ git+https://github.com/vibrantlabsai/ragas.git@298b68274234c060deacab3cf5fb52aa3a20e885",
+    "langchain-community==0.3.31",
+    "instructor>=1.15,<2",
+    "datasets>=3",
+    "openevals>=0.2,<0.3",
+]
+
+[tool.uv]
+# `rag` is synced by default so `make check` can import the ingest helpers;
+# `evals` (the heavy pinned fork) stays opt-in via `uv sync --group evals`.
+default-groups = ["dev", "rag"]
 
 [build-system]
 requires = ["hatchling"]
