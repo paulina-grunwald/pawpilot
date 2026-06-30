@@ -1,0 +1,96 @@
+[
+  {
+    "size_category": "toy",
+    "resting_heart_rate_range_bpm": [90, 140],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [1.0, 3.0],
+    "senior_age_years": 9,
+    "source_url": "https://www.merckvetmanual.com/dog-owners/routine-care-and-breeding-of-dogs"
+  },
+  {
+    "size_category": "small",
+    "resting_heart_rate_range_bpm": [90, 140],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [2.0, 5.0],
+    "senior_age_years": 9,
+    "source_url": "https://www.merckvetmanual.com/dog-owners/routine-care-and-breeding-of-dogs"
+  },
+  {
+    "size_category": "medium",
+    "resting_heart_rate_range_bpm": [70, 120],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [3.0, 8.0],
+    "senior_age_years": 8,
+    "source_url": "https://www.merckvetmanual.com/dog-owners/routine-care-and-breeding-of-dogs"
+  },
+  {
+    "size_category": "large",
+    "resting_heart_rate_range_bpm": [60, 110],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [4.0, 10.0],
+    "senior_age_years": 7,
+    "source_url": "https://www.merckvetmanual.com/dog-owners/routine-care-and-breeding-of-dogs"
+  },
+  {
+    "size_category": "giant",
+    "resting_heart_rate_range_bpm": [60, 100],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [4.0, 9.0],
+    "senior_age_years": 6,
+    "source_url": "https://www.merckvetmanual.com/dog-owners/routine-care-and-breeding-of-dogs"
+  },
+  {
+    "breed": "Australian Shepherd",
+    "size_category": "medium",
+    "resting_heart_rate_range_bpm": [70, 120],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [5.0, 12.0],
+    "senior_age_years": 8,
+    "source_url": "https://www.akc.org/dog-breeds/australian-shepherd/"
+  },
+  {
+    "breed": "Border Collie",
+    "size_category": "medium",
+    "resting_heart_rate_range_bpm": [70, 120],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [6.0, 14.0],
+    "senior_age_years": 8,
+    "source_url": "https://www.akc.org/dog-breeds/border-collie/"
+  },
+  {
+    "breed": "Labrador Retriever",
+    "size_category": "large",
+    "resting_heart_rate_range_bpm": [60, 110],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [5.0, 10.0],
+    "senior_age_years": 7,
+    "source_url": "https://www.akc.org/dog-breeds/labrador-retriever/"
+  },
+  {
+    "breed": "Chihuahua",
+    "size_category": "toy",
+    "resting_heart_rate_range_bpm": [100, 140],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [1.0, 3.0],
+    "senior_age_years": 10,
+    "source_url": "https://www.akc.org/dog-breeds/chihuahua/"
+  },
+  {
+    "breed": "German Shepherd Dog",
+    "size_category": "large",
+    "resting_heart_rate_range_bpm": [60, 110],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [5.0, 11.0],
+    "senior_age_years": 7,
+    "source_url": "https://www.akc.org/dog-breeds/german-shepherd-dog/"
+  },
+  {
+    "breed": "Great Dane",
+    "size_category": "giant",
+    "resting_heart_rate_range_bpm": [60, 100],
+    "sleeping_respiratory_rate_max_bpm": 30,
+    "daily_walk_target_km_range": [4.0, 8.0],
+    "senior_age_years": 6,
+    "source_url": "https://www.akc.org/dog-breeds/great-dane/"
+  }
+]
