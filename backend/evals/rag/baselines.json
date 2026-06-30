@@ -1,0 +1,4 @@
+{
+  "_comment": "Dense-baseline retrieval metrics, written by `make rag-eval --write-baseline`. Update via reviewed diff only; phases 009b/009c compare against this.",
+  "retrieval": {}
+}
