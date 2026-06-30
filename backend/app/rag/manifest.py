@@ -64,14 +64,16 @@ def resolve_source_tier(source: CorpusSource) -> SourceTier:
 
     if source_id.startswith("breed-") or lane == "breed":
         return "breed"
-    if "consensus" in title or any(marker in organization for marker in _CONSENSUS_ORG_MARKERS):
-        return "consensus"
+    # Guideline before consensus: guideline-body docs (WSAVA/AAHA/COAST) whose title
+    # says "consensus" must tier as guideline, not be excluded by a guideline filter.
     if (
         any(marker in organization for marker in _GUIDELINE_ORG_MARKERS)
         or "guideline" in title
         or "toolkit" in title
     ):
         return "guideline"
+    if "consensus" in title or any(marker in organization for marker in _CONSENSUS_ORG_MARKERS):
+        return "consensus"
     if lane in _FOOD_LANES:
         return "food"
     return "primary_research"

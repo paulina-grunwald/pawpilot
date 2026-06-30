@@ -96,10 +96,10 @@ def ingest_source(
     """Ingest one source; returns the number of chunks upserted (0 if no text)."""
     pages = read_pdf_pages(raw_dir / source.file)
     records = chunk_pages(pages, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    _delete_source(client, collection, source.source_id)
     if not records:
         return 0
     vectors = embedder.embed_documents([record.text for record in records])
     points = build_points(source, resolve_source_tier(source), records, vectors)
+    _delete_source(client, collection, source.source_id)
     client.upsert(collection_name=collection, points=points)
     return len(points)

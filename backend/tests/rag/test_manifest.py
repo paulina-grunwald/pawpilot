@@ -61,6 +61,16 @@ def test_consensus_tier_from_title() -> None:
     assert resolve_source_tier(source) == "consensus"
 
 
+def test_guideline_org_with_consensus_title_resolves_to_guideline() -> None:
+    source = make_source(title="WSAVA Consensus on Pain Management", organization="WSAVA")
+    assert resolve_source_tier(source) == "guideline"
+
+
+def test_consensus_title_from_non_guideline_org_stays_consensus() -> None:
+    source = make_source(title="Consensus Statement on Feline Diabetes", organization="Wiley")
+    assert resolve_source_tier(source) == "consensus"
+
+
 def test_guideline_tier_from_org_marker() -> None:
     assert resolve_source_tier(make_source(organization="WSAVA")) == "guideline"
     assert resolve_source_tier(make_source(organization="AAHA")) == "guideline"

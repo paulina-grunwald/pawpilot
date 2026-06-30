@@ -105,3 +105,49 @@ def test_ingest_source_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
     assert first == second > 0
     # Re-ingesting the same source replaces its chunks in place — no duplicates.
     assert count_after_first == count_after_second
+
+
+def test_ingest_source_keeps_existing_chunks_when_embedding_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pages = [
+        PageText(page_number=1, text="core vaccines protect dogs from disease"),
+        PageText(page_number=2, text="boosters are given annually for adult dogs"),
+    ]
+    monkeypatch.setattr("app.rag.ingest.read_pdf_pages", lambda path: pages)
+    client = QdrantClient(":memory:")
+    ensure_collection(client, _COLLECTION, _DIM, recreate=True)
+
+    ingest_source(client, FakeEmbedder(_DIM), _COLLECTION, _source(), Path("/tmp"))
+    count_before = client.count(_COLLECTION).count
+    assert count_before > 0
+
+    class _FailingEmbedder(FakeEmbedder):
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            raise RuntimeError("transient embedding failure")
+
+    with pytest.raises(RuntimeError, match="transient embedding failure"):
+        ingest_source(client, _FailingEmbedder(_DIM), _COLLECTION, _source(), Path("/tmp"))
+
+    # Delete happens only after a successful embed, so the old chunks survive.
+    assert client.count(_COLLECTION).count == count_before
+
+
+def test_ingest_source_with_blank_pages_returns_zero_without_deleting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    full_pages = [PageText(page_number=1, text="core vaccines protect dogs from disease")]
+    monkeypatch.setattr("app.rag.ingest.read_pdf_pages", lambda path: full_pages)
+    client = QdrantClient(":memory:")
+    ensure_collection(client, _COLLECTION, _DIM, recreate=True)
+    embedder = FakeEmbedder(_DIM)
+
+    ingest_source(client, embedder, _COLLECTION, _source(), Path("/tmp"))
+    count_before = client.count(_COLLECTION).count
+    assert count_before > 0
+
+    blank_pages = [PageText(page_number=1, text="   "), PageText(page_number=2, text="")]
+    monkeypatch.setattr("app.rag.ingest.read_pdf_pages", lambda path: blank_pages)
+
+    assert ingest_source(client, embedder, _COLLECTION, _source(), Path("/tmp")) == 0
+    assert client.count(_COLLECTION).count == count_before

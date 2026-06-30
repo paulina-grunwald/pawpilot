@@ -49,7 +49,8 @@ class GatewayEmbedder:
         if not texts:
             return []
         response = self._client.embeddings.create(model=self._model, input=texts)
-        return [item.embedding for item in response.data]
+        # The API does not guarantee response order; each item carries its input index.
+        return [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
 
     def embed_query(self, text: str) -> list[float]:
         return self.embed_documents([text])[0]
