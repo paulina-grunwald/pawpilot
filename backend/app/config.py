@@ -4,7 +4,22 @@ from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_async_database_url(database_url: str) -> str:
+    """Coerce a plain Postgres URL to the asyncpg driver used by the app.
+
+    Managed providers (Railway, Heroku, …) inject ``DATABASE_URL`` with a
+    ``postgres://`` or ``postgresql://`` scheme, but our async engine and Alembic
+    both require the ``postgresql+asyncpg://`` driver. A URL that already names an
+    explicit driver (e.g. ``postgresql+asyncpg://``) is left untouched.
+    """
+    for bare_scheme in ("postgresql://", "postgres://"):
+        if database_url.startswith(bare_scheme):
+            return "postgresql+asyncpg://" + database_url[len(bare_scheme) :]
+    return database_url
 
 
 class Settings(BaseSettings):
@@ -31,6 +46,11 @@ class Settings(BaseSettings):
     jwt_lifetime_seconds: int = 60 * 60 * 24
 
     environment: str = "development"
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _coerce_async_driver(cls, database_url: str) -> str:
+        return normalize_async_database_url(database_url)
 
 
 settings = Settings()  # type: ignore[call-arg]
