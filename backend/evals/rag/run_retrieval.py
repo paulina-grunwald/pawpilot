@@ -18,8 +18,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from ragas.metrics.collections import ContextEntityRecall, ContextRecall
-
 from app.rag.config import get_rag_settings
 from app.rag.observability import configure_langsmith
 from app.rag.retriever import VetCorpusRetriever, build_retriever
@@ -65,6 +63,10 @@ def _load_synthetic() -> list[dict[str, Any]]:
 async def _score_context_metrics(
     retriever: VetCorpusRetriever, rows: list[dict[str, Any]], judge: Any
 ) -> dict[str, float | None]:
+    # Imported lazily so the module (and write_baseline) stays usable without the
+    # optional evals dependency group installed.
+    from ragas.metrics.collections import ContextEntityRecall, ContextRecall
+
     context_recall = ContextRecall(llm=judge)
     entity_recall = ContextEntityRecall(llm=judge)
     context_depth = get_rag_settings().default_top_k
