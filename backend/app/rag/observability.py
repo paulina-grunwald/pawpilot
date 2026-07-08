@@ -1,5 +1,4 @@
-"""LangSmith observability wiring.
-"""
+"""LangSmith observability wiring."""
 
 from __future__ import annotations
 
@@ -15,8 +14,7 @@ def tracing_enabled() -> bool:
 
 
 def configure_langsmith() -> bool:
-    """Set EU endpoint + project defaults (idempotent); return whether tracing is on.
-
+    """Set EU endpoint
     Call once at app startup, before any LangSmith client is built.
     """
     os.environ.setdefault("LANGSMITH_ENDPOINT", DEFAULT_LANGSMITH_ENDPOINT)

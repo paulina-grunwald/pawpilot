@@ -1,8 +1,8 @@
-"""RAGAS dense-baseline retrieval eval (spec 009a).
+"""RAGAS dense-baseline retrieval eval
 
-Computes golden-set recall@k (deterministic) + RAGAS ``ContextRecall`` /
-``ContextEntityRecall`` over the synthetic test set, prints a report, and
-optionally writes ``baselines.json``. Phases 009b/009c re-run this and compare.
+Computes golden-set recall@k (deterministic) + RAGAS ContextRecall /
+ContextEntityRecall over the synthetic test set, prints a report, and
+optionally writes baselines.json. Phases 009b/009c re-run this and compare.
 
 Run:  make rag-eval                    (installs the evals group, then runs this)
       make rag-eval ARGS=--write-baseline
@@ -87,6 +87,21 @@ async def _score_context_metrics(
     }
 
 
+def write_baseline(report: dict[str, Any], path: Path = BASELINES_PATH) -> None:
+    """Persist the report as the retrieval baseline, refusing to clobber real metrics.
+
+    A report with empty context metrics (the synthetic test set was absent) would
+    overwrite the committed RAGAS numbers 009b/009c compare against — so refuse.
+    """
+    if not report["context"]:
+        raise SystemExit(
+            "Refusing to write baselines.json without synthetic context metrics — the "
+            "synthetic test set is missing. Run `uv run python -m evals.rag.synth` first."
+        )
+    path.write_text(json.dumps({"retrieval": report}, indent=2) + "\n", encoding="utf-8")
+    print(f"\nWrote dense baseline to {path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="RAGAS dense-baseline retrieval eval.")
     parser.add_argument("--write-baseline", action="store_true", help="persist to baselines.json")
@@ -116,10 +131,7 @@ def main() -> None:
     report = {"mode": "dense", "golden": golden, "context": context}
     print("\n" + json.dumps(report, indent=2))
     if args.write_baseline:
-        BASELINES_PATH.write_text(
-            json.dumps({"retrieval": report}, indent=2) + "\n", encoding="utf-8"
-        )
-        print(f"\nWrote dense baseline to {BASELINES_PATH}")
+        write_baseline(report)
 
 
 if __name__ == "__main__":

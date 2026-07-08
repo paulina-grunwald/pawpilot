@@ -1,8 +1,8 @@
-"""Dense retrieval over the vet corpus (spec 009a).
+"""Dense retrieval over the vet corpus 
 
-`VetCorpusRetriever.retrieve` embeds the query, runs a cosine search over the
-``dense`` vector with optional ``source_id`` / ``source_tier`` filters, and maps
-each hit's payload back into a `RetrievedChunk`. The ``mode`` argument exists now
+VetCorpusRetriever.retrieve embeds the query, runs a cosine search over the
+dense vector with optional source_id / source_tier filters, and maps
+each hit's payload back into a RetrievedChunk. The mode argument exists now
 so 009b (hybrid) and 009c (rerank) slot in without changing callers.
 """
 
@@ -73,6 +73,8 @@ class VetCorpusRetriever:
             raise NotImplementedError(
                 f"retrieval mode {mode!r} is not available until a later phase (009b/009c)"
             )
+        if (sources is not None and not sources) or (source_tiers is not None and not source_tiers):
+            return []
         limit = top_k if top_k is not None else self._default_top_k
         query_vector = self._embedder.embed_query(query)
         response = self._client.query_points(

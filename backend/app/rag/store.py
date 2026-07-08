@@ -1,8 +1,5 @@
 """Qdrant collection schema + point-id helpers shared by ingest and retrieval.
 
-The ``vet_corpus`` collection uses a named ``dense`` vector (cosine). Chunk point
-ids are a UUIDv5 of ``(source_id, chunk_index, sha256(text)[:16])`` so re-running
-ingest upserts in place (idempotent), and a changed chunk replaces its own point.
 """
 
 from __future__ import annotations
@@ -16,6 +13,14 @@ DENSE_VECTOR = "dense"
 _INDEXED_PAYLOAD_FIELDS = ("source_id", "source_tier")
 
 
+def _dense_vector_size(client: QdrantClient, collection: str) -> int:
+    vectors = client.get_collection(collection).config.params.vectors
+    params = vectors[DENSE_VECTOR] if isinstance(vectors, dict) else vectors
+    if params is None:
+        raise ValueError(f"collection {collection!r} has no dense vector configuration")
+    return params.size
+
+
 def ensure_collection(
     client: QdrantClient,
     collection: str,
@@ -23,10 +28,22 @@ def ensure_collection(
     *,
     recreate: bool = False,
 ) -> None:
-    """Create the collection (+ payload indexes) if absent; optionally rebuild."""
+    """Create the collection (+ payload indexes) if absent; optionally rebuild.
+
+    When the collection already exists, its dense-vector size must match
+    ``vector_size``; a mismatch (embedding model / dimensions changed) raises so
+    the caller rebuilds with ``recreate=True`` instead of silently corrupting the
+    index one failed upsert at a time.
+    """
     if recreate and client.collection_exists(collection):
         client.delete_collection(collection)
     if client.collection_exists(collection):
+        existing_size = _dense_vector_size(client, collection)
+        if existing_size != vector_size:
+            raise ValueError(
+                f"collection {collection!r} has dense vector size {existing_size}, but the "
+                f"configuration expects {vector_size}; re-run ingest with --recreate to rebuild."
+            )
         return
     client.create_collection(
         collection_name=collection,

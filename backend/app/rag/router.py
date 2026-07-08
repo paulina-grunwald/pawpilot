@@ -1,8 +1,4 @@
 """Dev/QA retrieval endpoint: ``POST /rag/search`` (auth-gated, read-only).
-
-Spec 010's agent calls `VetCorpusRetriever` directly in-process; this HTTP
-surface exists for manual QA and stays in production builds (read-only + behind
-auth). The retriever is a DI seam (`get_retriever`) so tests inject a fake.
 """
 
 from __future__ import annotations
@@ -25,10 +21,18 @@ def get_retriever() -> VetCorpusRetriever:
     """Lazily build a process-wide retriever (overridden in tests)."""
     global _retriever
     if _retriever is None:
-        _retriever = build_retriever()
+        try:
+            _retriever = build_retriever()
+        except ValidationError as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="RAG_UNAVAILABLE",
+            ) from error
     return _retriever
 
 
+# TODO(009b): remove this dev/QA endpoint once the RAG agent consumes the
+# retriever directly. get_retriever()/build_retriever() stay; only this route goes.
 @rag_router.post("/search", response_model=RagSearchResponse)
 async def search_corpus(
     payload: RagSearchRequest,

@@ -2,12 +2,14 @@
 
 Importable so the pure parts (payload + point construction) are unit-tested; the
 CLI lives in ``scripts/corpus_ingest.py``. Idempotency comes from the UUIDv5
-point ids (`store.chunk_point_id`) plus a per-source delete-then-upsert, so a
-changed document replaces only its own chunks.
+point ids (`store.chunk_point_id`) plus a per-source upsert-then-delete-stale, so
+a changed document replaces only its own chunks without a window where the source
+is missing from the collection.
 """
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -18,6 +20,8 @@ from app.rag.embeddings import Embedder
 from app.rag.manifest import CorpusSource, resolve_source_tier
 from app.rag.schemas import SourceTier
 from app.rag.store import DENSE_VECTOR, chunk_point_id
+
+_logger = logging.getLogger(__name__)
 
 
 def read_pdf_pages(path: Path) -> list[PageText]:
@@ -34,7 +38,6 @@ def _citation_payload(source: CorpusSource, tier: SourceTier) -> dict[str, objec
         "source_id": source.source_id,
         "title": source.title,
         "organization": source.organization,
-        # RetrievedChunk.year is int | str — map a missing year to a label.
         "year": source.year if source.year is not None else "n.d.",
         "url": source.url,
         "source_tier": tier,
@@ -70,14 +73,18 @@ def build_points(
     return points
 
 
-def _delete_source(client: QdrantClient, collection: str, source_id: str) -> None:
+def _delete_stale_chunks(
+    client: QdrantClient, collection: str, source_id: str, keep_ids: list[str]
+) -> None:
+    """Delete the source's points except the ones we just upserted (the stale set)."""
     client.delete(
         collection_name=collection,
         points_selector=models.FilterSelector(
             filter=models.Filter(
                 must=[
                     models.FieldCondition(key="source_id", match=models.MatchValue(value=source_id))
-                ]
+                ],
+                must_not=[models.HasIdCondition(has_id=list(keep_ids))],
             )
         ),
     )
@@ -97,9 +104,14 @@ def ingest_source(
     pages = read_pdf_pages(raw_dir / source.file)
     records = chunk_pages(pages, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     if not records:
+        _logger.warning(
+            "source %r produced no chunks; leaving any existing chunks in place",
+            source.source_id,
+        )
         return 0
     vectors = embedder.embed_documents([record.text for record in records])
     points = build_points(source, resolve_source_tier(source), records, vectors)
-    _delete_source(client, collection, source.source_id)
+
     client.upsert(collection_name=collection, points=points)
+    _delete_stale_chunks(client, collection, source.source_id, [str(point.id) for point in points])
     return len(points)
