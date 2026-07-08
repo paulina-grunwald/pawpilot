@@ -22,7 +22,6 @@ from app.rag.config import get_rag_settings
 from app.rag.observability import configure_langsmith
 from app.rag.retriever import VetCorpusRetriever, build_retriever
 from evals.rag.golden import DEFAULT_KS, load_golden, recall_at_k
-from evals.rag.judge import build_sync_judge_llm
 
 SYNTHETIC_PATH = Path(__file__).resolve().parent / "datasets" / "synthetic_testset.jsonl"
 BASELINES_PATH = Path(__file__).resolve().parent / "baselines.json"
@@ -120,6 +119,10 @@ def main() -> None:
     synthetic = _load_synthetic()
     context: dict[str, float | None] = {}
     if synthetic:
+        # Lazy import: the judge pulls the optional evals dependency group (ragas /
+        # instructor), which need not be installed to import this module.
+        from evals.rag.judge import build_sync_judge_llm
+
         judge = build_sync_judge_llm()
         context = run_ragas_sync(
             lambda: asyncio.run(_score_context_metrics(retriever, synthetic, judge))
