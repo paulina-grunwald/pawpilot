@@ -39,6 +39,9 @@ class RagSettings(BaseSettings):
         validation_alias="RAG_EMBED_MODEL",
     )
     embed_dimensions: int = Field(default=1536, validation_alias="RAG_EMBED_DIMENSIONS")
+    embed_batch_size: int = Field(
+        default=128, ge=1, le=2048, validation_alias="RAG_EMBED_BATCH_SIZE"
+    )
     gen_model: str = Field(
         default="openai/gpt-5.4-mini",
         validation_alias="RAG_GEN_MODEL",
@@ -54,10 +57,7 @@ class RagSettings(BaseSettings):
     @model_validator(mode="after")
     def _validate(self) -> RagSettings:
         if not self.gateway_api_key:
-            raise ValueError(
-                "a Vercel AI Gateway key is required — set VERCEL_AI_GATEWAY "
-                "(or AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN)."
-            )
+            raise ValueError("A Vercel AI Gateway key is required")
 
         for role, model_id in (("embed_model", self.embed_model), ("gen_model", self.gen_model)):
             if "/" not in model_id:
