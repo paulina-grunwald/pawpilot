@@ -18,6 +18,8 @@ from openai import OpenAI
 
 from app.rag.config import RagSettings
 
+DEFAULT_EMBED_BATCH_SIZE = 128
+
 
 class Embedder(Protocol):
     """Structural interface for the embedding backends used by the retriever."""
@@ -33,13 +35,16 @@ class Embedder(Protocol):
 class GatewayEmbedder:
     """Embeds via OpenAI models through the Vercel AI Gateway."""
 
-    def __init__(self, settings: RagSettings) -> None:
+    def __init__(
+        self, settings: RagSettings, *, batch_size: int = DEFAULT_EMBED_BATCH_SIZE
+    ) -> None:
         self._client = OpenAI(
             api_key=settings.gateway_api_key,
             base_url=settings.gateway_base_url,
         )
         self._model = settings.embed_model
         self._dimensions = settings.embed_dimensions
+        self._batch_size = batch_size
 
     @property
     def dimensions(self) -> int:
@@ -48,9 +53,15 @@ class GatewayEmbedder:
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        response = self._client.embeddings.create(model=self._model, input=texts)
-        # The API does not guarantee response order; each item carries its input index.
-        return [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
+        vectors: list[list[float]] = []
+        for start in range(0, len(texts), self._batch_size):
+            batch = texts[start : start + self._batch_size]
+            response = self._client.embeddings.create(model=self._model, input=batch)
+            # The API does not guarantee response order; each item carries its input index.
+            vectors.extend(
+                item.embedding for item in sorted(response.data, key=lambda item: item.index)
+            )
+        return vectors
 
     def embed_query(self, text: str) -> list[float]:
         return self.embed_documents([text])[0]

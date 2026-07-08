@@ -63,20 +63,14 @@ def chunk_pages(
         if not page.text.strip():
             continue
         section = _first_heading(page.text)
-        cursor = 0
-        for piece in splitter.split_text(page.text):
-            piece_text = str(piece)
-            start_index = page.text.find(piece_text, cursor)
-            if start_index < 0:
-                start_index = page.text.find(piece_text)
-            cursor = start_index + 1 if start_index >= 0 else cursor
+        for document in splitter.create_documents([page.text]):
             records.append(
                 ChunkRecord(
-                    text=piece_text,
+                    text=document.page_content,
                     page_start=page.page_number,
                     page_end=page.page_number,
                     section=section,
-                    start_index=max(start_index, 0),
+                    start_index=document.metadata["start_index"],
                     chunk_index=chunk_index,
                 )
             )
