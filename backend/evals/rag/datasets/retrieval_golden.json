@@ -1,0 +1,80 @@
+[
+  {
+    "query": "When does an adult dog need a leptospirosis booster?",
+    "expected_source_ids": ["aaha-vaccination-2022", "infectious-acvim-leptospirosis-consensus"]
+  },
+  {
+    "query": "What is the recommended core vaccination schedule for puppies?",
+    "expected_source_ids": ["aaha-vaccination-2022", "puppy-distemper-parvovirus-vaccination-immune-response"]
+  },
+  {
+    "query": "How can I take care of my dog's teeth and prevent dental disease at home?",
+    "expected_source_ids": ["frontiers-fvets-2020-00298", "bmc-s12917-023-03668-3"]
+  },
+  {
+    "query": "What are the options for managing chronic pain in dogs?",
+    "expected_source_ids": ["aaha-pain-management"]
+  },
+  {
+    "query": "How do I tell if my dog is in pain and what signs should I look for?",
+    "expected_source_ids": ["aaha-pain-management"]
+  },
+  {
+    "query": "What pain relief is appropriate for a dog after surgery?",
+    "expected_source_ids": ["aaha-pain-management", "anesthesia-perioperative-pain-mastectomy-review"]
+  },
+  {
+    "query": "How do I help my overweight dog lose weight safely?",
+    "expected_source_ids": ["aaha-weight-management", "aaha-2021-nutrition-weight-management"]
+  },
+  {
+    "query": "What should I consider when choosing nutrition for my dog?",
+    "expected_source_ids": ["aaha-2021-nutrition-weight-management"]
+  },
+  {
+    "query": "Is the MDR1 gene mutation common in Australian Shepherds?",
+    "expected_source_ids": ["breed-aussie-mdr1-worldwide-frequency", "breed-aussie-abcb1-prevalence-mdr1"]
+  },
+  {
+    "query": "Which medications are dangerous for dogs with the MDR1 / ABCB1 mutation?",
+    "expected_source_ids": ["breed-aussie-abcb1-prevalence-mdr1", "breed-aussie-mdr1-worldwide-frequency"]
+  },
+  {
+    "query": "My dog has been vomiting and has diarrhea, what could be causing it?",
+    "expected_source_ids": ["fvets-2019-00498", "mmvd-gi-translocation-plos-2025"],
+    "note": "acute-symptom gap probe"
+  },
+  {
+    "query": "How is epilepsy diagnosed in dogs?",
+    "expected_source_ids": ["neuro-ivetf-diagnostic-approach-epilepsy-dogs", "breed-aussie-epilepsy-ivetf-review"]
+  },
+  {
+    "query": "What special care does a senior or geriatric dog need?",
+    "expected_source_ids": ["aaha-senior-care-2023", "senior-aaha-iaahpc-end-of-life-care-2016"]
+  },
+  {
+    "query": "How do I perform CPR on a dog that has collapsed?",
+    "expected_source_ids": ["emergency-recover-2024-basic-life-support", "emergency-recover-2024-cpr-treatment-recommendations"]
+  },
+  {
+    "query": "What is the recommendation for heartworm prevention in dogs?",
+    "expected_source_ids": ["ahs-canine-heartworm-2024"]
+  },
+  {
+    "query": "How do I treat separation anxiety in my dog?",
+    "expected_source_ids": ["fvets-2019-00499-separation"]
+  },
+  {
+    "query": "How is canine atopic dermatitis diagnosed and treated?",
+    "expected_source_ids": ["derm-ad-diagnosis-guidelines", "derm-icada-treatment-2015"]
+  },
+  {
+    "query": "How is hip dysplasia managed in dogs?",
+    "expected_source_ids": ["breed-aussie-hip-elbow-dysplasia-selection", "bmc-s12917-023-03777-z"]
+  },
+  {
+    "query": "My dog seems lethargic and is not eating, should I be worried?",
+    "expected_source_ids": ["fvets-2019-00498", "aaha-senior-care-2023"],
+    "note": "acute-symptom gap probe — broad, expected to stress retrieval"
+  }
+]

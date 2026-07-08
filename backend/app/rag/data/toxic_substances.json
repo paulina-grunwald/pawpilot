@@ -1,0 +1,202 @@
+[
+  {
+    "name": "chocolate",
+    "aliases": ["cocoa", "cacao", "dark chocolate", "baking chocolate", "theobromine"],
+    "category": "food",
+    "severity": "severe",
+    "notes": "Theobromine and caffeine cause vomiting, tremors, tachycardia, and seizures; darker chocolate is more dangerous.",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control/people-foods-avoid-feeding-your-pets"
+  },
+  {
+    "name": "xylitol",
+    "aliases": ["birch sugar", "sugar-free gum", "sugar substitute", "e967"],
+    "category": "food",
+    "severity": "emergency",
+    "notes": "Causes rapid, life-threatening hypoglycemia and acute liver failure even in tiny amounts.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/xylitol/"
+  },
+  {
+    "name": "grapes",
+    "aliases": ["raisins", "sultanas", "currants", "grape"],
+    "category": "food",
+    "severity": "severe",
+    "notes": "Can cause acute kidney failure; toxic dose is unpredictable, so any ingestion is treated as dangerous.",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control/people-foods-avoid-feeding-your-pets"
+  },
+  {
+    "name": "onion",
+    "aliases": ["onions", "onion powder", "shallot", "leek", "chives"],
+    "category": "food",
+    "severity": "moderate",
+    "notes": "Allium species damage red blood cells and cause hemolytic anemia; powdered forms are concentrated.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/onions/"
+  },
+  {
+    "name": "garlic",
+    "aliases": ["garlic powder", "allium"],
+    "category": "food",
+    "severity": "moderate",
+    "notes": "More potent than onion; causes oxidative damage to red blood cells and anemia.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/garlic/"
+  },
+  {
+    "name": "macadamia nuts",
+    "aliases": ["macadamia", "macadamia nut"],
+    "category": "food",
+    "severity": "moderate",
+    "notes": "Cause weakness, vomiting, tremors, and hyperthermia, typically within 12 hours.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/macadamia-nuts/"
+  },
+  {
+    "name": "alcohol",
+    "aliases": ["ethanol", "beer", "wine", "liquor", "raw bread dough"],
+    "category": "food",
+    "severity": "severe",
+    "notes": "Causes CNS depression, hypothermia, low blood sugar, and respiratory failure.",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control"
+  },
+  {
+    "name": "caffeine",
+    "aliases": ["coffee", "espresso", "tea", "energy drink", "coffee grounds"],
+    "category": "food",
+    "severity": "severe",
+    "notes": "A methylxanthine like theobromine; causes hyperactivity, tachycardia, tremors, and seizures.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/caffeine/"
+  },
+  {
+    "name": "ibuprofen",
+    "aliases": ["advil", "motrin", "nurofen", "nsaid"],
+    "category": "medication",
+    "severity": "severe",
+    "notes": "Human NSAID; causes stomach ulcers, GI bleeding, and kidney failure in dogs.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/ibuprofen/"
+  },
+  {
+    "name": "acetaminophen",
+    "aliases": ["paracetamol", "tylenol", "panadol"],
+    "category": "medication",
+    "severity": "severe",
+    "notes": "Causes liver damage and red blood cell injury; dogs lack the enzymes to process it safely.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/acetaminophen/"
+  },
+  {
+    "name": "naproxen",
+    "aliases": ["aleve", "naprosyn"],
+    "category": "medication",
+    "severity": "severe",
+    "notes": "Long-acting human NSAID with a very narrow safety margin; causes GI ulceration and kidney injury.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/naproxen/"
+  },
+  {
+    "name": "pseudoephedrine",
+    "aliases": ["sudafed", "decongestant"],
+    "category": "medication",
+    "severity": "severe",
+    "notes": "Stimulant that causes agitation, dangerously high heart rate and blood pressure, and tremors.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/pseudoephedrine/"
+  },
+  {
+    "name": "lily",
+    "aliases": ["lilies", "easter lily", "tiger lily", "day lily", "lilium"],
+    "category": "plant",
+    "severity": "severe",
+    "notes": "Highly nephrotoxic to cats; in dogs causes GI upset and, with some species, more serious effects.",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants"
+  },
+  {
+    "name": "sago palm",
+    "aliases": ["cycad", "cycas revoluta", "coontie"],
+    "category": "plant",
+    "severity": "emergency",
+    "notes": "All parts are toxic; the seeds especially cause severe liver failure and are often fatal.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/sago-palm/"
+  },
+  {
+    "name": "azalea",
+    "aliases": ["rhododendron"],
+    "category": "plant",
+    "severity": "severe",
+    "notes": "Grayanotoxins cause vomiting, drooling, weakness, abnormal heart rhythm, and collapse.",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants"
+  },
+  {
+    "name": "tulip",
+    "aliases": ["tulips", "tulip bulb"],
+    "category": "plant",
+    "severity": "moderate",
+    "notes": "Bulbs contain the most toxin; cause drooling, vomiting, and diarrhea.",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants"
+  },
+  {
+    "name": "oleander",
+    "aliases": ["nerium oleander"],
+    "category": "plant",
+    "severity": "emergency",
+    "notes": "Contains cardiac glycosides; causes severe arrhythmias, GI signs, and can be fatal.",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control/toxic-and-non-toxic-plants"
+  },
+  {
+    "name": "autumn crocus",
+    "aliases": ["colchicum", "meadow saffron"],
+    "category": "plant",
+    "severity": "emergency",
+    "notes": "Causes severe vomiting, GI bleeding, organ damage, and bone marrow suppression.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/autumn-crocus/"
+  },
+  {
+    "name": "antifreeze",
+    "aliases": ["ethylene glycol", "coolant", "radiator fluid"],
+    "category": "household",
+    "severity": "emergency",
+    "notes": "Sweet-tasting and rapidly fatal; causes acute kidney failure. Treat any suspected ingestion immediately.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/ethylene-glycol/"
+  },
+  {
+    "name": "rodenticide",
+    "aliases": ["rat poison", "mouse poison", "bromethalin", "anticoagulant rodenticide", "warfarin"],
+    "category": "household",
+    "severity": "emergency",
+    "notes": "Depending on type, causes internal bleeding, brain swelling, or kidney failure; bring the packaging to the vet.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/mouse-and-rat-poison/"
+  },
+  {
+    "name": "xylitol toothpaste",
+    "aliases": ["human toothpaste"],
+    "category": "household",
+    "severity": "severe",
+    "notes": "Many human toothpastes contain xylitol; causes hypoglycemia and possible liver injury.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/xylitol/"
+  },
+  {
+    "name": "bleach",
+    "aliases": ["sodium hypochlorite", "household bleach"],
+    "category": "household",
+    "severity": "moderate",
+    "notes": "Causes mouth and GI irritation, drooling, and vomiting; concentrated forms are corrosive.",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control"
+  },
+  {
+    "name": "slug bait",
+    "aliases": ["metaldehyde", "snail bait"],
+    "category": "household",
+    "severity": "emergency",
+    "notes": "Causes severe tremors and seizures ('shake and bake'); rapidly life-threatening.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/metaldehyde/"
+  },
+  {
+    "name": "marijuana",
+    "aliases": ["cannabis", "thc", "edibles", "weed"],
+    "category": "household",
+    "severity": "moderate",
+    "notes": "Causes lethargy, wobbliness, dribbling urine, and low heart rate; edibles may also contain toxic chocolate or xylitol.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/marijuana/"
+  },
+  {
+    "name": "fertilizer",
+    "aliases": ["lawn fertilizer", "plant food"],
+    "category": "household",
+    "severity": "mild",
+    "notes": "Usually causes GI upset; some products with iron, herbicides, or pesticides are more serious.",
+    "source_url": "https://www.petpoisonhelpline.com/poison/fertilizers/"
+  }
+]

@@ -1,4 +1,4 @@
-.PHONY: install dev lint format typecheck test check db-up db-down db-upgrade db-downgrade db-revision
+.PHONY: install dev lint format typecheck test check db-up db-down db-upgrade db-downgrade db-revision corpus-ingest retrieval-report rag-eval
 
 install:
 	uv sync
@@ -36,3 +36,18 @@ db-downgrade:
 
 db-revision:
 	uv run alembic revision --autogenerate -m "$(name)"
+
+# --- RAG (spec 009) ---------------------------------------------------------
+# Ingest the vet corpus into Qdrant. Pass flags via ARGS, e.g.
+#   make corpus-ingest ARGS="--recreate"   /   make corpus-ingest ARGS="--limit 5"
+corpus-ingest:
+	uv run python -m scripts.corpus_ingest $(ARGS)
+
+# Golden-set retrieval report (recall@k). Requires keys + an ingested corpus.
+retrieval-report:
+	uv run python -m scripts.retrieval_report $(ARGS)
+
+# RAGAS dense-baseline eval. Installs the pinned RAGAS fork (evals group) first.
+rag-eval:
+	uv sync --group evals
+	uv run python -m evals.rag.run_retrieval $(ARGS)
