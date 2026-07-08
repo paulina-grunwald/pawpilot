@@ -36,7 +36,7 @@ dev = [
 rag = [
     "pypdf>=5",
 ]
-# RAGAS eval harness (offline only). Pinned to the AIE10 course fork: the
+# RAGAS eval harness (offline only). Pinned to a specific fork commit: the
 # `ragas.metrics.collections` + `generate_with_chunks` API only exists on this
 # commit, and the fork imports a legacy module removed in langchain-community 0.4.
 evals = [

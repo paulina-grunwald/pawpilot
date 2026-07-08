@@ -1,5 +1,4 @@
-"""Generate a RAGAS synthetic retrieval test set from the corpus (AIE10 Module 05).
-
+"""Generate a RAGAS synthetic retrieval test set from the corpus
 Builds prechunked documents from a sample of corpus PDFs, runs the RAGAS
 ``TestsetGenerator`` (single- + multi-hop), and writes a reviewed-pending JSONL
 with ``user_input`` / ``reference`` / ``reference_contexts`` columns.

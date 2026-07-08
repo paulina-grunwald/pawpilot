@@ -1,7 +1,7 @@
 """Embedding via the Vercel AI Gateway (OpenAI-compatible).
 
-Mirrors AIE10 Module 06: a raw ``openai.OpenAI`` client pointed at the Gateway,
-a provider-qualified model id, and the model's native dimensions (no
+A raw ``openai.OpenAI`` client pointed at the Gateway, a provider-qualified
+model id, and the model's native dimensions (no
 ``dimensions=`` argument). `FakeEmbedder` is the deterministic test double —
 identical text always maps to the same unit vector, so a query for a chunk's
 exact text ranks that chunk first.

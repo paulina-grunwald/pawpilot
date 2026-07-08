@@ -30,7 +30,7 @@ def test_reads_gateway_key_from_primary_alias(
     assert settings.default_top_k == 8
 
 
-def test_falls_back_to_course_key_name(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_falls_back_to_ai_gateway_key_name(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _isolated_env(monkeypatch, tmp_path)
     monkeypatch.setenv("AI_GATEWAY_API_KEY", "fallback-key")
     settings = RagSettings()

@@ -1,7 +1,7 @@
 """Markdown/text chunking for ingest.
 
 Pure and dependency-light: takes per-page text and produces `ChunkRecord`s using
-the same `RecursiveCharacterTextSplitter(1000, 200)` settings as AIE10 Module 01.
+the same `RecursiveCharacterTextSplitter(1000, 200)` 
 Splitting is done *per page* so every chunk maps to exactly one page — the
 citation contract's ``page_start``/``page_end`` come for free, and a chunk never
 straddles a page boundary.

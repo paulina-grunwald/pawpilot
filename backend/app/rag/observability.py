@@ -1,9 +1,4 @@
 """LangSmith observability wiring.
-
-Tracing is opt-in via ``LANGSMITH_TRACING=true`` and **off in CI/tests**. The
-non-obvious bit (carried from AIE10 Module 05): this account is on the EU
-instance, so ``LANGSMITH_ENDPOINT`` must default to the EU URL *before* any
-LangSmith client is constructed — the default US endpoint returns 403.
 """
 
 from __future__ import annotations

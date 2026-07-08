@@ -1,4 +1,4 @@
-"""Gateway-backed RAGAS judge + generator (lifted from AIE10 Module 06).
+"""Gateway-backed RAGAS judge + generator
 
 RAGAS is wired via its own ``llm_factory`` / ``embedding_factory`` fed a
 synchronous ``openai.OpenAI`` client pointed at the Vercel AI Gateway. The

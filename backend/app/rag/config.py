@@ -1,13 +1,8 @@
 """RAG settings — Vercel AI Gateway + Qdrant configuration.
 
-Mirrors the AIE10 coursework: a single Gateway key serves embeddings,
-generation, and the eval judge, and every model id must be provider-qualified
-(e.g. ``openai/text-embedding-3-small``). The key is read from
-``VERCEL_AI_GATEWAY`` first, falling back to the course's ``AI_GATEWAY_API_KEY``
-/ ``VERCEL_OIDC_TOKEN`` names.
+A single Gateway key serves embeddings, generation, and the eval judge, and every model id must be provider-qualified
 
-Settings are constructed lazily via :func:`get_rag_settings` so hermetic unit
-tests (which never embed or query) don't require any keys to be present.
+
 """
 
 from __future__ import annotations
@@ -64,8 +59,7 @@ class RagSettings(BaseSettings):
                 "a Vercel AI Gateway key is required — set VERCEL_AI_GATEWAY "
                 "(or AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN)."
             )
-        # The Gateway routes by a provider-qualified id; a bare "gpt-..." 404s.
-        # Fail loudly at config time rather than on the first embed/generate call.
+
         for role, model_id in (("embed_model", self.embed_model), ("gen_model", self.gen_model)):
             if "/" not in model_id:
                 raise ValueError(
