@@ -1,6 +1,9 @@
 """Deterministic, network-free test doubles for the RAG embedding backends.
 
-`FakeEmbedder` implements the `Embedder` Protocol without any network calls, so tests, local dev, and eval runs can exercise the ingest/retrieve pipeline withno API key and no flakiness. Identical text always maps to the same unit vector, so a query for a chunk's exact text ranks that chunk first.
+`FakeEmbedder` implements the `Embedder` Protocol without any network calls, so
+tests, local dev, and eval runs can exercise the ingest/retrieve pipeline with no
+API key and no flakiness. Identical text always maps to the same unit vector, so a
+query for a chunk's exact text ranks that chunk first.
 """
 
 from __future__ import annotations
