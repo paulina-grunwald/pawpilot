@@ -8,7 +8,6 @@ from app.rag.retriever import VetCorpusRetriever
 from app.rag.schemas import RetrievedChunk
 from app.rag.store import DENSE_VECTOR, chunk_point_id, ensure_collection
 
-
 pytestmark = pytest.mark.filterwarnings("ignore:Payload indexes have no effect")
 
 _DIM = 16
