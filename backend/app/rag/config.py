@@ -1,8 +1,4 @@
-"""RAG settings — Vercel AI Gateway + Qdrant configuration.
-
-A single Gateway key serves embeddings, generation, and the eval judge, and every model id must be provider-qualified
-
-
+"""RAG settings — Vercel AI Gateway + Qdrant configuration. A single Gateway key serves embeddings, generation, and the eval judge, and every model id must be provider-qualified
 """
 
 from __future__ import annotations
