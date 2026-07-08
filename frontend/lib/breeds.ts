@@ -7,10 +7,13 @@ export type BreedRead = {
 };
 
 export async function searchBreeds(query: string, limit = 20): Promise<BreedRead[]> {
-  const url = new URL(`${getApiBaseUrl()}/breeds`);
-  if (query) url.searchParams.set("q", query);
-  url.searchParams.set("limit", String(limit));
-  const response = await fetch(url.toString(), { credentials: "include", cache: "no-store" });
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  params.set("limit", String(limit));
+  const response = await fetch(`${getApiBaseUrl()}/breeds?${params.toString()}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
   if (!response.ok) {
     throw new Error(`GET /breeds failed with ${response.status}`);
   }

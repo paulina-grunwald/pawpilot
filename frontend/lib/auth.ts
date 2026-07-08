@@ -30,6 +30,11 @@ export class AuthError extends Error {
 }
 
 export function getApiBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return (
+      process.env.BACKEND_ORIGIN ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
+    );
+  }
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 }
 
@@ -59,11 +64,7 @@ async function parseErrorCode(response: Response): Promise<AuthErrorCode> {
     if (typeof body.detail === "string") {
       return coerceErrorCode(body.detail);
     }
-    if (
-      body.detail &&
-      typeof body.detail === "object" &&
-      "code" in body.detail
-    ) {
+    if (body.detail && typeof body.detail === "object" && "code" in body.detail) {
       return coerceErrorCode((body.detail as { code: unknown }).code);
     }
   } catch {
@@ -72,16 +73,14 @@ async function parseErrorCode(response: Response): Promise<AuthErrorCode> {
   return "UNKNOWN";
 }
 
-async function authRequest<TBody, TResult>(
-  input: {
-    path: string;
-    method?: "GET" | "POST";
-    body?: TBody;
-    form?: URLSearchParams;
-    parse: (response: Response) => Promise<TResult>;
-    fetchImpl?: FetchFn;
-  },
-): Promise<TResult> {
+async function authRequest<TBody, TResult>(input: {
+  path: string;
+  method?: "GET" | "POST";
+  body?: TBody;
+  form?: URLSearchParams;
+  parse: (response: Response) => Promise<TResult>;
+  fetchImpl?: FetchFn;
+}): Promise<TResult> {
   const { path, method = "POST", body, form, parse } = input;
   const fetchImpl = input.fetchImpl ?? fetch;
   let response: Response;
@@ -97,26 +96,16 @@ async function authRequest<TBody, TResult>(
       body: form ? form.toString() : body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (caught) {
-    throw new AuthError(
-      "NETWORK_ERROR",
-      caught instanceof Error ? caught.message : String(caught),
-    );
+    throw new AuthError("NETWORK_ERROR", caught instanceof Error ? caught.message : String(caught));
   }
   if (!response.ok) {
     const code = await parseErrorCode(response);
-    throw new AuthError(
-      code,
-      `Request to ${path} failed with ${response.status}`,
-      response.status,
-    );
+    throw new AuthError(code, `Request to ${path} failed with ${response.status}`, response.status);
   }
   return parse(response);
 }
 
-export async function signup(
-  input: SignupInput,
-  fetchImpl?: FetchFn,
-): Promise<UserRead> {
+export async function signup(input: SignupInput, fetchImpl?: FetchFn): Promise<UserRead> {
   return authRequest<SignupInput, UserRead>({
     path: "/auth/register",
     body: input,
@@ -125,10 +114,7 @@ export async function signup(
   });
 }
 
-export async function login(
-  input: LoginInput,
-  fetchImpl?: FetchFn,
-): Promise<void> {
+export async function login(input: LoginInput, fetchImpl?: FetchFn): Promise<void> {
   const form = new URLSearchParams();
   form.set("username", input.email);
   form.set("password", input.password);
@@ -148,9 +134,7 @@ export async function logout(fetchImpl?: FetchFn): Promise<void> {
   });
 }
 
-export async function getCurrentUser(
-  fetchImpl?: FetchFn,
-): Promise<UserRead | null> {
+export async function getCurrentUser(fetchImpl?: FetchFn): Promise<UserRead | null> {
   const fetchToUse = fetchImpl ?? fetch;
   let response: Response;
   try {
@@ -158,18 +142,11 @@ export async function getCurrentUser(
       credentials: "include",
     });
   } catch (caught) {
-    throw new AuthError(
-      "NETWORK_ERROR",
-      caught instanceof Error ? caught.message : String(caught),
-    );
+    throw new AuthError("NETWORK_ERROR", caught instanceof Error ? caught.message : String(caught));
   }
   if (response.status === 401) return null;
   if (!response.ok) {
-    throw new AuthError(
-      "UNKNOWN",
-      `GET /users/me failed with ${response.status}`,
-      response.status,
-    );
+    throw new AuthError("UNKNOWN", `GET /users/me failed with ${response.status}`, response.status);
   }
   return (await response.json()) as UserRead;
 }

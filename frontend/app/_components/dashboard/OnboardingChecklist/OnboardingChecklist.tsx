@@ -55,8 +55,8 @@ export function OnboardingChecklist({ userEmail }: OnboardingChecklistProps) {
         <p className={styles.eyebrow}>Welcome to PawPilot</p>
         <h1 className={`${styles.headline} display`}>Let&rsquo;s get your dog set up.</h1>
         <p className={styles.lede}>
-          Three quick steps and PawPilot will know your pup well enough to answer questions the
-          way a vet who&rsquo;s seen them would.
+          Three quick steps and PawPilot will know your pup well enough to answer questions the way
+          a vet who&rsquo;s seen them would.
         </p>
       </div>
 
@@ -79,9 +79,7 @@ export function OnboardingChecklist({ userEmail }: OnboardingChecklistProps) {
           const titleClasses = [styles.stepTitle, step.done ? styles.stepTitleDone : ""]
             .filter(Boolean)
             .join(" ");
-          const statusLabel = step.done
-            ? `Step ${step.number}: complete`
-            : `Step ${step.number}`;
+          const statusLabel = step.done ? `Step ${step.number}: complete` : `Step ${step.number}`;
           return (
             <li key={step.number} className={stepClasses}>
               <div className={badgeClasses} role="img" aria-label={statusLabel}>
@@ -101,11 +99,6 @@ export function OnboardingChecklist({ userEmail }: OnboardingChecklistProps) {
           );
         })}
       </ol>
-
-      <p className={styles.footnote}>
-        You can skip Tractive and questions for now — we&rsquo;ll show them here when you&rsquo;re
-        ready.
-      </p>
     </main>
   );
 }

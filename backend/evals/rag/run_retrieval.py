@@ -18,13 +18,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from ragas.metrics.collections import ContextEntityRecall, ContextRecall
-
 from app.rag.config import get_rag_settings
 from app.rag.observability import configure_langsmith
 from app.rag.retriever import VetCorpusRetriever, build_retriever
 from evals.rag.golden import DEFAULT_KS, load_golden, recall_at_k
-from evals.rag.judge import build_sync_judge_llm
 
 SYNTHETIC_PATH = Path(__file__).resolve().parent / "datasets" / "synthetic_testset.jsonl"
 BASELINES_PATH = Path(__file__).resolve().parent / "baselines.json"
@@ -65,6 +62,10 @@ def _load_synthetic() -> list[dict[str, Any]]:
 async def _score_context_metrics(
     retriever: VetCorpusRetriever, rows: list[dict[str, Any]], judge: Any
 ) -> dict[str, float | None]:
+    # Imported lazily so the module (and write_baseline) stays usable without the
+    # optional evals dependency group installed.
+    from ragas.metrics.collections import ContextEntityRecall, ContextRecall
+
     context_recall = ContextRecall(llm=judge)
     entity_recall = ContextEntityRecall(llm=judge)
     context_depth = get_rag_settings().default_top_k
@@ -118,6 +119,8 @@ def main() -> None:
     synthetic = _load_synthetic()
     context: dict[str, float | None] = {}
     if synthetic:
+        from evals.rag.judge import build_sync_judge_llm
+
         judge = build_sync_judge_llm()
         context = run_ragas_sync(
             lambda: asyncio.run(_score_context_metrics(retriever, synthetic, judge))

@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    const backendOrigin = process.env.BACKEND_ORIGIN;
+    if (!backendOrigin) return [];
+    return [{ source: "/api/:path*", destination: `${backendOrigin}/:path*` }];
+  },
 };
 
 export default nextConfig;
