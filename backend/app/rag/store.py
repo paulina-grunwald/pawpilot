@@ -1,6 +1,4 @@
-"""Qdrant collection schema + point-id helpers shared by ingest and retrieval.
-
-"""
+"""Qdrant collection schema + point-id helpers shared by ingest and retrieval."""
 
 from __future__ import annotations
 

@@ -145,7 +145,6 @@ def test_ingest_source_removes_orphaned_chunks(monkeypatch: pytest.MonkeyPatch) 
     ingest_source(client, embedder, _COLLECTION, _source(), Path("/tmp"))
     assert client.count(_COLLECTION).count > 1
 
-
     monkeypatch.setattr(
         "app.rag.ingest.read_pdf_pages",
         lambda path: [PageText(page_number=1, text="short replacement text")],

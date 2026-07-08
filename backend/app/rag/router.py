@@ -1,5 +1,4 @@
-"""Dev/QA retrieval endpoint: ``POST /rag/search`` (auth-gated, read-only).
-"""
+"""Dev/QA retrieval endpoint: ``POST /rag/search`` (auth-gated, read-only)."""
 
 from __future__ import annotations
 
