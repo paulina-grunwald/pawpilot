@@ -9,12 +9,10 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-default-groups
+RUN uv sync --frozen --no-install-project --no-default-groups
 
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-default-groups
+RUN uv sync --frozen --no-default-groups
 
 
 FROM python:3.12-slim AS runtime
