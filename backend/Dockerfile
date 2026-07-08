@@ -17,7 +17,6 @@ RUN uv sync --frozen --no-default-groups
 
 FROM python:3.12-slim AS runtime
 
-# Run as an unprivileged user.
 RUN useradd --create-home --uid 10001 pawpilot
 
 ENV PATH="/app/.venv/bin:$PATH" \

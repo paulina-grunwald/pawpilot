@@ -119,8 +119,6 @@ def main() -> None:
     synthetic = _load_synthetic()
     context: dict[str, float | None] = {}
     if synthetic:
-        # Lazy import: the judge pulls the optional evals dependency group (ragas /
-        # instructor), which need not be installed to import this module.
         from evals.rag.judge import build_sync_judge_llm
 
         judge = build_sync_judge_llm()
