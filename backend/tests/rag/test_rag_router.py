@@ -6,6 +6,7 @@ import pytest
 from httpx import AsyncClient
 from pydantic import ValidationError
 
+import app.rag.router as router_module
 from app.main import app
 from app.rag.router import get_retriever
 from app.rag.schemas import RetrievalMode, RetrievedChunk, SourceTier
@@ -112,6 +113,22 @@ async def test_search_returns_503_when_retriever_fails(
     response = await authenticated_client.post("/rag/search", json={"query": "anything"})
     assert response.status_code == 503
     assert response.json()["detail"] == "RAG_UNAVAILABLE"
+
+
+def test_get_retriever_raises_503_on_config_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(router_module, "_retriever", None)
+
+    def _raise_config_error() -> object:
+        raise _payload_validation_error()
+
+    monkeypatch.setattr(router_module, "build_retriever", _raise_config_error)
+
+    with pytest.raises(HTTPException) as excinfo:
+        router_module.get_retriever()
+    assert excinfo.value.status_code == 503
+    assert excinfo.value.detail == "RAG_UNAVAILABLE"
 
 
 async def test_search_returns_500_on_corrupt_payload(

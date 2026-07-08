@@ -3,12 +3,12 @@ from __future__ import annotations
 import pytest
 from qdrant_client import QdrantClient, models
 
-from app.rag.embeddings import FakeEmbedder
+from app.rag.fakes import FakeEmbedder
 from app.rag.retriever import VetCorpusRetriever
 from app.rag.schemas import RetrievedChunk
 from app.rag.store import DENSE_VECTOR, chunk_point_id, ensure_collection
 
-# Payload indexes are a no-op in local/in-memory Qdrant (they work on the server).
+
 pytestmark = pytest.mark.filterwarnings("ignore:Payload indexes have no effect")
 
 _DIM = 16
@@ -90,6 +90,22 @@ def test_source_tiers_filter_restricts_results() -> None:
     results = retriever.retrieve("study", source_tiers=["breed"])
     assert results
     assert all(chunk.source_tier == "breed" for chunk in results)
+
+
+def test_empty_sources_list_returns_nothing() -> None:
+    retriever = _make_retriever()
+    # An explicit empty allow-list means "no source allowed" — not "all sources".
+    assert retriever.retrieve("anything", sources=[]) == []
+
+
+def test_empty_source_tiers_list_returns_nothing() -> None:
+    retriever = _make_retriever()
+    assert retriever.retrieve("anything", source_tiers=[]) == []
+
+
+def test_none_filters_search_whole_corpus() -> None:
+    retriever = _make_retriever()
+    assert len(retriever.retrieve("anything", sources=None, source_tiers=None)) == 3
 
 
 def test_unsupported_mode_raises() -> None:

@@ -6,7 +6,7 @@ import pytest
 from qdrant_client import QdrantClient
 
 from app.rag.chunking import ChunkRecord, PageText
-from app.rag.embeddings import FakeEmbedder
+from app.rag.fakes import FakeEmbedder
 from app.rag.ingest import build_points, ingest_source
 from app.rag.manifest import CorpusSource
 from app.rag.store import ensure_collection
@@ -129,8 +129,44 @@ def test_ingest_source_keeps_existing_chunks_when_embedding_fails(
     with pytest.raises(RuntimeError, match="transient embedding failure"):
         ingest_source(client, _FailingEmbedder(_DIM), _COLLECTION, _source(), Path("/tmp"))
 
-    # Delete happens only after a successful embed, so the old chunks survive.
+    # Embedding fails before the upsert, so no stale-delete runs — old chunks survive.
     assert client.count(_COLLECTION).count == count_before
+
+
+def test_ingest_source_removes_orphaned_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+    many_pages = [
+        PageText(page_number=1, text="core vaccines protect adult dogs from disease " * 60),
+    ]
+    monkeypatch.setattr("app.rag.ingest.read_pdf_pages", lambda path: many_pages)
+    client = QdrantClient(":memory:")
+    ensure_collection(client, _COLLECTION, _DIM, recreate=True)
+    embedder = FakeEmbedder(_DIM)
+
+    ingest_source(client, embedder, _COLLECTION, _source(), Path("/tmp"))
+    assert client.count(_COLLECTION).count > 1
+
+
+    monkeypatch.setattr(
+        "app.rag.ingest.read_pdf_pages",
+        lambda path: [PageText(page_number=1, text="short replacement text")],
+    )
+    ingest_source(client, embedder, _COLLECTION, _source(), Path("/tmp"))
+    assert client.count(_COLLECTION).count == 1
+
+
+def test_ingest_source_warns_on_zero_chunks(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(
+        "app.rag.ingest.read_pdf_pages",
+        lambda path: [PageText(page_number=1, text="   ")],
+    )
+    client = QdrantClient(":memory:")
+    ensure_collection(client, _COLLECTION, _DIM, recreate=True)
+
+    with caplog.at_level("WARNING"):
+        assert ingest_source(client, FakeEmbedder(_DIM), _COLLECTION, _source(), Path("/tmp")) == 0
+    assert any("no chunks" in record.message for record in caplog.records)
 
 
 def test_ingest_source_with_blank_pages_returns_zero_without_deleting(

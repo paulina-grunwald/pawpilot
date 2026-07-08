@@ -28,6 +28,14 @@ def test_reads_gateway_key_from_primary_alias(
     assert settings.gen_model.startswith("openai/")
     assert settings.collection == "vet_corpus"
     assert settings.default_top_k == 8
+    assert settings.embed_batch_size == 128
+
+
+def test_reads_embed_batch_size_from_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    monkeypatch.setenv("RAG_EMBED_BATCH_SIZE", "64")
+    assert RagSettings().embed_batch_size == 64
 
 
 def test_falls_back_to_ai_gateway_key_name(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -46,7 +54,7 @@ def test_missing_key_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
 def test_rejects_bare_embed_model_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _isolated_env(monkeypatch, tmp_path)
     monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
-    monkeypatch.setenv("RAG_EMBED_MODEL", "text-embedding-3-small")  # no provider prefix
+    monkeypatch.setenv("RAG_EMBED_MODEL", "text-embedding-3-small")
     with pytest.raises(ValidationError):
         RagSettings()
 
@@ -54,6 +62,6 @@ def test_rejects_bare_embed_model_id(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 def test_rejects_bare_gen_model_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _isolated_env(monkeypatch, tmp_path)
     monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
-    monkeypatch.setenv("RAG_GEN_MODEL", "gpt-5.4-mini")  # no provider prefix
+    monkeypatch.setenv("RAG_GEN_MODEL", "gpt-5.4-mini")
     with pytest.raises(ValidationError):
         RagSettings()

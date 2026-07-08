@@ -4,7 +4,8 @@ import math
 from types import SimpleNamespace
 
 from app.rag.config import RagSettings
-from app.rag.embeddings import FakeEmbedder, GatewayEmbedder
+from app.rag.embeddings import GatewayEmbedder
+from app.rag.fakes import FakeEmbedder
 
 
 def test_fake_embedder_is_deterministic() -> None:
@@ -49,3 +50,27 @@ def test_gateway_embedder_reorders_response_by_index() -> None:
     )
 
     assert embedder.embed_documents(["a", "b", "c"]) == [[0.0], [0.1], [0.2]]
+
+
+def test_gateway_embedder_batches_large_inputs() -> None:
+    embedder = GatewayEmbedder(RagSettings(gateway_api_key="test-key"), batch_size=2)
+    batches: list[list[str]] = []
+
+    def _create(model: str, input: list[str]) -> SimpleNamespace:
+        batches.append(list(input))
+        batch_number = len(batches)
+        return SimpleNamespace(
+            data=[
+                SimpleNamespace(index=offset, embedding=[float(batch_number), float(offset)])
+                for offset in range(len(input))
+            ]
+        )
+
+    embedder._client = SimpleNamespace(  # type: ignore[assignment]
+        embeddings=SimpleNamespace(create=_create)
+    )
+
+    vectors = embedder.embed_documents(["a", "b", "c", "d", "e"])
+
+    assert [len(batch) for batch in batches] == [2, 2, 1]
+    assert vectors == [[1.0, 0.0], [1.0, 1.0], [2.0, 0.0], [2.0, 1.0], [3.0, 0.0]]

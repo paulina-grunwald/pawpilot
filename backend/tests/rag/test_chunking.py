@@ -63,6 +63,15 @@ def test_no_heading_yields_empty_section() -> None:
     assert records[0].section == "single line no newline"
 
 
+def test_start_index_locates_each_chunk_in_page() -> None:
+
+    text = " ".join(f"word{index}" for index in range(400))
+    records = chunk_pages([PageText(page_number=1, text=text)], chunk_size=200, chunk_overlap=40)
+    assert len(records) > 1
+    for record in records:
+        assert text[record.start_index : record.start_index + len(record.text)] == record.text
+
+
 def test_single_long_paragraph_without_newlines_splits() -> None:
     text = "a" * 5000
     records = chunk_pages([PageText(page_number=1, text=text)], chunk_size=500, chunk_overlap=50)
