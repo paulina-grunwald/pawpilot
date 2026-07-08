@@ -1,5 +1,4 @@
-"""Dense retrieval over the vet corpus 
-
+"""Dense retrieval over the vet corpus
 VetCorpusRetriever.retrieve embeds the query, runs a cosine search over the
 dense vector with optional source_id / source_tier filters, and maps
 each hit's payload back into a RetrievedChunk. The mode argument exists now
