@@ -6,6 +6,7 @@ import type { PetRead } from "@/lib/pets";
 import { toDashboardPet } from "@/lib/pets.format";
 import { fetchTractiveRollups, type TractiveDailySummary } from "@/lib/tractive";
 import { toSleepSplitBars, toTodayPanelData } from "@/lib/tractive.format";
+import { QuickActions } from "../../journal/QuickActions";
 import { PetPicker } from "../../pets/PetPicker";
 import { PetDashboardView } from "../PetDashboardView";
 import { RangeToggle, type RangeOption } from "../RangeToggle";
@@ -108,6 +109,7 @@ export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetP
     <PetDashboardView
       pet={dashboardPet}
       headerActions={headerActions}
+      quickActions={<QuickActions petId={activePet.id} petName={activePet.name} />}
       todayLabel={todayLabel}
       todayData={todayData}
       sleepSplitBars={sleepSplitBars}

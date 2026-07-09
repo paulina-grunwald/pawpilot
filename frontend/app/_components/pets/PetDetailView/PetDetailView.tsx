@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { PetDetailView as PetDetailData } from "@/lib/pets.format";
 import { Chip } from "../Chip";
 import { PetActions } from "../PetActions";
@@ -25,9 +26,10 @@ function FactStat({ label, value, mono }: FactStatProps) {
 
 type PetDetailViewProps = {
   pet: PetDetailData;
+  journalCard?: ReactNode;
 };
 
-export function PetDetailView({ pet }: PetDetailViewProps) {
+export function PetDetailView({ pet, journalCard }: PetDetailViewProps) {
   return (
     <main className={`container-x ${styles.page}`}>
       <p className="m-0 mb-2 text-[13px] text-muted">
@@ -78,10 +80,12 @@ export function PetDetailView({ pet }: PetDetailViewProps) {
           <h2 className={`${styles.cardHeading} display`}>Wearable</h2>
           <TractiveUpload petId={pet.id} />
         </article>
+
+        {journalCard}
       </section>
 
       <p className={styles.footnote}>
-        Vaccinations, medications, and interaction history land in a later release.
+        Vaccinations and interaction history land in a later release.
       </p>
     </main>
   );

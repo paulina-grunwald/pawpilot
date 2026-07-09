@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth.router import auth_router, users_router
 from app.config import settings
 from app.integrations.tractive.router import tractive_router
+from app.journal.router import journal_router
 from app.pets.breeds_router import breeds_router
 from app.pets.router import pets_router
 from app.rag.observability import configure_langsmith
@@ -33,6 +34,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(pets_router)
+app.include_router(journal_router)
 app.include_router(breeds_router)
 app.include_router(tractive_router)
 app.include_router(rag_router)

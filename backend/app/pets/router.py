@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import current_active_user
 from app.auth.models import User
 from app.db.base import get_session
+from app.journal.router import JOURNAL_PHOTO_NAMESPACE
 from app.media.deps import get_media_storage
 from app.media.storage import (
     MIME_EXTENSIONS,
@@ -100,9 +101,10 @@ async def delete_pet(
     pet = await load_owned_pet(pet_id, user, session)
     owner_dir_id = pet.id
 
-    media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
     await session.delete(pet)
     await session.commit()
+    media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
+    media.delete_owner_dir(JOURNAL_PHOTO_NAMESPACE, owner_dir_id)
 
 
 @pets_router.get("/{pet_id}/photo")
