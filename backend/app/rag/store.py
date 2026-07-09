@@ -61,3 +61,37 @@ def chunk_point_id(source_id: str, chunk_index: int, text: str) -> str:
     """Stable UUIDv5 point id for an idempotent upsert."""
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}:{chunk_index}:{digest}"))
+
+
+def _delete_stale_chunks(
+    client: QdrantClient, collection: str, source_id: str, keep_ids: list[str]
+) -> None:
+    """Delete the source's points except the ones we just upserted (the stale set)."""
+    client.delete(
+        collection_name=collection,
+        points_selector=models.FilterSelector(
+            filter=models.Filter(
+                must=[
+                    models.FieldCondition(key="source_id", match=models.MatchValue(value=source_id))
+                ],
+                must_not=[models.HasIdCondition(has_id=list(keep_ids))],
+            )
+        ),
+    )
+
+
+def upsert_points(
+    client: QdrantClient,
+    collection: str,
+    source_id: str,
+    points: list[models.PointStruct],
+) -> int:
+    """Upsert a source's points, then prune that source's now-stale chunks.
+
+    The Qdrant-write half of ingest — no PDF/embedding deps — shared by the local
+    ingest path and the admin upsert endpoint (which receives points embedded
+    elsewhere), so the serving image never imports the pypdf-based ingest module.
+    """
+    client.upsert(collection_name=collection, points=points)
+    _delete_stale_chunks(client, collection, source_id, [str(point.id) for point in points])
+    return len(points)
