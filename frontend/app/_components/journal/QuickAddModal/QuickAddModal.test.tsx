@@ -122,6 +122,21 @@ describe("QuickAddModal create", () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
+  it("shows an error and stays closable when the When field is cleared", async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderModal({ initialEntryType: "mood" });
+
+    await user.clear(screen.getByLabelText("When"));
+    await user.click(screen.getByRole("radio", { name: /playful/i }));
+    await user.click(screen.getByRole("button", { name: "Save mood" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Pick a date and time for this entry.");
+    expect(createMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it("saves a symptom with tags, severity and body area", async () => {
     const user = userEvent.setup();
     createMock.mockResolvedValue(makeEntry({ entry_type: "symptom" }));

@@ -1,4 +1,8 @@
-"""RAG settings — Vercel AI Gateway + Qdrant configuration."""
+"""RAG settings — Vercel AI Gateway + Qdrant configuration.
+
+A single Gateway key serves embeddings, generation, and the eval judge, and every
+model id must be provider-qualified.
+"""
 
 from __future__ import annotations
 
@@ -35,6 +39,9 @@ class RagSettings(BaseSettings):
         validation_alias="RAG_EMBED_MODEL",
     )
     embed_dimensions: int = Field(default=1536, validation_alias="RAG_EMBED_DIMENSIONS")
+    embed_batch_size: int = Field(
+        default=128, ge=1, le=2048, validation_alias="RAG_EMBED_BATCH_SIZE"
+    )
     gen_model: str = Field(
         default="openai/gpt-5.4-mini",
         validation_alias="RAG_GEN_MODEL",

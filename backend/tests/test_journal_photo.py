@@ -168,6 +168,27 @@ async def test_deleting_entry_deletes_photo_file(
     assert not photo_file.exists()
 
 
+async def test_deleting_pet_removes_journal_photo_files(
+    authenticated_client: AsyncClient,
+    media_root_override: Path,
+    journal_pet: dict[str, object],
+    valid_journal_entry: EntryBuilder,
+) -> None:
+    entry_id = await _create_entry(authenticated_client, journal_pet["id"], valid_journal_entry)
+    attached = await authenticated_client.post(
+        f"/pets/{journal_pet['id']}/journal/{entry_id}/photo",
+        files={"file": ("a.jpg", _jpeg_bytes(), "image/jpeg")},
+    )
+    assert attached.status_code == 200, attached.text
+    journal_dir = media_root_override / "journal" / str(journal_pet["id"])
+    assert journal_dir.exists()
+
+    response = await authenticated_client.delete(f"/pets/{journal_pet['id']}")
+
+    assert response.status_code == 204
+    assert not journal_dir.exists()
+
+
 async def test_attach_rejects_unsupported_media_type(
     authenticated_client: AsyncClient,
     media_root_override: Path,

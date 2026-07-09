@@ -278,9 +278,10 @@ async def delete_journal_entry(
 ) -> None:
     pet = await load_owned_pet(pet_id, user, session)
     entry = await _load_owned_entry(pet, entry_id, session)
-    media.delete(entry.photo_path)
+    photo_path = entry.photo_path
     await session.delete(entry)
     await session.commit()
+    media.delete(photo_path)
 
 
 @journal_router.post("/{entry_id}/photo", response_model=JournalEntryRead)
@@ -359,6 +360,7 @@ async def delete_journal_entry_photo(
 ) -> None:
     pet = await load_owned_pet(pet_id, user, session)
     entry = await _load_owned_entry(pet, entry_id, session)
-    media.delete(entry.photo_path)
+    prior_path = entry.photo_path
     entry.photo_path = None
     await session.commit()
+    media.delete(prior_path)

@@ -2,8 +2,16 @@ import "server-only";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_NAME } from "./auth.constants";
 import { getApiBaseUrl } from "./auth";
-import { buildJournalSearchParams, JournalError, type JournalListParams } from "./journal";
-import type { JournalEntryListResponse } from "./journal.schemas";
+import {
+  buildJournalSearchParams,
+  JournalError,
+  parseJournalResponse,
+  type JournalListParams,
+} from "./journal";
+import {
+  journalEntryListResponseSchema,
+  type JournalEntryListResponse,
+} from "./journal.schemas";
 
 async function getCookieHeader(): Promise<string | null> {
   const cookieStore = await cookies();
@@ -33,5 +41,5 @@ export async function fetchJournalEntries(
       response.status,
     );
   }
-  return (await response.json()) as JournalEntryListResponse;
+  return parseJournalResponse(journalEntryListResponseSchema, await response.json());
 }

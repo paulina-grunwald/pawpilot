@@ -1,9 +1,12 @@
+import type { z } from "zod";
 import { getApiBaseUrl } from "./auth";
 import type { EntryType } from "./journal.constants";
-import type {
-  JournalEntryListResponse,
-  JournalEntryRead,
-  JournalPayload,
+import {
+  journalEntryListResponseSchema,
+  journalEntryReadSchema,
+  type JournalEntryListResponse,
+  type JournalEntryRead,
+  type JournalPayload,
 } from "./journal.schemas";
 
 export type JournalEntryCreatePayload = {
@@ -65,7 +68,15 @@ function journalErrorForStatus(status: number): JournalErrorCode {
   return "UNKNOWN";
 }
 
-async function readJson<T>(response: Response): Promise<T> {
+export function parseJournalResponse<T>(schema: z.ZodType<T>, data: unknown): T {
+  const parsed = schema.safeParse(data);
+  if (!parsed.success) {
+    throw new JournalError("UNKNOWN", `Response failed schema validation: ${parsed.error.message}`);
+  }
+  return parsed.data;
+}
+
+async function readJson<T>(response: Response, schema: z.ZodType<T>): Promise<T> {
   if (!response.ok) {
     throw new JournalError(
       journalErrorForStatus(response.status),
@@ -73,7 +84,7 @@ async function readJson<T>(response: Response): Promise<T> {
       response.status,
     );
   }
-  return (await response.json()) as T;
+  return parseJournalResponse(schema, await response.json());
 }
 
 export function buildJournalSearchParams(params: JournalListParams): URLSearchParams {
@@ -103,7 +114,7 @@ export async function listJournalEntries(
     credentials: "include",
     cache: "no-store",
   });
-  return readJson<JournalEntryListResponse>(response);
+  return readJson(response, journalEntryListResponseSchema);
 }
 
 export async function createJournalEntry(
@@ -116,7 +127,7 @@ export async function createJournalEntry(
     credentials: "include",
     body: JSON.stringify(payload),
   });
-  return readJson<JournalEntryRead>(response);
+  return readJson(response, journalEntryReadSchema);
 }
 
 export async function updateJournalEntry(
@@ -130,7 +141,7 @@ export async function updateJournalEntry(
     credentials: "include",
     body: JSON.stringify(payload),
   });
-  return readJson<JournalEntryRead>(response);
+  return readJson(response, journalEntryReadSchema);
 }
 
 export async function deleteJournalEntry(petId: string, entryId: string): Promise<void> {
@@ -159,7 +170,7 @@ export async function uploadJournalEntryPhoto(
     credentials: "include",
     body: formData,
   });
-  return readJson<JournalEntryRead>(response);
+  return readJson(response, journalEntryReadSchema);
 }
 
 export async function deleteJournalEntryPhoto(petId: string, entryId: string): Promise<void> {

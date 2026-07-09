@@ -101,8 +101,13 @@ function QuickAddModalBody({
 
   async function handleSubmit(draft: EntryDraft) {
     setError(null);
+    const occurredAt = new Date(occurredAtLocal);
+    if (Number.isNaN(occurredAt.getTime())) {
+      setError("Pick a date and time for this entry.");
+      return;
+    }
     setSubmitting(true);
-    const occurredAtIso = new Date(occurredAtLocal).toISOString();
+    const occurredAtIso = occurredAt.toISOString();
     try {
       if (isEdit) {
         const updated = await updateJournalEntry(petId, entry.id, {

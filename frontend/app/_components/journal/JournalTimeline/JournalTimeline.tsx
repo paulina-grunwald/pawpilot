@@ -78,19 +78,23 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
   const [listError, setListError] = useState<string | null>(null);
   const skipNextRefetch = useRef(true);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listRequestSeq = useRef(0);
 
   const refetch = useCallback(async () => {
+    const requestId = ++listRequestSeq.current;
     setLoading(true);
     setListError(null);
     try {
       const page = await listJournalEntries(petId, queryParamsFor(search, filters));
+      if (requestId !== listRequestSeq.current) return;
       setEntries(page.items);
       setNextCursor(page.next_cursor);
       setTotalMatching(page.total_matching);
     } catch {
+      if (requestId !== listRequestSeq.current) return;
       setListError("We couldn't load the journal. Try again in a moment.");
     } finally {
-      setLoading(false);
+      if (requestId === listRequestSeq.current) setLoading(false);
     }
   }, [petId, search, filters]);
 
@@ -156,15 +160,18 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
 
   async function handleLoadMore() {
     if (!nextCursor) return;
+    const requestId = listRequestSeq.current;
     setLoadingMore(true);
     try {
       const page = await listJournalEntries(petId, {
         ...queryParamsFor(search, filters),
         cursor: nextCursor,
       });
+      if (requestId !== listRequestSeq.current) return;
       setEntries((current) => [...current, ...page.items]);
       setNextCursor(page.next_cursor);
     } catch {
+      if (requestId !== listRequestSeq.current) return;
       setListError("We couldn't load more entries.");
     } finally {
       setLoadingMore(false);
