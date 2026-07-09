@@ -7,8 +7,9 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Apply migrations, then serve. Railway provides $PORT.
-startCommand = "sh -c 'alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT'"
+# Startup is the image entrypoint (entrypoint.sh): it prepares MEDIA_ROOT,
+# drops to the non-root pawpilot user, applies migrations, then serves on
+# $PORT. No startCommand override, so that single entrypoint stays in charge.
 healthcheckPath = "/health"
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"

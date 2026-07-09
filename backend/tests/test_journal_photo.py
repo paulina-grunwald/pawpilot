@@ -22,10 +22,10 @@ def _jpeg_bytes(trailing: bytes = b"") -> bytes:
 @pytest.fixture
 def media_root_override(tmp_path: Path) -> Iterator[Path]:
     from app.media.deps import get_media_storage
-    from app.media.storage import MediaStorage
+    from app.media.storage import LocalMediaStorage
 
-    def _override() -> MediaStorage:
-        return MediaStorage(media_root=tmp_path)
+    def _override() -> LocalMediaStorage:
+        return LocalMediaStorage(media_root=tmp_path)
 
     app.dependency_overrides[get_media_storage] = _override
     try:
