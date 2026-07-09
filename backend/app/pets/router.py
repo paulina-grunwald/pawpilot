@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import current_active_user
 from app.auth.models import User
 from app.db.base import get_session
+from app.journal.router import JOURNAL_PHOTO_NAMESPACE
 from app.media.deps import get_media_storage
 from app.media.storage import (
-    MIME_EXTENSIONS,
+    MIME_BY_EXTENSION,
     MediaStorage,
     PayloadTooLargeError,
     UnsupportedMediaTypeError,
@@ -22,12 +24,6 @@ from app.pets.models import Pet
 from app.pets.schemas import PetCreate, PetRead, PetUpdate
 
 PET_PHOTO_NAMESPACE = "pets"
-
-# Inverse of MIME_EXTENSIONS — single source of truth for the content-type the
-# authenticated photo route streams. Keyed by stored file suffix (e.g. ".jpg").
-_PHOTO_MEDIA_TYPES: dict[str, str] = {
-    f".{extension}": mime_type for mime_type, extension in MIME_EXTENSIONS.items()
-}
 
 pets_router = APIRouter(prefix="/pets", tags=["pets"])
 
@@ -100,9 +96,10 @@ async def delete_pet(
     pet = await load_owned_pet(pet_id, user, session)
     owner_dir_id = pet.id
 
-    media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
     await session.delete(pet)
     await session.commit()
+    await media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
+    await media.delete_owner_dir(JOURNAL_PHOTO_NAMESPACE, owner_dir_id)
 
 
 @pets_router.get("/{pet_id}/photo")
@@ -111,7 +108,7 @@ async def get_pet_photo(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_session),
     media: MediaStorage = Depends(get_media_storage),
-) -> FileResponse:
+) -> Response:
     """Stream this pet's photo, scoped to the authenticated owner.
 
     Replaces the previous public ``/media`` static mount so a pet photo is only
@@ -122,12 +119,13 @@ async def get_pet_photo(
     pet = await load_owned_pet(pet_id, user, session)
     if pet.photo_path is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PET_PHOTO_NOT_FOUND")
-    absolute_path = media.resolve_within_root(pet.photo_path)
-    if absolute_path is None:
+    content = await media.read(pet.photo_path)
+    if content is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PET_PHOTO_NOT_FOUND")
-    media_type = _PHOTO_MEDIA_TYPES.get(absolute_path.suffix.lower(), "application/octet-stream")
-    return FileResponse(
-        absolute_path,
+    suffix = Path(pet.photo_path).suffix.lower()
+    media_type = MIME_BY_EXTENSION.get(suffix, "application/octet-stream")
+    return Response(
+        content=content,
         media_type=media_type,
         headers={"Cache-Control": "private, max-age=3600"},
     )
@@ -145,7 +143,7 @@ async def upload_pet_photo(
 
     content_type = file.content_type or ""
     try:
-        stored = media.save(
+        stored = await media.save(
             namespace=PET_PHOTO_NAMESPACE,
             subject_id=pet.id,
             content_type=content_type,
@@ -167,14 +165,14 @@ async def upload_pet_photo(
     try:
         await session.commit()
     except Exception:
-        # Roll back the on-disk write so a commit failure does not leak the
+        # Roll back the stored object so a commit failure does not leak the
         # freshly written file (DB still points at prior_path, which is fine).
-        media.delete(stored.relative_path)
+        await media.delete(stored.relative_path)
         raise
     await session.refresh(pet)
 
     if prior_path and prior_path != stored.relative_path:
-        media.delete(prior_path)
+        await media.delete(prior_path)
 
     return pet
 
@@ -188,11 +186,9 @@ async def delete_pet_photo(
 ) -> Pet:
     pet = await load_owned_pet(pet_id, user, session)
     prior_path = pet.photo_path
-    # Delete the file before committing. If unlink raises, the commit never
-    # happens and the DB still references the file — consistent on retry.
-    # MediaStorage.delete is a no-op when prior_path is None or missing.
-    media.delete(prior_path)
     pet.photo_path = None
     await session.commit()
     await session.refresh(pet)
+    # MediaStorage.delete is a no-op when prior_path is None or missing.
+    await media.delete(prior_path)
     return pet

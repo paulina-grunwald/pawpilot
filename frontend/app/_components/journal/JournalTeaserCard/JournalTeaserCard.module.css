@@ -1,0 +1,40 @@
+.card {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.heading {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink-deep);
+  margin: 0;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.openLink {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--blue);
+  text-decoration: none;
+}
+
+.openLink:hover {
+  text-decoration: underline;
+}

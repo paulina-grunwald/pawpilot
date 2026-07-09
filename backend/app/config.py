@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,7 +35,14 @@ class Settings(BaseSettings):
     frontend_base_url: str = "http://localhost:3000"
     backend_base_url: str = "http://localhost:8000"
 
+    media_backend: Literal["local", "s3"] = "local"
     media_root: str = "./media"
+
+    s3_endpoint_url: str | None = None
+    s3_bucket: str = "pawpilot-media"
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_region: str = "us-east-1"
 
     cookie_name: str = "pawpilot_auth"
     cookie_secure: bool = False
@@ -52,6 +59,18 @@ class Settings(BaseSettings):
     @classmethod
     def _coerce_async_driver(cls, database_url: str) -> str:
         return normalize_async_database_url(database_url)
+
+    @model_validator(mode="after")
+    def _s3_backend_requires_credentials(self) -> Settings:
+        if self.media_backend == "s3":
+            missing = [
+                name.upper()
+                for name in ("s3_endpoint_url", "s3_access_key_id", "s3_secret_access_key")
+                if getattr(self, name) is None
+            ]
+            if missing:
+                raise ValueError(f"MEDIA_BACKEND=s3 requires {', '.join(missing)}")
+        return self
 
 
 settings = Settings()  # type: ignore[call-arg]
