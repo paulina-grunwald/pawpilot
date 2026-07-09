@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { memo, useState, type CSSProperties } from "react";
 import { ENTRY_TYPE_META, type EntryType } from "@/lib/journal.constants";
 import { entryPresentation, entryTypeLabel, formatEntryTime } from "@/lib/journal.format";
 import type { JournalEntryRead } from "@/lib/journal.schemas";
@@ -12,7 +12,7 @@ type EntryCardProps = {
   onDelete?: (entry: JournalEntryRead) => void;
 };
 
-export function EntryCard({ entry, onEdit, onDelete }: EntryCardProps) {
+export const EntryCard = memo(function EntryCard({ entry, onEdit, onDelete }: EntryCardProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const entryType = entry.payload.entry_type as EntryType;
   const meta = ENTRY_TYPE_META[entryType];
@@ -82,4 +82,4 @@ export function EntryCard({ entry, onEdit, onDelete }: EntryCardProps) {
       )}
     </article>
   );
-}
+});

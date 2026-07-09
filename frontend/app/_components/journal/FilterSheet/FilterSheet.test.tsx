@@ -58,6 +58,23 @@ describe("FilterSheet", () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ dateRange: "7d" }));
   });
 
+  it("moves the date range selection with arrow keys", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderSheet();
+
+    const selected = screen.getByRole("radio", { name: "All" });
+    expect(selected).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("radio", { name: "Today" })).toHaveAttribute("tabindex", "-1");
+
+    selected.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ dateRange: "today" }));
+    expect(screen.getByRole("radio", { name: "Today" })).toHaveFocus();
+
+    await user.keyboard("{ArrowRight}");
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ dateRange: "7d" }));
+  });
+
   it("toggles concerns only", async () => {
     const user = userEvent.setup();
     const { onChange } = renderSheet();

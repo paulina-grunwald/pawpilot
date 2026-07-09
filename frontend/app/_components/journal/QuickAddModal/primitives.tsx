@@ -2,6 +2,7 @@
 
 import { useId, useState, type ReactNode } from "react";
 import { MAX_TAG_LENGTH, MAX_TAGS } from "@/lib/journal.constants";
+import { useRadioGroupNav } from "@/lib/useRadioGroupNav";
 import styles from "./QuickAddModal.module.css";
 
 type FieldLabelProps = {
@@ -37,11 +38,16 @@ export function PillRow<Value extends string>({
   value,
   onChange,
 }: PillRowProps<Value>) {
+  const radioItemProps = useRadioGroupNav(
+    options.length,
+    options.findIndex((option) => option.value === value),
+    (index) => onChange(options[index].value),
+  );
   return (
     <fieldset className={styles.pillFieldset}>
       <legend className={styles.fieldLabel}>{legend}</legend>
       <div className={styles.pillRow} role="radiogroup" aria-label={legend}>
-        {options.map((option) => (
+        {options.map((option, index) => (
           <button
             key={option.value}
             type="button"
@@ -49,6 +55,7 @@ export function PillRow<Value extends string>({
             aria-checked={option.value === value}
             className={`${styles.pill} ${option.value === value ? styles.pillActive : ""}`}
             onClick={() => onChange(option.value)}
+            {...radioItemProps(index)}
           >
             {option.label}
           </button>
@@ -163,12 +170,19 @@ type ScoreScaleProps = {
   onChange: (score: number) => void;
 };
 
+const SCORE_VALUES = [1, 2, 3, 4, 5];
+
 export function ScoreScale({ legend, labels, value, onChange }: ScoreScaleProps) {
+  const radioItemProps = useRadioGroupNav(
+    SCORE_VALUES.length,
+    SCORE_VALUES.indexOf(value),
+    (index) => onChange(SCORE_VALUES[index]),
+  );
   return (
     <fieldset className={styles.pillFieldset}>
       <legend className={styles.fieldLabel}>{legend}</legend>
       <div className={styles.scoreRow} role="radiogroup" aria-label={legend}>
-        {[1, 2, 3, 4, 5].map((score) => (
+        {SCORE_VALUES.map((score, index) => (
           <button
             key={score}
             type="button"
@@ -176,6 +190,7 @@ export function ScoreScale({ legend, labels, value, onChange }: ScoreScaleProps)
             aria-checked={score === value}
             className={`${styles.scoreButton} ${score === value ? styles.scoreButtonActive : ""}`}
             onClick={() => onChange(score)}
+            {...radioItemProps(index)}
           >
             <span className={styles.scoreNumber}>{score}</span>
             <span className={styles.scoreLabel}>{labels[score]}</span>

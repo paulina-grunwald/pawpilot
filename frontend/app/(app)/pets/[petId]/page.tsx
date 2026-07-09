@@ -17,12 +17,16 @@ export default async function PetDetailPage({ params }: PetDetailPageProps) {
   if (!pet) {
     notFound();
   }
-  const recentEntries = await fetchJournalEntries(petId, { limit: 3 });
+  const recentEntries = await fetchJournalEntries(petId, { limit: 3 }).catch(() => null);
   return (
     <PetDetailView
       pet={toDetailPet(pet)}
       journalCard={
-        <JournalTeaserCard petId={pet.id} petName={pet.name} entries={recentEntries.items} />
+        <JournalTeaserCard
+          petId={pet.id}
+          petName={pet.name}
+          entries={recentEntries ? recentEntries.items : null}
+        />
       }
     />
   );

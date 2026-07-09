@@ -31,6 +31,16 @@ describe("JournalTeaserCard", () => {
     );
   });
 
+  it("shows a degraded state with the journal link when entries failed to load", () => {
+    render(<JournalTeaserCard petId="pet-1" petName="Luna" entries={null} />);
+
+    expect(screen.getByText(/Couldn’t load recent entries/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open Luna’s journal/ })).toHaveAttribute(
+      "href",
+      "/pets/pet-1/journal",
+    );
+  });
+
   it("renders at most three recent entries", () => {
     render(
       <JournalTeaserCard

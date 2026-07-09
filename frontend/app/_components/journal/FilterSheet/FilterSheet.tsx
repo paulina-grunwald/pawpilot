@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, type CSSProperties } from "react";
 import { ENTRY_TYPE_META, ENTRY_TYPES, type EntryType } from "@/lib/journal.constants";
 import { useFocusTrap } from "@/lib/useFocusTrap";
+import { useRadioGroupNav } from "@/lib/useRadioGroupNav";
 import styles from "./FilterSheet.module.css";
 
 export type DateRangePreset = "today" | "7d" | "30d" | "all";
@@ -85,6 +86,12 @@ function FilterSheetBody({ filters, totalMatching, onChange, onClose }: FilterSh
     });
   }
 
+  const dateRangeItemProps = useRadioGroupNav(
+    DATE_RANGE_OPTIONS.length,
+    DATE_RANGE_OPTIONS.findIndex((option) => option.value === filters.dateRange),
+    (index) => onChange({ ...filters, dateRange: DATE_RANGE_OPTIONS[index].value }),
+  );
+
   return (
     <div
       className={styles.backdrop}
@@ -116,8 +123,8 @@ function FilterSheetBody({ filters, totalMatching, onChange, onClose }: FilterSh
 
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>Date range</legend>
-          <div className={styles.pillRow}>
-            {DATE_RANGE_OPTIONS.map((option) => (
+          <div className={styles.pillRow} role="radiogroup" aria-label="Date range">
+            {DATE_RANGE_OPTIONS.map((option, index) => (
               <button
                 key={option.value}
                 type="button"
@@ -125,6 +132,7 @@ function FilterSheetBody({ filters, totalMatching, onChange, onClose }: FilterSh
                 aria-checked={filters.dateRange === option.value}
                 className={`${styles.pill} ${filters.dateRange === option.value ? styles.pillActive : ""}`}
                 onClick={() => onChange({ ...filters, dateRange: option.value })}
+                {...dateRangeItemProps(index)}
               >
                 {option.label}
               </button>

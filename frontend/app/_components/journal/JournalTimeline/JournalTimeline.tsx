@@ -113,11 +113,11 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     };
   }, []);
 
-  function showToast(nextToast: ToastState) {
+  const showToast = useCallback((nextToast: ToastState) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast(nextToast);
     toastTimer.current = setTimeout(() => setToast(null), UNDO_TOAST_MS);
-  }
+  }, []);
 
   function handleSaved(entry: JournalEntryRead, mode: QuickAddSavedMode) {
     setModal({ kind: "closed" });
@@ -147,16 +147,23 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     }
   }
 
-  async function handleDelete(entry: JournalEntryRead) {
-    try {
-      await deleteJournalEntry(petId, entry.id);
-      setEntries((current) => current.filter((existing) => existing.id !== entry.id));
-      setTotalMatching((current) => Math.max(0, current - 1));
-      showToast({ message: "Entry deleted", undoEntryId: null });
-    } catch {
-      showToast({ message: "Couldn't delete this entry.", undoEntryId: null });
-    }
-  }
+  const handleDelete = useCallback(
+    async (entry: JournalEntryRead) => {
+      try {
+        await deleteJournalEntry(petId, entry.id);
+        setEntries((current) => current.filter((existing) => existing.id !== entry.id));
+        setTotalMatching((current) => Math.max(0, current - 1));
+        showToast({ message: "Entry deleted", undoEntryId: null });
+      } catch {
+        showToast({ message: "Couldn't delete this entry.", undoEntryId: null });
+      }
+    },
+    [petId, showToast],
+  );
+
+  const handleEdit = useCallback((entry: JournalEntryRead) => {
+    setModal({ kind: "edit", entry });
+  }, []);
 
   async function handleLoadMore() {
     if (!nextCursor) return;
@@ -207,7 +214,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
 
   const activeFilterCount = countActiveFilters(filters);
   const hasActiveQuery = activeFilterCount > 0 || search.trim().length > 0;
-  const dayGroups = groupEntriesByDay(entries);
+  const dayGroups = useMemo(() => groupEntriesByDay(entries), [entries]);
   const showEmptyState = entries.length === 0 && !hasActiveQuery && !loading;
 
   return (
@@ -267,7 +274,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
                   <EntryCard
                     key={entry.id}
                     entry={entry}
-                    onEdit={(target) => setModal({ kind: "edit", entry: target })}
+                    onEdit={handleEdit}
                     onDelete={handleDelete}
                   />
                 ))}

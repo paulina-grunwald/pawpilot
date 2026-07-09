@@ -6,14 +6,16 @@ import styles from "./JournalTeaserCard.module.css";
 type JournalTeaserCardProps = {
   petId: string;
   petName: string;
-  entries: JournalEntryRead[];
+  entries: JournalEntryRead[] | null;
 };
 
 export function JournalTeaserCard({ petId, petName, entries }: JournalTeaserCardProps) {
   return (
     <article className={styles.card}>
       <h2 className={`${styles.heading} display`}>Journal</h2>
-      {entries.length === 0 ? (
+      {entries === null ? (
+        <p className={styles.empty}>Couldn&rsquo;t load recent entries right now.</p>
+      ) : entries.length === 0 ? (
         <p className={styles.empty}>
           No entries yet — logging meals, mood, and symptoms helps PawPilot spot when
           something&rsquo;s off.

@@ -20,6 +20,7 @@ import {
   type WeightSource,
 } from "@/lib/journal.constants";
 import { kgToGrams } from "@/lib/journal.format";
+import { useRadioGroupNav } from "@/lib/useRadioGroupNav";
 import type {
   BathroomPayload,
   FreeNotePayload,
@@ -226,6 +227,12 @@ export function BathroomForm({
     }
   }
 
+  const bristolItemProps = useRadioGroupNav(
+    BRISTOL_SCORES.length,
+    BRISTOL_SCORES.findIndex((bristol) => bristol.score === bristolScore),
+    (index) => setBristolScore(BRISTOL_SCORES[index].score),
+  );
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     onSubmit({
@@ -251,7 +258,7 @@ export function BathroomForm({
           <fieldset className={styles.pillFieldset}>
             <legend className={styles.fieldLabel}>What did it look like?</legend>
             <div className={styles.bristolGrid} role="radiogroup" aria-label="Bristol score">
-              {BRISTOL_SCORES.map((bristol) => {
+              {BRISTOL_SCORES.map((bristol, index) => {
                 const active = bristol.score === bristolScore;
                 return (
                   <button
@@ -262,6 +269,7 @@ export function BathroomForm({
                     className={`${styles.bristolButton} ${active ? styles.bristolButtonActive : ""}`}
                     onClick={() => setBristolScore(active ? null : bristol.score)}
                     title={bristol.description}
+                    {...bristolItemProps(index)}
                   >
                     {"ideal" in bristol && bristol.ideal && (
                       <span className={styles.idealBadge}>IDEAL</span>
