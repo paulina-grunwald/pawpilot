@@ -17,6 +17,18 @@ services:
       timeout: 3s
       retries: 10
 
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: pawpilot-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_HOST_PORT:-6333}:6333"  # REST / HTTP
+      - "${QDRANT_GRPC_PORT:-6334}:6334"  # gRPC
+    volumes:
+      - pawpilot-qdrant-data:/qdrant/storage
+
 volumes:
   pawpilot-postgres-data:
     name: pawpilot-postgres-data
+  pawpilot-qdrant-data:
+    name: pawpilot-qdrant-data

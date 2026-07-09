@@ -11,6 +11,11 @@ from app.integrations.tractive.router import tractive_router
 from app.journal.router import journal_router
 from app.pets.breeds_router import breeds_router
 from app.pets.router import pets_router
+from app.rag.observability import configure_langsmith
+from app.rag.router import rag_router
+
+# Set LangSmith EU endpoint + project defaults before any client is built.
+configure_langsmith()
 
 app = FastAPI(title="PawPilot", version="0.0.0")
 
@@ -32,6 +37,7 @@ app.include_router(pets_router)
 app.include_router(journal_router)
 app.include_router(breeds_router)
 app.include_router(tractive_router)
+app.include_router(rag_router)
 
 
 @app.get("/health")

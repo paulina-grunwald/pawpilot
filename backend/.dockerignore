@@ -1,0 +1,22 @@
+# Keep the build context small and secret-free.
+.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.python-version
+
+# Never ship local secrets or media into the image.
+.env
+.env.*
+!.env.example
+media/
+
+# Dev-only assets that aren't part of the serving image.
+tests/
+evals/
+postman/
+scripts/
+.git/
+.gitignore

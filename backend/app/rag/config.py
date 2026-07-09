@@ -51,10 +51,7 @@ class RagSettings(BaseSettings):
     @model_validator(mode="after")
     def _validate(self) -> RagSettings:
         if not self.gateway_api_key:
-            raise ValueError(
-                "a Vercel AI Gateway key is required — set VERCEL_AI_GATEWAY "
-                "(or AI_GATEWAY_API_KEY / VERCEL_OIDC_TOKEN)."
-            )
+            raise ValueError("A Vercel AI Gateway key is required")
 
         for role, model_id in (("embed_model", self.embed_model), ("gen_model", self.gen_model)):
             if "/" not in model_id:
