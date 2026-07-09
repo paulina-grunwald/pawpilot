@@ -1,5 +1,4 @@
-"""RAG settings — Vercel AI Gateway + Qdrant configuration.
-"""
+"""RAG settings — Vercel AI Gateway + Qdrant configuration."""
 
 from __future__ import annotations
 

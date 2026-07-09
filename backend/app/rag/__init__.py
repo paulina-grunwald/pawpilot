@@ -1,2 +1,1 @@
-"""RAG backbone - vet-corpus retrieval + breed/toxicity lookups.
-"""
+"""RAG backbone - vet-corpus retrieval + breed/toxicity lookups."""
