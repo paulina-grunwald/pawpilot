@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, time, timedelta
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +26,7 @@ from app.journal.schemas import (
 )
 from app.media.deps import get_media_storage
 from app.media.storage import (
-    MIME_EXTENSIONS,
+    MIME_BY_EXTENSION,
     MediaStorage,
     PayloadTooLargeError,
     UnsupportedMediaTypeError,
@@ -46,10 +47,6 @@ EntryTypeName = Literal[
     "vet_visit",
     "free_note",
 ]
-
-_PHOTO_MEDIA_TYPES: dict[str, str] = {
-    f".{extension}": mime_type for mime_type, extension in MIME_EXTENSIONS.items()
-}
 
 journal_router = APIRouter(prefix="/pets/{pet_id}/journal", tags=["journal"])
 
@@ -281,7 +278,7 @@ async def delete_journal_entry(
     photo_path = entry.photo_path
     await session.delete(entry)
     await session.commit()
-    media.delete(photo_path)
+    await media.delete(photo_path)
 
 
 @journal_router.post("/{entry_id}/photo", response_model=JournalEntryRead)
@@ -298,7 +295,7 @@ async def upload_journal_entry_photo(
 
     content_type = file.content_type or ""
     try:
-        stored = media.save(
+        stored = await media.save(
             namespace=JOURNAL_PHOTO_NAMESPACE,
             subject_id=pet.id,
             content_type=content_type,
@@ -317,12 +314,12 @@ async def upload_journal_entry_photo(
     try:
         await session.commit()
     except Exception:
-        media.delete(stored.relative_path)
+        await media.delete(stored.relative_path)
         raise
     await session.refresh(entry)
 
     if prior_path and prior_path != stored.relative_path:
-        media.delete(prior_path)
+        await media.delete(prior_path)
 
     return entry
 
@@ -334,17 +331,18 @@ async def get_journal_entry_photo(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_session),
     media: MediaStorage = Depends(get_media_storage),
-) -> FileResponse:
+) -> Response:
     pet = await load_owned_pet(pet_id, user, session)
     entry = await _load_owned_entry(pet, entry_id, session)
     if entry.photo_path is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ENTRY_PHOTO_NOT_FOUND")
-    absolute_path = media.resolve_within_root(entry.photo_path)
-    if absolute_path is None:
+    content = await media.read(entry.photo_path)
+    if content is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ENTRY_PHOTO_NOT_FOUND")
-    media_type = _PHOTO_MEDIA_TYPES.get(absolute_path.suffix.lower(), "application/octet-stream")
-    return FileResponse(
-        absolute_path,
+    suffix = Path(entry.photo_path).suffix.lower()
+    media_type = MIME_BY_EXTENSION.get(suffix, "application/octet-stream")
+    return Response(
+        content=content,
         media_type=media_type,
         headers={"Cache-Control": "private, max-age=3600"},
     )
@@ -363,4 +361,4 @@ async def delete_journal_entry_photo(
     prior_path = entry.photo_path
     entry.photo_path = None
     await session.commit()
-    media.delete(prior_path)
+    await media.delete(prior_path)

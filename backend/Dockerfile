@@ -26,8 +26,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 WORKDIR /app
 COPY --from=builder --chown=pawpilot:pawpilot /app /app
+COPY --chmod=755 entrypoint.sh /entrypoint.sh
 
-USER pawpilot
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["/entrypoint.sh"]
