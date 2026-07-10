@@ -20,6 +20,11 @@ dependencies = [
     "langchain-text-splitters>=1.1,<2",
     "langsmith>=0.8,<0.9",
     "boto3>=1.43.44",
+    # Agent (spec 010a) — tool-calling loop + web search, request-path runtime.
+    "langchain>=1.3,<2",
+    "langchain-openai>=1.3,<2",
+    "langgraph>=1.2,<2",
+    "langchain-tavily>=0.2,<0.3",
 ]
 
 [dependency-groups]

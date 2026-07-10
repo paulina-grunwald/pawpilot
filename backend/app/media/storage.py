@@ -169,9 +169,12 @@ class S3MediaStorage:
             self._client.head_bucket(Bucket=self._bucket)
         except ClientError as error:
             status = error.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            if status != 404:
-                raise
-            self._client.create_bucket(Bucket=self._bucket)
+            if status == 404:
+                self._client.create_bucket(Bucket=self._bucket)
+            # A non-404 status (e.g. 403 from an object-scoped credential that
+            # may PutObject/GetObject but not HeadBucket) does not mean the
+            # bucket is unusable: assume it exists and let the actual object
+            # operation surface any genuine permission failure.
         self._bucket_verified = True
 
     def _save_sync(self, key: str, payload: bytes, content_type: str) -> None:

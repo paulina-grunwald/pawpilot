@@ -24,6 +24,7 @@ from app.journal.schemas import (
     JournalEntryUpdate,
     ListCursor,
 )
+from app.media.cleanup import delete_media_quietly
 from app.media.deps import get_media_storage
 from app.media.storage import (
     MIME_BY_EXTENSION,
@@ -278,7 +279,7 @@ async def delete_journal_entry(
     photo_path = entry.photo_path
     await session.delete(entry)
     await session.commit()
-    await media.delete(photo_path)
+    await delete_media_quietly(media, photo_path)
 
 
 @journal_router.post("/{entry_id}/photo", response_model=JournalEntryRead)
@@ -314,12 +315,13 @@ async def upload_journal_entry_photo(
     try:
         await session.commit()
     except Exception:
-        await media.delete(stored.relative_path)
+        # Best-effort so a cleanup error cannot mask the original commit error.
+        await delete_media_quietly(media, stored.relative_path)
         raise
     await session.refresh(entry)
 
     if prior_path and prior_path != stored.relative_path:
-        await media.delete(prior_path)
+        await delete_media_quietly(media, prior_path)
 
     return entry
 
@@ -361,4 +363,4 @@ async def delete_journal_entry_photo(
     prior_path = entry.photo_path
     entry.photo_path = None
     await session.commit()
-    await media.delete(prior_path)
+    await delete_media_quietly(media, prior_path)
