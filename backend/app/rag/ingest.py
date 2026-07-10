@@ -19,7 +19,7 @@ from app.rag.chunking import ChunkRecord, PageText, chunk_pages
 from app.rag.embeddings import Embedder
 from app.rag.manifest import CorpusSource, resolve_source_tier
 from app.rag.schemas import SourceTier
-from app.rag.store import DENSE_VECTOR, chunk_point_id
+from app.rag.store import DENSE_VECTOR, chunk_point_id, upsert_points
 
 _logger = logging.getLogger(__name__)
 
@@ -73,23 +73,6 @@ def build_points(
     return points
 
 
-def _delete_stale_chunks(
-    client: QdrantClient, collection: str, source_id: str, keep_ids: list[str]
-) -> None:
-    """Delete the source's points except the ones we just upserted (the stale set)."""
-    client.delete(
-        collection_name=collection,
-        points_selector=models.FilterSelector(
-            filter=models.Filter(
-                must=[
-                    models.FieldCondition(key="source_id", match=models.MatchValue(value=source_id))
-                ],
-                must_not=[models.HasIdCondition(has_id=list(keep_ids))],
-            )
-        ),
-    )
-
-
 def ingest_source(
     client: QdrantClient,
     embedder: Embedder,
@@ -111,7 +94,4 @@ def ingest_source(
         return 0
     vectors = embedder.embed_documents([record.text for record in records])
     points = build_points(source, resolve_source_tier(source), records, vectors)
-
-    client.upsert(collection_name=collection, points=points)
-    _delete_stale_chunks(client, collection, source.source_id, [str(point.id) for point in points])
-    return len(points)
+    return upsert_points(client, collection, source.source_id, points)

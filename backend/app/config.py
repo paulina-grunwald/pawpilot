@@ -35,8 +35,6 @@ class Settings(BaseSettings):
     frontend_base_url: str = "http://localhost:3000"
     backend_base_url: str = "http://localhost:8000"
 
-    # "local" writes under media_root (dev/tests); "s3" targets any
-    # S3-compatible store (MinIO on Railway, R2, S3) via the S3_* settings.
     media_backend: Literal["local", "s3"] = "local"
     media_root: str = "./media"
 
@@ -54,6 +52,8 @@ class Settings(BaseSettings):
     jwt_lifetime_seconds: int = 60 * 60 * 24
 
     environment: str = "development"
+
+    admin_ingest_token: str | None = None
 
     @field_validator("database_url", mode="after")
     @classmethod
