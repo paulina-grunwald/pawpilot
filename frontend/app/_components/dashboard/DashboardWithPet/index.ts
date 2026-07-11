@@ -1,1 +1,1 @@
-export { DashboardWithPet, activePetStorageKey } from "./DashboardWithPet";
+export { DashboardWithPet } from "./DashboardWithPet";

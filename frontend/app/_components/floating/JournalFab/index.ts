@@ -1,0 +1,1 @@
+export { JournalFab } from "./JournalFab";
