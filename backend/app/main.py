@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -30,8 +29,9 @@ configure_langsmith()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     persistence: AgentPersistence | None = None
-    if os.getenv("MEMORY_BACKEND", "memory") == "postgres":
-        persistence = await open_agent_persistence(settings.database_url, get_agent_settings())
+    agent_settings = get_agent_settings()
+    if agent_settings.memory_backend == "postgres":
+        persistence = await open_agent_persistence(settings.database_url, agent_settings)
         runner.set_default_agent(
             runner.build_agent(
                 checkpointer=persistence.checkpointer,
