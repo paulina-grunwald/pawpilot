@@ -30,7 +30,7 @@ from evals.rag.generation_metrics import (
     GenerationScorer,
     GenerationScores,
     build_generation_scorer,
-    strip_emergency_banner,
+    strip_boilerplate,
 )
 from evals.rag.run_retrieval import BASELINES_PATH, run_ragas_sync
 
@@ -63,53 +63,76 @@ class GenerationReport(BaseModel):
     means: dict[str, float | None]
 
 
-async def run_eval(
-    agent: EvalAgent, scorer: GenerationScorer, cases: list[GenerationCase]
-) -> list[CaseResult]:
-    """Run and score every case, skipping the metric pass for canned answers."""
-    results: list[CaseResult] = []
-    for case in cases:
+_DEFAULT_CONCURRENCY = 4
+
+
+async def _run_case(agent: EvalAgent, scorer: GenerationScorer, case: GenerationCase) -> CaseResult:
+    """Answer and score one case, isolating any failure to this case."""
+    try:
         answer = await agent.answer(case.user_input)
-        response = strip_emergency_banner(answer.text)
-        if response == BUDGET_EXHAUSTED_MESSAGE:
-            results.append(
-                CaseResult(
-                    user_input=case.user_input,
-                    emergency=answer.emergency,
-                    budget_exhausted=True,
-                    scores=None,
-                )
-            )
-            continue
-        sample = GenerationSample(
+    except Exception as error:  # one flaky agent run must not sink the whole eval
+        print(f"  ! agent failed ({type(error).__name__}) for: {case.user_input[:70]!r}")
+        return CaseResult(
             user_input=case.user_input,
-            response=response,
-            retrieved_contexts=answer.contexts,
-            reference=case.reference,
+            emergency=False,
+            budget_exhausted=False,
+            scores=None,
+            errored=True,
         )
-        try:
-            scores = await scorer.ascore(sample)
-        except Exception as error:  # one flaky judge call must not sink the whole run
-            print(f"  ! scoring failed ({type(error).__name__}) for: {case.user_input[:70]!r}")
-            results.append(
-                CaseResult(
-                    user_input=case.user_input,
-                    emergency=answer.emergency,
-                    budget_exhausted=False,
-                    scores=None,
-                    errored=True,
-                )
-            )
-            continue
-        results.append(
-            CaseResult(
-                user_input=case.user_input,
-                emergency=answer.emergency,
-                budget_exhausted=False,
-                scores=scores,
-            )
+    response = strip_boilerplate(answer.text)
+    if response == BUDGET_EXHAUSTED_MESSAGE:
+        return CaseResult(
+            user_input=case.user_input,
+            emergency=answer.emergency,
+            budget_exhausted=True,
+            scores=None,
         )
-    return results
+    sample = GenerationSample(
+        user_input=case.user_input,
+        response=response,
+        retrieved_contexts=answer.contexts,
+        reference=case.reference,
+    )
+    try:
+        scores = await scorer.ascore(sample)
+    except Exception as error:  # one flaky judge call must not sink the whole run
+        print(f"  ! scoring failed ({type(error).__name__}) for: {case.user_input[:70]!r}")
+        return CaseResult(
+            user_input=case.user_input,
+            emergency=answer.emergency,
+            budget_exhausted=False,
+            scores=None,
+            errored=True,
+        )
+    return CaseResult(
+        user_input=case.user_input,
+        emergency=answer.emergency,
+        budget_exhausted=False,
+        scores=scores,
+    )
+
+
+async def run_eval(
+    agent: EvalAgent,
+    scorer: GenerationScorer,
+    cases: list[GenerationCase],
+    *,
+    concurrency: int = _DEFAULT_CONCURRENCY,
+) -> list[CaseResult]:
+    """Answer and score every case concurrently (bounded), preserving input order.
+
+    Each case is I/O-bound (agent turns plus judge calls to the Gateway), so a
+    small concurrency window cuts wall-clock sharply without raising credit cost.
+    The semaphore caps in-flight cases to stay under Gateway rate limits, and
+    _run_case never raises, so one bad case cannot cancel the others.
+    """
+    semaphore = asyncio.Semaphore(max(1, concurrency))
+
+    async def _bounded(case: GenerationCase) -> CaseResult:
+        async with semaphore:
+            return await _run_case(agent, scorer, case)
+
+    return list(await asyncio.gather(*(_bounded(case) for case in cases)))
 
 
 def aggregate_means(scores: list[GenerationScores]) -> dict[str, float | None]:
@@ -216,6 +239,12 @@ def main() -> None:
     parser.add_argument("--mode", default="dense", help="retriever mode label (Task 5: dense)")
     parser.add_argument("--limit", type=int, default=None, help="score only the first N cases")
     parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=_DEFAULT_CONCURRENCY,
+        help=f"cases scored in parallel (default {_DEFAULT_CONCURRENCY}); 1 is fully sequential",
+    )
+    parser.add_argument(
         "--write-baseline", action="store_true", help="persist baselines.json + the report"
     )
     args = parser.parse_args()
@@ -232,7 +261,9 @@ def main() -> None:
 
     agent = build_eval_agent(mode=args.mode)
     scorer = build_generation_scorer()
-    results = run_ragas_sync(lambda: asyncio.run(run_eval(agent, scorer, cases)))
+    results = run_ragas_sync(
+        lambda: asyncio.run(run_eval(agent, scorer, cases, concurrency=args.concurrency))
+    )
     report = summarize_report(args.mode, results)
 
     print(f"Agent RAGAS ({args.mode}) over {report.total_cases} cases:")

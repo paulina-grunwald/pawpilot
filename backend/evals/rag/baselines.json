@@ -12,5 +12,21 @@
       "context_entity_recall": 0.4265,
       "cases": 12
     }
+  },
+  "generation": {
+    "dense": {
+      "mode": "dense",
+      "total_cases": 18,
+      "scored_cases": 18,
+      "budget_exhausted": 0,
+      "errors": 0,
+      "emergency": 2,
+      "means": {
+        "faithfulness": 0.6339,
+        "answer_accuracy": 0.6528,
+        "answer_relevancy": 0.817,
+        "noise_sensitivity": 0.2335
+      }
+    }
   }
 }

@@ -18,6 +18,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from app.agent.prompt import VET_DISCLAIMER
 from app.agent.red_flags import EMERGENCY_BANNER
 from app.rag.config import RagSettings, get_rag_settings
 
@@ -29,15 +30,20 @@ GENERATION_METRIC_NAMES: tuple[str, ...] = (
 )
 
 
-def strip_emergency_banner(text: str) -> str:
-    """Remove the fixed emergency-banner prefix before scoring.
+def strip_boilerplate(text: str) -> str:
+    """Remove the canned emergency banner (prefix) and vet disclaimer (suffix).
 
-    The banner is canned and ungrounded, so leaving it in would unfairly depress
-    faithfulness and relevancy - only the model's own answer should be judged.
+    Both are fixed, ungrounded compliance strings the agent is required to emit,
+    not claims about the dog, so leaving them in unfairly depresses faithfulness
+    and answer_relevancy. Only the model's own answer should be scored.
     """
-    if text.startswith(EMERGENCY_BANNER):
-        return text[len(EMERGENCY_BANNER) :]
-    return text
+    stripped = text
+    if stripped.startswith(EMERGENCY_BANNER):
+        stripped = stripped[len(EMERGENCY_BANNER) :]
+    trimmed = stripped.rstrip()
+    if trimmed.endswith(VET_DISCLAIMER):
+        stripped = trimmed[: -len(VET_DISCLAIMER)].rstrip()
+    return stripped
 
 
 class GenerationSample(BaseModel):
