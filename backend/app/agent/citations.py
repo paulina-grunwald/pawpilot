@@ -41,6 +41,7 @@ class CitationRegistry:
         self._citations: dict[str, Citation] = {}
         self._corpus_count = 0
         self._web_count = 0
+        self._retrieved_contexts: list[str] = []
 
     def register_corpus_chunks(self, chunks: list[RetrievedChunk]) -> str:
         """Assign ``[S#]`` ids to chunks and return them as numbered passages."""
@@ -58,6 +59,7 @@ class CitationRegistry:
                 page_start=chunk.page_start,
             )
             passages.append(f"[{ref}] {chunk.title} (p.{chunk.page_start})\n{chunk.text}")
+            self._retrieved_contexts.append(chunk.text)
         return "\n\n".join(passages)
 
     def register_web_results(self, results: list[WebSearchResult]) -> str:
@@ -73,8 +75,18 @@ class CitationRegistry:
                 url=result.url,
             )
             snippets.append(f"[{ref}] {result.title} ({result.url})\n{result.content}")
+            self._retrieved_contexts.append(result.content)
         return "\n\n".join(snippets)
 
     def resolve(self, referenced_ids: list[str]) -> list[Citation]:
         """Map referenced ids back to citations, ignoring unknown ids, in order."""
         return [self._citations[ref] for ref in referenced_ids if ref in self._citations]
+
+    @property
+    def retrieved_contexts(self) -> list[str]:
+        """Every passage the model saw this run, corpus and web, in registration order.
+
+        RAGAS generation metrics score the answer against the exact text retrieval
+        surfaced — cited or not — so this accumulates raw chunk/result text.
+        """
+        return list(self._retrieved_contexts)

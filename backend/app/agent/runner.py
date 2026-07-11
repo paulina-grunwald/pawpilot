@@ -191,6 +191,7 @@ class PawPilotAgent:
             citations=citations,
             emergency=prepared.emergency,
             tool_calls=list(prepared.invoked_tools),
+            contexts=prepared.registry.retrieved_contexts,
         )
 
     @traceable(run_type="chain", name="ask_pawpilot")
