@@ -221,6 +221,36 @@ def test_agent_answer_requires_all_fields() -> None:
         AgentAnswer.model_validate({"text": "hi"})
 
 
+def test_agent_answer_contexts_default_to_empty_list() -> None:
+    answer = AgentAnswer(text="hi", citations=[], emergency=False, tool_calls=[])
+    assert answer.contexts == []
+
+
+def test_agent_answer_holds_contexts() -> None:
+    answer = AgentAnswer(
+        text="hi",
+        citations=[],
+        emergency=False,
+        tool_calls=[],
+        contexts=["passage one", "passage two"],
+    )
+    assert answer.contexts == ["passage one", "passage two"]
+
+
+def test_agent_answer_contexts_excluded_from_serialization() -> None:
+    # The vet corpus is private; `contexts` must never appear in the API response
+    # body, so it is excluded from both dict and JSON dumps.
+    answer = AgentAnswer(
+        text="hi",
+        citations=[],
+        emergency=False,
+        tool_calls=[],
+        contexts=["private corpus passage"],
+    )
+    assert "contexts" not in answer.model_dump()
+    assert "private corpus passage" not in answer.model_dump_json()
+
+
 # --------------------------------------------------------------------------- #
 # AgentStreamChunk
 # --------------------------------------------------------------------------- #

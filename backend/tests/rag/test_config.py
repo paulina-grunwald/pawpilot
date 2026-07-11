@@ -13,7 +13,7 @@ _KEY_ALIASES = ("VERCEL_AI_GATEWAY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN")
 def _isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Run in an empty cwd (no `.env`) with all RAG env vars cleared."""
     monkeypatch.chdir(tmp_path)
-    for name in (*_KEY_ALIASES, "RAG_EMBED_MODEL", "RAG_GEN_MODEL"):
+    for name in (*_KEY_ALIASES, "RAG_EMBED_MODEL", "RAG_GEN_MODEL", "AGENT_EVAL_JUDGE_MODEL"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -63,5 +63,32 @@ def test_rejects_bare_gen_model_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     _isolated_env(monkeypatch, tmp_path)
     monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
     monkeypatch.setenv("RAG_GEN_MODEL", "gpt-5.4-mini")
+    with pytest.raises(ValidationError):
+        RagSettings()
+
+
+def test_agent_eval_judge_model_defaults_to_none(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    assert RagSettings().agent_eval_judge_model is None
+
+
+def test_reads_agent_eval_judge_model_from_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    monkeypatch.setenv("AGENT_EVAL_JUDGE_MODEL", "openai/gpt-5.4")
+    assert RagSettings().agent_eval_judge_model == "openai/gpt-5.4"
+
+
+def test_rejects_bare_agent_eval_judge_model_id(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    monkeypatch.setenv("AGENT_EVAL_JUDGE_MODEL", "gpt-5.4")
     with pytest.raises(ValidationError):
         RagSettings()
