@@ -54,3 +54,5 @@ make check
 ```
 
 Other targets: `make format` (ruff format + autofix), `make lint`, `make typecheck`, `make test`, `make db-upgrade`, `make db-revision name="describe change"`.
+
+Loading the vet RAG corpus into the deployed backend's private Qdrant: see [`backend/docs/corpus-admin.md`](backend/docs/corpus-admin.md).
