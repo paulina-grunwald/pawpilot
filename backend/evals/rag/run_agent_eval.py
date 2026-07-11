@@ -38,13 +38,18 @@ REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 
 
 class CaseResult(BaseModel):
-    """One case's outcome: its flags and scores (``None`` when budget-exhausted)."""
+    """One case's outcome: its flags and scores.
+
+    scores is None when the case was skipped: either budget-exhausted (canned
+    answer) or errored (the judge failed while scoring it).
+    """
 
     model_config = ConfigDict(frozen=True)
 
     user_input: str
     emergency: bool
     budget_exhausted: bool
+    errored: bool
     scores: GenerationScores | None
 
 
@@ -57,6 +62,7 @@ class GenerationReport(BaseModel):
     total_cases: int
     scored_cases: int
     budget_exhausted: int
+    errors: int
     emergency: int
     means: dict[str, float | None]
 
@@ -64,7 +70,11 @@ class GenerationReport(BaseModel):
 async def run_eval(
     agent: EvalAgent, scorer: GenerationScorer, cases: list[GenerationCase]
 ) -> list[CaseResult]:
-    """Run and score every case, skipping the metric pass for canned answers."""
+    """Run and score every case, skipping the metric pass for canned answers.
+
+    A scoring failure on one case (a judge timeout, or truncated JSON the metric
+    cannot parse) is recorded as errored and skipped, never crashing the run.
+    """
     results: list[CaseResult] = []
     for case in cases:
         answer = await agent.answer(case.user_input)
@@ -75,6 +85,7 @@ async def run_eval(
                     user_input=case.user_input,
                     emergency=answer.emergency,
                     budget_exhausted=True,
+                    errored=False,
                     scores=None,
                 )
             )
@@ -85,12 +96,26 @@ async def run_eval(
             retrieved_contexts=answer.contexts,
             reference=case.reference,
         )
+        try:
+            scores = await scorer.ascore(sample)
+        except Exception:
+            results.append(
+                CaseResult(
+                    user_input=case.user_input,
+                    emergency=answer.emergency,
+                    budget_exhausted=False,
+                    errored=True,
+                    scores=None,
+                )
+            )
+            continue
         results.append(
             CaseResult(
                 user_input=case.user_input,
                 emergency=answer.emergency,
                 budget_exhausted=False,
-                scores=await scorer.ascore(sample),
+                errored=False,
+                scores=scores,
             )
         )
     return results
@@ -113,23 +138,25 @@ def summarize_report(mode: str, results: list[CaseResult]) -> GenerationReport:
         total_cases=len(results),
         scored_cases=len(scored),
         budget_exhausted=sum(1 for result in results if result.budget_exhausted),
+        errors=sum(1 for result in results if result.errored),
         emergency=sum(1 for result in results if result.emergency),
         means=aggregate_means(scored),
     )
 
 
 def _format_score(value: float | None) -> str:
-    return "—" if value is None else f"{value:.3f}"
+    return "-" if value is None else f"{value:.3f}"
 
 
 def render_markdown(report: GenerationReport, results: list[CaseResult]) -> str:
     """Render the summary table, a per-case breakdown, and a conclusions stub."""
     labels = {"noise_sensitivity": "noise_sensitivity (lower better)"}
     lines = [
-        f"# Agent RAGAS — {report.mode}",
+        f"# Agent RAGAS - {report.mode}",
         "",
         f"Cases: {report.total_cases} · scored: {report.scored_cases} · "
         f"budget-exhausted (excluded): {report.budget_exhausted} · "
+        f"errored (excluded): {report.errors} · "
         f"emergency: {report.emergency}",
         "",
         "| metric | mean |",
@@ -144,8 +171,8 @@ def render_markdown(report: GenerationReport, results: list[CaseResult]) -> str:
         "",
         "## Per-case",
         "",
-        f"| # | emergency | budget | {metric_columns} | question |",
-        f"|---|---|---|{metric_dividers}|---|",
+        f"| # | emergency | budget | errored | {metric_columns} | question |",
+        f"|---|---|---|---|{metric_dividers}|---|",
     ]
     for index, result in enumerate(results, start=1):
         cells = " | ".join(
@@ -154,7 +181,8 @@ def render_markdown(report: GenerationReport, results: list[CaseResult]) -> str:
         question = _truncate(result.user_input)
         emergency = "yes" if result.emergency else ""
         budget = "yes" if result.budget_exhausted else ""
-        lines.append(f"| {index} | {emergency} | {budget} | {cells} | {question} |")
+        errored = "yes" if result.errored else ""
+        lines.append(f"| {index} | {emergency} | {budget} | {errored} | {cells} | {question} |")
 
     lines += ["", "## Conclusions", "", "_TODO: interpret the numbers after review._", ""]
     return "\n".join(lines)
