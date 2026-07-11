@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { activePetStorageKey } from "@/lib/activePet";
 import type { PetRead } from "@/lib/pets";
 import { FloatingDockProvider, useFloatingDock } from "../FloatingDockContext";
-import { JournalFab, activePetStorageKey } from "./JournalFab";
+import { JournalFab } from "./JournalFab";
 
-const { listPetsMock } = vi.hoisted(() => ({
+const { listPetsMock, pathnameMock } = vi.hoisted(() => ({
   listPetsMock: vi.fn<() => Promise<PetRead[]>>(),
+  pathnameMock: vi.fn<() => string>(() => "/dashboard"),
 }));
+
+vi.mock("next/navigation", () => ({ usePathname: () => pathnameMock() }));
 
 vi.mock("@/lib/pets", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/pets")>();
@@ -45,8 +49,16 @@ function makePet(overrides: Partial<PetRead> = {}): PetRead {
 
 afterEach(() => {
   listPetsMock.mockReset();
+  pathnameMock.mockReturnValue("/dashboard");
   window.localStorage.clear();
 });
+
+function twoPets(): PetRead[] {
+  return [
+    makePet({ id: "pet-1", name: "Luna" }),
+    makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
+  ];
+}
 
 describe("JournalFab", () => {
   it("shows the launcher and keeps the menu closed until tapped", () => {
@@ -120,22 +132,42 @@ describe("JournalFab", () => {
     expect(listPetsMock).toHaveBeenCalledTimes(2);
   });
 
-  it("targets the stored active pet and switches when picked", async () => {
-    window.localStorage.setItem(activePetStorageKey(USER_ID), "pet-2");
-    listPetsMock.mockResolvedValue([
-      makePet({ id: "pet-1", name: "Luna" }),
-      makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
-    ]);
+  it("logs for the dog named in the route", async () => {
+    pathnameMock.mockReturnValue("/dashboard/pet-2");
+    listPetsMock.mockResolvedValue(twoPets());
     const user = userEvent.setup();
     render(<JournalFab userId={USER_ID} />);
 
     await user.click(screen.getByRole("button", { name: /log a journal entry/i }));
+    await user.click(await screen.findByRole("button", { name: /log meal/i }));
 
-    const picker = await screen.findByRole("button", { name: /bowie/i });
-    await user.click(picker);
-    await user.click(screen.getByRole("option", { name: /luna/i }));
+    // The quick-add modal echoes the pet it will save the entry against.
+    expect(screen.getByText("Bowie")).toBeInTheDocument();
+  });
 
-    expect(window.localStorage.getItem(activePetStorageKey(USER_ID))).toBe("pet-1");
+  it("falls back to the last-focused dog on a route without a pet", async () => {
+    window.localStorage.setItem(activePetStorageKey(USER_ID), "pet-2");
+    pathnameMock.mockReturnValue("/chat");
+    listPetsMock.mockResolvedValue(twoPets());
+    const user = userEvent.setup();
+    render(<JournalFab userId={USER_ID} />);
+
+    await user.click(screen.getByRole("button", { name: /log a journal entry/i }));
+    await user.click(await screen.findByRole("button", { name: /log meal/i }));
+
+    expect(screen.getByText("Bowie")).toBeInTheDocument();
+  });
+
+  it("does not render a pet picker inside the menu", async () => {
+    pathnameMock.mockReturnValue("/dashboard/pet-1");
+    listPetsMock.mockResolvedValue(twoPets());
+    const user = userEvent.setup();
+    render(<JournalFab userId={USER_ID} />);
+
+    await user.click(screen.getByRole("button", { name: /log a journal entry/i }));
+    await screen.findByRole("button", { name: /log meal/i });
+
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 
   it("hides the launcher while the chat panel is open", async () => {

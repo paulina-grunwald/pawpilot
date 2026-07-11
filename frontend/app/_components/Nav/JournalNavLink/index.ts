@@ -1,0 +1,1 @@
+export { JournalNavLink } from "./JournalNavLink";

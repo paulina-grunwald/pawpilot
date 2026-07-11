@@ -104,10 +104,6 @@
   color: var(--ink);
 }
 
-.petRow {
-  margin-bottom: 2px;
-}
-
 .hint {
   display: flex;
   flex-direction: column;

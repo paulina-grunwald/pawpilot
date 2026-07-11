@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ChatWidget } from "@/app/_components/chat/ChatWidget";
 import { FloatingDockProvider } from "@/app/_components/floating/FloatingDockContext";
 import { JournalFab } from "@/app/_components/floating/JournalFab";
+import { JournalNavLink } from "@/app/_components/Nav/JournalNavLink";
 import { PawMark } from "@/app/_components/PawMark";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { requireCurrentUser } from "@/lib/auth.server";
@@ -30,6 +31,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               <span className="display text-[18px] font-semibold tracking-[-0.01em]">PawPilot</span>
             </Link>
             <div className="flex items-center gap-4">
+              <JournalNavLink
+                userId={user.id}
+                className="text-ink hover:text-blue text-[13px] font-medium no-underline"
+              />
               <Link
                 href="/chat"
                 className="text-ink hover:text-blue text-[13px] font-medium no-underline"

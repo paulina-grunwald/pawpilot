@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useEffect,
   useRef,
@@ -18,7 +19,8 @@ import {
   MoreIcon,
   type IconProps,
 } from "@/app/_components/icons";
-import { PetPicker, type PetPickerOption } from "@/app/_components/pets/PetPicker";
+import type { PetPickerOption } from "@/app/_components/pets/PetPicker";
+import { activePetStorageKey, petIdFromPathname } from "@/lib/activePet";
 import type { EntryType } from "@/lib/journal.constants";
 import { listPetsForBrowser, toPetPickerOption } from "@/lib/pets";
 import { QuickAddModal } from "../../journal/QuickAddModal";
@@ -45,25 +47,17 @@ type PetsState =
   | { status: "idle" | "loading" | "error" }
   | { status: "ready"; pets: PetPickerOption[] };
 
-export function activePetStorageKey(userId: string): string {
-  return `pawpilot:active-pet:${userId}`;
-}
-
-function resolveActivePetId(pets: PetPickerOption[], userId: string): string {
-  const stored = window.localStorage.getItem(activePetStorageKey(userId));
-  if (stored && pets.some((pet) => pet.id === stored)) return stored;
-  return pets[0].id;
-}
-
 type JournalFabProps = {
   userId: string;
 };
 
 export function JournalFab({ userId }: JournalFabProps) {
   const { chatOpen } = useFloatingDock();
+  const pathname = usePathname();
+  const routePetId = petIdFromPathname(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
   const [petsState, setPetsState] = useState<PetsState>({ status: "idle" });
-  const [activePetId, setActivePetId] = useState<string | null>(null);
+  const [storedPetId, setStoredPetId] = useState<string | null>(null);
   const [openType, setOpenType] = useState<EntryType | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
@@ -104,10 +98,8 @@ export function JournalFab({ userId }: JournalFabProps) {
     setPetsState({ status: "loading" });
     try {
       const pets = (await listPetsForBrowser()).map(toPetPickerOption);
+      setStoredPetId(window.localStorage.getItem(activePetStorageKey(userId)));
       setPetsState({ status: "ready", pets });
-      if (pets.length > 0) {
-        setActivePetId((current) => current ?? resolveActivePetId(pets, userId));
-      }
     } catch {
       setPetsState({ status: "error" });
     }
@@ -122,20 +114,19 @@ export function JournalFab({ userId }: JournalFabProps) {
     }
   }
 
-  function selectPet(petId: string) {
-    setActivePetId(petId);
-    window.localStorage.setItem(activePetStorageKey(userId), petId);
-  }
-
   function openModalFor(entryType: EntryType | null) {
     setOpenType(entryType);
     setModalOpen(true);
     setMenuOpen(false);
   }
 
+  // Log for the dog in the URL; on routes without one, fall back to the dog the
+  // user last focused, then the first pet.
   const activePet =
     petsState.status === "ready"
-      ? (petsState.pets.find((pet) => pet.id === activePetId) ?? petsState.pets[0])
+      ? (petsState.pets.find((pet) => pet.id === routePetId) ??
+        petsState.pets.find((pet) => pet.id === storedPetId) ??
+        petsState.pets[0])
       : undefined;
 
   return (
@@ -165,16 +156,6 @@ export function JournalFab({ userId }: JournalFabProps) {
 
           {petsState.status === "ready" && activePet && (
             <>
-              {petsState.pets.length > 1 && (
-                <div className={styles.petRow}>
-                  <PetPicker
-                    pets={petsState.pets}
-                    activePetId={activePet.id}
-                    onSelect={selectPet}
-                    align="end"
-                  />
-                </div>
-              )}
               {QUICK_ACTIONS.map((action, index) => {
                 const Icon = action.icon;
                 return (

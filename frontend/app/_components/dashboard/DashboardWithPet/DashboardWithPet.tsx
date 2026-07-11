@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { activePetStorageKey } from "@/lib/activePet";
 import type { PetRead } from "@/lib/pets";
 import { toDashboardPet } from "@/lib/pets.format";
 import { fetchTractiveRollups, type TractiveDailySummary } from "@/lib/tractive";
@@ -20,37 +22,26 @@ const DEFAULT_RANGE_DAYS = 7;
 
 type DashboardWithPetProps = {
   pets: PetRead[];
+  activePetId: string;
   userId: string;
   todayLabel: string;
 };
 
-export function activePetStorageKey(userId: string): string {
-  return `pawpilot:active-pet:${userId}`;
-}
-
-export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetProps) {
-  const [storedPetId, setStoredPetId] = useState<string | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: DashboardWithPetProps) {
+  const router = useRouter();
   const [rollups, setRollups] = useState<TractiveDailySummary[] | null>(null);
   const [rangeDays, setRangeDays] = useState<number>(DEFAULT_RANGE_DAYS);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setStoredPetId(window.localStorage.getItem(activePetStorageKey(userId)));
-    setHydrated(true);
-  }, [userId]);
-
-  function handleSelect(petId: string) {
-    setStoredPetId(petId);
-    window.localStorage.setItem(activePetStorageKey(userId), petId);
-  }
-
-  const activePet =
-    (storedPetId && pets.find((pet) => pet.id === storedPetId)) || pets[0];
+  const activePet = pets.find((pet) => pet.id === activePetId) ?? pets[0];
   const dashboardPet = toDashboardPet(activePet);
 
+  // Remember the focused dog so /dashboard, the journal FAB, and the navbar
+  // journal link all land on the same pet.
   useEffect(() => {
-    if (!hydrated) return;
+    window.localStorage.setItem(activePetStorageKey(userId), activePet.id);
+  }, [activePet.id, userId]);
+
+  useEffect(() => {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRollups(null);
@@ -66,7 +57,13 @@ export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetP
     return () => {
       cancelled = true;
     };
-  }, [activePet.id, hydrated, rangeDays]);
+  }, [activePet.id, rangeDays]);
+
+  function handleSelect(petId: string) {
+    if (petId === activePet.id) return;
+    window.localStorage.setItem(activePetStorageKey(userId), petId);
+    router.push(`/dashboard/${petId}`);
+  }
 
   const todayData = rollups ? toTodayPanelData(rollups) : undefined;
   const sleepSplitBars = rollups ? toSleepSplitBars(rollups) : [];
@@ -78,17 +75,9 @@ export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetP
 
   const headerActions = (
     <>
-      <RangeToggle
-        options={RANGE_OPTIONS}
-        activeDays={rangeDays}
-        onChange={setRangeDays}
-      />
-      {pets.length > 1 && hydrated && (
-        <PetPicker
-          pets={pickerOptions}
-          activePetId={activePet.id}
-          onSelect={handleSelect}
-        />
+      <RangeToggle options={RANGE_OPTIONS} activeDays={rangeDays} onChange={setRangeDays} />
+      {pets.length > 1 && (
+        <PetPicker pets={pickerOptions} activePetId={activePet.id} onSelect={handleSelect} />
       )}
       {pets.length === 1 && (
         <Link href="/pets/new" className={styles.addLink}>
@@ -98,12 +87,6 @@ export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetP
     </>
   );
 
-  if (!hydrated && pets.length > 1) {
-    return (
-      <div aria-busy="true" aria-live="polite" className={styles.hydrating} />
-    );
-  }
-
   return (
     <PetDashboardView
       pet={dashboardPet}
@@ -111,7 +94,9 @@ export function DashboardWithPet({ pets, userId, todayLabel }: DashboardWithPetP
       todayLabel={todayLabel}
       todayData={todayData}
       sleepSplitBars={sleepSplitBars}
-      rangeLabel={RANGE_OPTIONS.find((option) => option.days === rangeDays)?.label ?? `${rangeDays}d`}
+      rangeLabel={
+        RANGE_OPTIONS.find((option) => option.days === rangeDays)?.label ?? `${rangeDays}d`
+      }
     />
   );
 }

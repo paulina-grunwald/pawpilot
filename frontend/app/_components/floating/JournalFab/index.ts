@@ -1,1 +1,1 @@
-export { JournalFab, activePetStorageKey } from "./JournalFab";
+export { JournalFab } from "./JournalFab";
