@@ -114,8 +114,25 @@ class PawPilotAgent:
         self._checkpointer = checkpointer
         self._memory_store = memory_store
 
+    def _memory_context(self, dog_id: str | None) -> tuple[bool, str]:
+        if dog_id is not None and self._memory_store is not None:
+            return True, self._memory_store.render_block(dog_id)
+        return False, ""
+
+    async def _amemory_context(self, dog_id: str | None) -> tuple[bool, str]:
+        if dog_id is not None and self._memory_store is not None:
+            return True, await self._memory_store.arender_block(dog_id)
+        return False, ""
+
     def _prepare_run(
-        self, query: str, *, top_k: int, thread_id: str | None, dog_id: str | None
+        self,
+        query: str,
+        *,
+        top_k: int,
+        thread_id: str | None,
+        dog_id: str | None,
+        memory_active: bool,
+        memory_block: str,
     ) -> _PreparedRun:
         _validate_query(query)
         registry = CitationRegistry()
@@ -124,12 +141,8 @@ class PawPilotAgent:
             self._retriever, self._web_search, registry, invoked_tools, top_k=top_k
         )
 
-        memory_block = ""
-        memory_active = False
-        if dog_id is not None and self._memory_store is not None:
-            memory_active = True
+        if memory_active and self._memory_store is not None and dog_id is not None:
             tools = tools + build_memory_tools(self._memory_store, dog_id, invoked_tools)
-            memory_block = self._memory_store.render_block(dog_id)
         system_prompt = compose_system_prompt(
             memory_block=memory_block, include_memory_rule=memory_active
         )
@@ -145,7 +158,7 @@ class PawPilotAgent:
                 self._settings.agent_max_tool_calls
             ),
             "run_name": "ask_pawpilot",
-            "tags": ["agent", "010b"],
+            "tags": ["agent", "010c"],
             "metadata": {
                 "prompt_version": PROMPT_VERSION,
                 "thread_id": thread_id,
@@ -184,7 +197,15 @@ class PawPilotAgent:
         dog_id: str | None = None,
         top_k: int = _DEFAULT_TOP_K,
     ) -> AgentAnswer:
-        prepared = self._prepare_run(query, top_k=top_k, thread_id=thread_id, dog_id=dog_id)
+        memory_active, memory_block = self._memory_context(dog_id)
+        prepared = self._prepare_run(
+            query,
+            top_k=top_k,
+            thread_id=thread_id,
+            dog_id=dog_id,
+            memory_active=memory_active,
+            memory_block=memory_block,
+        )
         try:
             result = prepared.graph.invoke({"messages": prepared.messages}, config=prepared.config)
         except GraphRecursionError:
@@ -200,7 +221,15 @@ class PawPilotAgent:
         dog_id: str | None = None,
         top_k: int = _DEFAULT_TOP_K,
     ) -> AgentAnswer:
-        prepared = self._prepare_run(query, top_k=top_k, thread_id=thread_id, dog_id=dog_id)
+        memory_active, memory_block = await self._amemory_context(dog_id)
+        prepared = self._prepare_run(
+            query,
+            top_k=top_k,
+            thread_id=thread_id,
+            dog_id=dog_id,
+            memory_active=memory_active,
+            memory_block=memory_block,
+        )
         try:
             result = await prepared.graph.ainvoke(
                 {"messages": prepared.messages}, config=prepared.config
@@ -213,25 +242,47 @@ class PawPilotAgent:
 _default_agent: PawPilotAgent | None = None
 
 
-def _get_default_agent() -> PawPilotAgent:
-    """Lazily build the process-wide agent from live settings and services.
+def build_agent(
+    *,
+    checkpointer: BaseCheckpointSaver[Any] | None,
+    memory_store: DogMemoryStore | None,
+) -> PawPilotAgent:
+    """Build an agent from live settings and services with the given memory."""
+    configure_langsmith()
+    settings = get_agent_settings()
+    return PawPilotAgent(
+        model=build_chat_model(settings),
+        retriever=build_retriever(),
+        web_search=TavilyWebSearch(settings),
+        settings=settings,
+        checkpointer=checkpointer,
+        memory_store=memory_store,
+    )
 
-    The checkpointer and store are process-wide so memory persists across calls;
-    both are in-memory for now (a persistent swap is a 010c concern).
-    """
+
+def _build_in_memory_agent() -> PawPilotAgent:
+    settings = get_agent_settings()
+    return build_agent(
+        checkpointer=InMemorySaver(),
+        memory_store=DogMemoryStore(InMemoryStore(), max_memories=settings.max_dog_memories),
+    )
+
+
+def get_default_agent() -> PawPilotAgent:
     global _default_agent
     if _default_agent is None:
-        configure_langsmith()
-        settings = get_agent_settings()
-        _default_agent = PawPilotAgent(
-            model=build_chat_model(settings),
-            retriever=build_retriever(),
-            web_search=TavilyWebSearch(settings),
-            settings=settings,
-            checkpointer=InMemorySaver(),
-            memory_store=DogMemoryStore(InMemoryStore(), max_memories=settings.max_dog_memories),
-        )
+        _default_agent = _build_in_memory_agent()
     return _default_agent
+
+
+def set_default_agent(agent: PawPilotAgent) -> None:
+    global _default_agent
+    _default_agent = agent
+
+
+def clear_default_agent() -> None:
+    global _default_agent
+    _default_agent = None
 
 
 def run_agent(
@@ -246,7 +297,7 @@ def run_agent(
     ``thread_id`` continues a conversation (short-term memory); ``dog_id`` recalls
     and updates durable facts about that dog (long-term memory).
     """
-    return _get_default_agent().run(query, thread_id=thread_id, dog_id=dog_id, top_k=top_k)
+    return get_default_agent().run(query, thread_id=thread_id, dog_id=dog_id, top_k=top_k)
 
 
 async def arun_agent(
@@ -257,4 +308,4 @@ async def arun_agent(
     top_k: int = _DEFAULT_TOP_K,
 ) -> AgentAnswer:
     """Async counterpart to `run_agent` (wrapped by the 010c chat endpoint)."""
-    return await _get_default_agent().arun(query, thread_id=thread_id, dog_id=dog_id, top_k=top_k)
+    return await get_default_agent().arun(query, thread_id=thread_id, dog_id=dog_id, top_k=top_k)
