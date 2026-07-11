@@ -13,38 +13,49 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from app.agent.prompt import VET_DISCLAIMER
 from app.agent.red_flags import EMERGENCY_BANNER
 from evals.rag.generation_metrics import (
     GENERATION_METRIC_NAMES,
     GenerationSample,
     GenerationScorer,
     GenerationScores,
-    strip_emergency_banner,
+    strip_boilerplate,
 )
 
 # --------------------------------------------------------------------------- #
-# strip_emergency_banner
+# strip_boilerplate
 # --------------------------------------------------------------------------- #
 
 
 def test_strip_removes_banner_and_keeps_answer() -> None:
     answer = "Boost every three years [S1]."
-    assert strip_emergency_banner(EMERGENCY_BANNER + answer) == answer
+    assert strip_boilerplate(EMERGENCY_BANNER + answer) == answer
 
 
-def test_strip_is_noop_without_banner() -> None:
+def test_strip_removes_trailing_disclaimer() -> None:
+    answer = "Boost every three years [S1]."
+    assert strip_boilerplate(f"{answer} {VET_DISCLAIMER}") == answer
+
+
+def test_strip_removes_both_banner_and_disclaimer() -> None:
+    answer = "Boost every three years [S1]."
+    assert strip_boilerplate(f"{EMERGENCY_BANNER}{answer} {VET_DISCLAIMER}") == answer
+
+
+def test_strip_is_noop_without_boilerplate() -> None:
     answer = "A perfectly ordinary answer."
-    assert strip_emergency_banner(answer) == answer
+    assert strip_boilerplate(answer) == answer
 
 
 def test_strip_handles_empty_string() -> None:
-    assert strip_emergency_banner("") == ""
+    assert strip_boilerplate("") == ""
 
 
 def test_strip_only_removes_a_leading_banner() -> None:
     # A banner that appears mid-text (not as the prefix) is left untouched.
     text = "Intro. " + EMERGENCY_BANNER + "tail"
-    assert strip_emergency_banner(text) == text
+    assert strip_boilerplate(text) == text
 
 
 # --------------------------------------------------------------------------- #

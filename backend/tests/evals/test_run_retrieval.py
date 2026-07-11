@@ -17,7 +17,7 @@ def test_write_baseline_refuses_without_context_metrics(tmp_path: Path) -> None:
     destination = tmp_path / "baselines.json"
     destination.write_text('{"retrieval": {"context": {"context_recall": 0.9}}}\n')
 
-    with pytest.raises(SystemExit, match="synthetic test set is missing"):
+    with pytest.raises(SystemExit, match="no reviewed generation cases"):
         write_baseline(_report({}), destination)
 
     assert json.loads(destination.read_text())["retrieval"]["context"]["context_recall"] == 0.9

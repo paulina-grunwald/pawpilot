@@ -30,7 +30,7 @@ from evals.rag.generation_metrics import (
     GenerationScorer,
     GenerationScores,
     build_generation_scorer,
-    strip_emergency_banner,
+    strip_boilerplate,
 )
 from evals.rag.run_retrieval import BASELINES_PATH, run_ragas_sync
 
@@ -38,19 +38,15 @@ REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 
 
 class CaseResult(BaseModel):
-    """One case's outcome: its flags and scores.
-
-    scores is None when the case was skipped: either budget-exhausted (canned
-    answer) or errored (the judge failed while scoring it).
-    """
+    """One case's outcome: its flags and scores (None when budget-exhausted)."""
 
     model_config = ConfigDict(frozen=True)
 
     user_input: str
     emergency: bool
     budget_exhausted: bool
-    errored: bool
     scores: GenerationScores | None
+    errored: bool = False
 
 
 class GenerationReport(BaseModel):
@@ -67,58 +63,76 @@ class GenerationReport(BaseModel):
     means: dict[str, float | None]
 
 
-async def run_eval(
-    agent: EvalAgent, scorer: GenerationScorer, cases: list[GenerationCase]
-) -> list[CaseResult]:
-    """Run and score every case, skipping the metric pass for canned answers.
+_DEFAULT_CONCURRENCY = 4
 
-    A scoring failure on one case (a judge timeout, or truncated JSON the metric
-    cannot parse) is recorded as errored and skipped, never crashing the run.
-    """
-    results: list[CaseResult] = []
-    for case in cases:
+
+async def _run_case(agent: EvalAgent, scorer: GenerationScorer, case: GenerationCase) -> CaseResult:
+    """Answer and score one case, isolating any failure to this case."""
+    try:
         answer = await agent.answer(case.user_input)
-        response = strip_emergency_banner(answer.text)
-        if response == BUDGET_EXHAUSTED_MESSAGE:
-            results.append(
-                CaseResult(
-                    user_input=case.user_input,
-                    emergency=answer.emergency,
-                    budget_exhausted=True,
-                    errored=False,
-                    scores=None,
-                )
-            )
-            continue
-        sample = GenerationSample(
+    except Exception as error:  # one flaky agent run must not sink the whole eval
+        print(f"  ! agent failed ({type(error).__name__}) for: {case.user_input[:70]!r}")
+        return CaseResult(
             user_input=case.user_input,
-            response=response,
-            retrieved_contexts=answer.contexts,
-            reference=case.reference,
+            emergency=False,
+            budget_exhausted=False,
+            scores=None,
+            errored=True,
         )
-        try:
-            scores = await scorer.ascore(sample)
-        except Exception:
-            results.append(
-                CaseResult(
-                    user_input=case.user_input,
-                    emergency=answer.emergency,
-                    budget_exhausted=False,
-                    errored=True,
-                    scores=None,
-                )
-            )
-            continue
-        results.append(
-            CaseResult(
-                user_input=case.user_input,
-                emergency=answer.emergency,
-                budget_exhausted=False,
-                errored=False,
-                scores=scores,
-            )
+    response = strip_boilerplate(answer.text)
+    if response == BUDGET_EXHAUSTED_MESSAGE:
+        return CaseResult(
+            user_input=case.user_input,
+            emergency=answer.emergency,
+            budget_exhausted=True,
+            scores=None,
         )
-    return results
+    sample = GenerationSample(
+        user_input=case.user_input,
+        response=response,
+        retrieved_contexts=answer.contexts,
+        reference=case.reference,
+    )
+    try:
+        scores = await scorer.ascore(sample)
+    except Exception as error:  # one flaky judge call must not sink the whole run
+        print(f"  ! scoring failed ({type(error).__name__}) for: {case.user_input[:70]!r}")
+        return CaseResult(
+            user_input=case.user_input,
+            emergency=answer.emergency,
+            budget_exhausted=False,
+            scores=None,
+            errored=True,
+        )
+    return CaseResult(
+        user_input=case.user_input,
+        emergency=answer.emergency,
+        budget_exhausted=False,
+        scores=scores,
+    )
+
+
+async def run_eval(
+    agent: EvalAgent,
+    scorer: GenerationScorer,
+    cases: list[GenerationCase],
+    *,
+    concurrency: int = _DEFAULT_CONCURRENCY,
+) -> list[CaseResult]:
+    """Answer and score every case concurrently (bounded), preserving input order.
+
+    Each case is I/O-bound (agent turns plus judge calls to the Gateway), so a
+    small concurrency window cuts wall-clock sharply without raising credit cost.
+    The semaphore caps in-flight cases to stay under Gateway rate limits, and
+    _run_case never raises, so one bad case cannot cancel the others.
+    """
+    semaphore = asyncio.Semaphore(max(1, concurrency))
+
+    async def _bounded(case: GenerationCase) -> CaseResult:
+        async with semaphore:
+            return await _run_case(agent, scorer, case)
+
+    return list(await asyncio.gather(*(_bounded(case) for case in cases)))
 
 
 def aggregate_means(scores: list[GenerationScores]) -> dict[str, float | None]:
@@ -171,7 +185,7 @@ def render_markdown(report: GenerationReport, results: list[CaseResult]) -> str:
         "",
         "## Per-case",
         "",
-        f"| # | emergency | budget | errored | {metric_columns} | question |",
+        f"| # | emergency | budget | error | {metric_columns} | question |",
         f"|---|---|---|---|{metric_dividers}|---|",
     ]
     for index, result in enumerate(results, start=1):
@@ -181,8 +195,8 @@ def render_markdown(report: GenerationReport, results: list[CaseResult]) -> str:
         question = _truncate(result.user_input)
         emergency = "yes" if result.emergency else ""
         budget = "yes" if result.budget_exhausted else ""
-        errored = "yes" if result.errored else ""
-        lines.append(f"| {index} | {emergency} | {budget} | {errored} | {cells} | {question} |")
+        error = "yes" if result.errored else ""
+        lines.append(f"| {index} | {emergency} | {budget} | {error} | {cells} | {question} |")
 
     lines += ["", "## Conclusions", "", "_TODO: interpret the numbers after review._", ""]
     return "\n".join(lines)
@@ -203,13 +217,13 @@ def write_report(markdown: str, mode: str, reports_dir: Path = REPORTS_DIR) -> P
 def write_generation_baseline(report: GenerationReport, path: Path = BASELINES_PATH) -> None:
     """Persist the report under generation[mode], refusing to write empty means.
 
-    Merges into any existing baselines.json so the ``retrieval`` section and other
-    modes survive. A report with no scored cases (all means ``None``) would clobber
+    Merges into any existing baselines.json so the retrieval section and other
+    modes survive. A report with no scored cases (all means None) would clobber
     real numbers with nothing, so it is refused.
     """
     if all(value is None for value in report.means.values()):
         raise SystemExit(
-            "Refusing to write generation baseline with no scored cases — every metric is "
+            "Refusing to write generation baseline with no scored cases - every metric is "
             "empty (all cases were budget-exhausted or the dataset was empty)."
         )
     existing = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -225,6 +239,12 @@ def main() -> None:
     parser.add_argument("--mode", default="dense", help="retriever mode label (Task 5: dense)")
     parser.add_argument("--limit", type=int, default=None, help="score only the first N cases")
     parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=_DEFAULT_CONCURRENCY,
+        help=f"cases scored in parallel (default {_DEFAULT_CONCURRENCY}); 1 is fully sequential",
+    )
+    parser.add_argument(
         "--write-baseline", action="store_true", help="persist baselines.json + the report"
     )
     args = parser.parse_args()
@@ -234,11 +254,16 @@ def main() -> None:
     if args.limit is not None:
         cases = cases[: args.limit]
     if not cases:
-        raise SystemExit("No generation cases — run `uv run python -m evals.rag.synth` first.")
+        raise SystemExit(
+            "No reviewed generation cases. Curate generation_golden.jsonl "
+            "(uv run python -m evals.rag.curate), review each reference, and set reviewed=true."
+        )
 
     agent = build_eval_agent(mode=args.mode)
     scorer = build_generation_scorer()
-    results = run_ragas_sync(lambda: asyncio.run(run_eval(agent, scorer, cases)))
+    results = run_ragas_sync(
+        lambda: asyncio.run(run_eval(agent, scorer, cases, concurrency=args.concurrency))
+    )
     report = summarize_report(args.mode, results)
 
     print(f"Agent RAGAS ({args.mode}) over {report.total_cases} cases:")
