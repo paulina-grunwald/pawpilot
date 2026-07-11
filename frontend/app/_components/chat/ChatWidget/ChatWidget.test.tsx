@@ -10,7 +10,10 @@ const { pathnameMock, listPetsMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({ usePathname: () => pathnameMock() }));
-vi.mock("@/lib/pets", () => ({ listPetsForBrowser: listPetsMock }));
+vi.mock("@/lib/pets", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/pets")>();
+  return { ...actual, listPetsForBrowser: listPetsMock };
+});
 
 const samplePet: PetRead = {
   id: "pet-1",

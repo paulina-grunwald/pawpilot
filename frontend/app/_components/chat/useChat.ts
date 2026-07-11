@@ -198,13 +198,11 @@ export function useChat(pets: PetPickerOption[]): ChatController {
           }));
         }
       } catch (caught) {
-        const aborted = caught instanceof DOMException && caught.name === "AbortError";
+        const aborted = caught instanceof Error && caught.name === "AbortError";
         const expired = caught instanceof AgentError && caught.code === "AGENT_UNAUTHENTICATED";
         updateMessage(petId, assistantId, (message) => ({
           ...message,
           streaming: false,
-          // Any non-abort failure is an error, even when partial text arrived —
-          // a truncated answer must not be shown as if it completed normally.
           errored: !aborted,
           text: aborted
             ? message.text

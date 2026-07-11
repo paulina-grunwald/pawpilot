@@ -79,9 +79,7 @@ export async function* streamAgentAnswer(
       signal,
     });
   } catch (caught) {
-    // Preserve an abort as a DOMException so callers can distinguish a user
-    // "Stop" (before response headers arrive) from a genuine network failure.
-    if (caught instanceof DOMException && caught.name === "AbortError") throw caught;
+    if (caught instanceof Error && caught.name === "AbortError") throw caught;
     throw new AgentError(
       "NETWORK_ERROR",
       caught instanceof Error ? caught.message : String(caught),
@@ -103,7 +101,6 @@ export async function* streamAgentAnswer(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-
     buffer = buffer.replace(/\r\n?/g, "\n");
     let separatorIndex = buffer.indexOf("\n\n");
     while (separatorIndex !== -1) {

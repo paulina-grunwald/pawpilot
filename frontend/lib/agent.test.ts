@@ -144,8 +144,7 @@ describe("streamAgentAnswer", () => {
     } catch (error) {
       caught = error;
     }
-    expect(caught).toBeInstanceOf(DOMException);
-    expect((caught as DOMException).name).toBe("AbortError");
+    expect((caught as Error).name).toBe("AbortError");
     expect(caught).not.toBeInstanceOf(AgentError);
   });
 });
