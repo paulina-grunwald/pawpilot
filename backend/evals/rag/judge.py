@@ -63,12 +63,32 @@ def _guard_empty_embedding_inputs(embeddings: Any) -> Any:
     return embeddings
 
 
+def _bridge_async_embeddings(embeddings: Any) -> Any:
+    """Run async embedding calls on the sync client via a worker thread.
+
+    AnswerRelevancy awaits aembed_text/aembed_texts, but the Gateway embeddings
+    wrap a synchronous OpenAI client (which raises on the async methods). Bridge
+    the async methods onto the sync ones, mirroring the judge LLM's agenerate
+    bridge, so the blocking call runs off the event loop.
+    """
+
+    async def aembed_text(text: str, **kwargs: Any) -> Any:
+        return await asyncio.to_thread(embeddings.embed_text, text, **kwargs)
+
+    async def aembed_texts(texts: list[str], **kwargs: Any) -> Any:
+        return await asyncio.to_thread(embeddings.embed_texts, texts, **kwargs)
+
+    embeddings.aembed_text = aembed_text
+    embeddings.aembed_texts = aembed_texts
+    return embeddings
+
+
 def build_generator_embeddings(settings: RagSettings | None = None) -> Any:
     resolved = settings or get_rag_settings()
     embeddings = embedding_factory(
         "openai", model=resolved.embed_model, client=_gateway_client(resolved)
     )
-    return _guard_empty_embedding_inputs(embeddings)
+    return _bridge_async_embeddings(_guard_empty_embedding_inputs(embeddings))
 
 
 def build_sync_judge_llm(settings: RagSettings | None = None, model: str | None = None) -> Any:
@@ -79,14 +99,16 @@ def build_sync_judge_llm(settings: RagSettings | None = None, model: str | None 
     that produced them.
     """
     resolved = settings or get_rag_settings()
+    # Faithfulness decomposes an answer into atomic claims; a long, thorough vet
+    # answer yields many, so the judge needs headroom or its JSON output truncates.
     judge = llm_factory(
         model or resolved.gen_model,
         provider="openai",
         client=_gateway_client(resolved),
         mode=instructor.Mode.TOOLS,
-        max_tokens=1024,
+        max_tokens=8192,
     )
-    judge.model_args = {"max_tokens": 1024, "max_retries": 3}
+    judge.model_args = {"max_tokens": 8192, "max_retries": 3}
 
     async def agenerate_from_sync(prompt: Any, response_model: Any) -> Any:
         return await asyncio.to_thread(judge.generate, prompt=prompt, response_model=response_model)

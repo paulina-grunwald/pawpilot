@@ -38,7 +38,7 @@ REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 
 
 class CaseResult(BaseModel):
-    """One case's outcome: its flags and scores (``None`` when budget-exhausted)."""
+    """One case's outcome: its flags and scores (None when budget-exhausted)."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -46,6 +46,7 @@ class CaseResult(BaseModel):
     emergency: bool
     budget_exhausted: bool
     scores: GenerationScores | None
+    errored: bool = False
 
 
 class GenerationReport(BaseModel):
@@ -57,6 +58,7 @@ class GenerationReport(BaseModel):
     total_cases: int
     scored_cases: int
     budget_exhausted: int
+    errors: int
     emergency: int
     means: dict[str, float | None]
 
@@ -85,12 +87,26 @@ async def run_eval(
             retrieved_contexts=answer.contexts,
             reference=case.reference,
         )
+        try:
+            scores = await scorer.ascore(sample)
+        except Exception as error:  # one flaky judge call must not sink the whole run
+            print(f"  ! scoring failed ({type(error).__name__}) for: {case.user_input[:70]!r}")
+            results.append(
+                CaseResult(
+                    user_input=case.user_input,
+                    emergency=answer.emergency,
+                    budget_exhausted=False,
+                    scores=None,
+                    errored=True,
+                )
+            )
+            continue
         results.append(
             CaseResult(
                 user_input=case.user_input,
                 emergency=answer.emergency,
                 budget_exhausted=False,
-                scores=await scorer.ascore(sample),
+                scores=scores,
             )
         )
     return results
@@ -113,23 +129,25 @@ def summarize_report(mode: str, results: list[CaseResult]) -> GenerationReport:
         total_cases=len(results),
         scored_cases=len(scored),
         budget_exhausted=sum(1 for result in results if result.budget_exhausted),
+        errors=sum(1 for result in results if result.errored),
         emergency=sum(1 for result in results if result.emergency),
         means=aggregate_means(scored),
     )
 
 
 def _format_score(value: float | None) -> str:
-    return "—" if value is None else f"{value:.3f}"
+    return "-" if value is None else f"{value:.3f}"
 
 
 def render_markdown(report: GenerationReport, results: list[CaseResult]) -> str:
     """Render the summary table, a per-case breakdown, and a conclusions stub."""
     labels = {"noise_sensitivity": "noise_sensitivity (lower better)"}
     lines = [
-        f"# Agent RAGAS — {report.mode}",
+        f"# Agent RAGAS - {report.mode}",
         "",
         f"Cases: {report.total_cases} · scored: {report.scored_cases} · "
         f"budget-exhausted (excluded): {report.budget_exhausted} · "
+        f"errored (excluded): {report.errors} · "
         f"emergency: {report.emergency}",
         "",
         "| metric | mean |",
@@ -144,8 +162,8 @@ def render_markdown(report: GenerationReport, results: list[CaseResult]) -> str:
         "",
         "## Per-case",
         "",
-        f"| # | emergency | budget | {metric_columns} | question |",
-        f"|---|---|---|{metric_dividers}|---|",
+        f"| # | emergency | budget | error | {metric_columns} | question |",
+        f"|---|---|---|---|{metric_dividers}|---|",
     ]
     for index, result in enumerate(results, start=1):
         cells = " | ".join(
@@ -154,7 +172,8 @@ def render_markdown(report: GenerationReport, results: list[CaseResult]) -> str:
         question = _truncate(result.user_input)
         emergency = "yes" if result.emergency else ""
         budget = "yes" if result.budget_exhausted else ""
-        lines.append(f"| {index} | {emergency} | {budget} | {cells} | {question} |")
+        error = "yes" if result.errored else ""
+        lines.append(f"| {index} | {emergency} | {budget} | {error} | {cells} | {question} |")
 
     lines += ["", "## Conclusions", "", "_TODO: interpret the numbers after review._", ""]
     return "\n".join(lines)
@@ -175,13 +194,13 @@ def write_report(markdown: str, mode: str, reports_dir: Path = REPORTS_DIR) -> P
 def write_generation_baseline(report: GenerationReport, path: Path = BASELINES_PATH) -> None:
     """Persist the report under generation[mode], refusing to write empty means.
 
-    Merges into any existing baselines.json so the ``retrieval`` section and other
-    modes survive. A report with no scored cases (all means ``None``) would clobber
+    Merges into any existing baselines.json so the retrieval section and other
+    modes survive. A report with no scored cases (all means None) would clobber
     real numbers with nothing, so it is refused.
     """
     if all(value is None for value in report.means.values()):
         raise SystemExit(
-            "Refusing to write generation baseline with no scored cases — every metric is "
+            "Refusing to write generation baseline with no scored cases - every metric is "
             "empty (all cases were budget-exhausted or the dataset was empty)."
         )
     existing = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
@@ -206,7 +225,7 @@ def main() -> None:
     if args.limit is not None:
         cases = cases[: args.limit]
     if not cases:
-        raise SystemExit("No generation cases — run `uv run python -m evals.rag.synth` first.")
+        raise SystemExit("No generation cases - run uv run python -m evals.rag.synth first.")
 
     agent = build_eval_agent(mode=args.mode)
     scorer = build_generation_scorer()
