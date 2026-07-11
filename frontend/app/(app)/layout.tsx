@@ -1,20 +1,15 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ChatWidget } from "@/app/_components/chat/ChatWidget";
 import { PawMark } from "@/app/_components/PawMark";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { requireCurrentUser } from "@/lib/auth.server";
 
-// Layer 2 of the two-layer auth gating model (see proxy.ts).
-// The proxy does a cookie-presence redirect for anonymous users; the
-// real identity check happens here via requireCurrentUser(), which
-// validates the session cookie against the backend. Do not remove this
-// in the belief that the proxy is sufficient — it only checks for
-// cookie *presence*, not validity.
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireCurrentUser();
 
   return (
-    <div className="relative z-2 min-h-[100dvh]">
+    <div className="relative z-2 min-h-dvh">
       <header
         className="sticky top-0 z-50 border-b backdrop-blur"
         style={{
@@ -22,29 +17,31 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           background: "color-mix(in srgb, var(--paper) 88%, transparent)",
         }}
       >
-        <div className="container-x flex h-[64px] items-center justify-between">
+        <div className="container-x flex h-16 items-center justify-between">
           <Link
             href="/dashboard"
             aria-label="PawPilot — dashboard"
-            className="flex items-center gap-[10px] no-underline text-ink"
+            className="text-ink flex items-center gap-2.5 no-underline"
           >
             <PawMark size={40} />
-            <span className="display text-[18px] font-semibold tracking-[-0.01em]">
-              PawPilot
-            </span>
+            <span className="display text-[18px] font-semibold tracking-[-0.01em]">PawPilot</span>
           </Link>
-          <div className="flex items-center gap-3">
-            <span
-              data-testid="current-user-email"
-              className="text-[13px] text-muted"
+          <div className="flex items-center gap-4">
+            <Link
+              href="/chat"
+              className="text-ink hover:text-blue text-[13px] font-medium no-underline"
             >
-              Logged in as <span className="font-medium text-ink">{user.email}</span>
+              Ask PawPilot
+            </Link>
+            <span data-testid="current-user-email" className="text-muted text-[13px]">
+              Logged in as <span className="text-ink font-medium">{user.email}</span>
             </span>
             <LogoutButton />
           </div>
         </div>
       </header>
       {children}
+      <ChatWidget />
     </div>
   );
 }

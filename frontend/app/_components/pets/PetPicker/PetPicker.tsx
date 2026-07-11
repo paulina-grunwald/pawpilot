@@ -14,9 +14,10 @@ type PetPickerProps = {
   pets: PetPickerOption[];
   activePetId: string;
   onSelect: (petId: string) => void;
+  align?: "start" | "end";
 };
 
-export function PetPicker({ pets, activePetId, onSelect }: PetPickerProps) {
+export function PetPicker({ pets, activePetId, onSelect, align = "end" }: PetPickerProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuId = useId();
@@ -67,7 +68,12 @@ export function PetPicker({ pets, activePetId, onSelect }: PetPickerProps) {
         <span aria-hidden className={styles.caret}>▾</span>
       </button>
       {open && (
-        <ul id={menuId} role="listbox" aria-label="Switch active pet" className={styles.menu}>
+        <ul
+          id={menuId}
+          role="listbox"
+          aria-label="Switch active pet"
+          className={`${styles.menu} ${align === "start" ? styles.menuStart : styles.menuEnd}`}
+        >
           {pets.map((pet) => {
             const isActive = pet.id === activePetId;
             return (
