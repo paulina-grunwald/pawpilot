@@ -74,6 +74,11 @@ class DogMemoryStore:
         await self._store.adelete(self._namespace(dog_id), key)
         return True
 
+    async def aclear(self, dog_id: str) -> None:
+        namespace = self._namespace(dog_id)
+        for memory in await self.alist(dog_id):
+            await self._store.adelete(namespace, memory.key)
+
     def render_block(self, dog_id: str) -> str:
         return self._render(self.list(dog_id))
 

@@ -24,6 +24,7 @@ _CONNECTION_KWARGS: dict[str, Any] = {
     "prepare_threshold": 0,
     "row_factory": dict_row,
 }
+_SETUP_ADVISORY_LOCK_KEY = 0x70617770
 
 
 def to_psycopg_conninfo(database_url: str) -> str:
@@ -63,8 +64,15 @@ async def open_agent_persistence(database_url: str, settings: AgentSettings) -> 
     checkpointer = AsyncPostgresSaver(pool)
     store = AsyncPostgresStore(pool)
     try:
-        await checkpointer.setup()
-        await store.setup()
+        async with pool.connection() as connection:
+            await connection.execute("SELECT pg_advisory_lock(%s)", (_SETUP_ADVISORY_LOCK_KEY,))
+            try:
+                await checkpointer.setup()
+                await store.setup()
+            finally:
+                await connection.execute(
+                    "SELECT pg_advisory_unlock(%s)", (_SETUP_ADVISORY_LOCK_KEY,)
+                )
     except BaseException:
         await pool.close()
         raise

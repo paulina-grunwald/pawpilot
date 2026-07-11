@@ -52,3 +52,26 @@ class AgentAnswer(BaseModel):
     citations: list[Citation]
     emergency: bool
     tool_calls: list[str]
+
+
+class AgentStreamChunk(BaseModel):
+    """One piece of streamed answer text."""
+
+    type: Literal["token"] = "token"
+    text: str
+
+
+class AgentStreamFinal(BaseModel):
+    """Closing event: the citations, emergency flag, and tools the run used."""
+
+    type: Literal["final"] = "final"
+    citations: list[Citation]
+    emergency: bool
+    tool_calls: list[str]
+
+
+class AgentStreamError(BaseModel):
+    """Terminal event when a streamed run fails."""
+
+    type: Literal["error"] = "error"
+    detail: str
