@@ -225,7 +225,10 @@ def main() -> None:
     if args.limit is not None:
         cases = cases[: args.limit]
     if not cases:
-        raise SystemExit("No generation cases - run uv run python -m evals.rag.synth first.")
+        raise SystemExit(
+            "No reviewed generation cases. Curate generation_golden.jsonl "
+            "(uv run python -m evals.rag.curate), review each reference, and set reviewed=true."
+        )
 
     agent = build_eval_agent(mode=args.mode)
     scorer = build_generation_scorer()
