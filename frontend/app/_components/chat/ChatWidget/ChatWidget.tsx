@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useFloatingDock } from "@/app/_components/floating/FloatingDockContext";
 import { ChatIcon } from "@/app/_components/icons";
 import { PetPicker, type PetPickerOption } from "@/app/_components/pets/PetPicker";
 import { listPetsForBrowser, toPetPickerOption } from "@/lib/pets";
@@ -16,8 +17,14 @@ type PetsState =
 
 export function ChatWidget() {
   const pathname = usePathname();
+  const { setChatOpen } = useFloatingDock();
   const [open, setOpen] = useState(false);
   const [petsState, setPetsState] = useState<PetsState>({ status: "idle" });
+
+  // Publish open state so the journal FAB can hide while the panel is expanded.
+  useEffect(() => {
+    setChatOpen(open);
+  }, [open, setChatOpen]);
 
   if (pathname === "/chat") return null;
 

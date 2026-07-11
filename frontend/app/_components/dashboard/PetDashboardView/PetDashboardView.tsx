@@ -9,7 +9,6 @@ export type DashboardPet = PetCardData;
 type PetDashboardViewProps = {
   pet: DashboardPet;
   headerActions?: ReactNode;
-  quickActions?: ReactNode;
   todayLabel: string;
   todayData?: TodayPanelData;
   sleepSplitBars?: SleepSplitBar[];
@@ -19,7 +18,6 @@ type PetDashboardViewProps = {
 export function PetDashboardView({
   pet,
   headerActions,
-  quickActions,
   todayLabel,
   todayData,
   sleepSplitBars,
@@ -31,8 +29,6 @@ export function PetDashboardView({
         <PetCard pet={pet} />
         {headerActions && <div className="flex gap-2 items-center">{headerActions}</div>}
       </section>
-
-      {quickActions}
 
       <TodayPanel
         petName={pet.name}
