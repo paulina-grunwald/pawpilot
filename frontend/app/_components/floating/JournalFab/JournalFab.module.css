@@ -1,0 +1,170 @@
+.root {
+  position: fixed;
+  right: 20px;
+  /* Sits above the 56px chat launcher (bottom: 20px) with a 12px gap. */
+  bottom: 88px;
+  z-index: 59;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.launcher {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 24%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
+}
+.launcher:hover {
+  background: var(--ink-deep);
+  transform: translateY(-1px);
+}
+.launcher:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: fab-item-in 180ms ease both;
+}
+
+@keyframes fab-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item {
+    animation: none;
+  }
+}
+
+.itemLabel {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 5px 11px;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ink) 12%, transparent);
+  white-space: nowrap;
+}
+
+.miniFab {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: var(--fab-accent, var(--blue));
+  color: var(--paper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--ink) 18%, transparent);
+  transition: transform 120ms ease;
+}
+.miniFab:hover {
+  transform: scale(1.06);
+}
+.miniFab:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.miniFabNeutral {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.hint {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 220px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.hintLink {
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+.hintLink:hover {
+  color: var(--blue);
+}
+
+.retry {
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.retry:hover {
+  background: var(--surface-2);
+}
+
+.savedToast {
+  align-self: flex-end;
+  background: var(--forest);
+  color: var(--paper-on-dark);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--ink) 18%, transparent);
+  animation: fab-item-in 180ms ease both;
+}
+
+@media (max-width: 520px) {
+  .root {
+    right: 12px;
+    /* Chat launcher drops to bottom: 12px on small screens. */
+    bottom: 80px;
+  }
+}

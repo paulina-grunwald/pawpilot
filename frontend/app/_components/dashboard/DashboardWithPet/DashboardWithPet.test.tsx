@@ -1,10 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { activePetStorageKey } from "@/lib/activePet";
 import type { PetRead } from "@/lib/pets";
-import { DashboardWithPet, activePetStorageKey } from "./DashboardWithPet";
+import { DashboardWithPet } from "./DashboardWithPet";
 
-const fetchRollupsMock = vi.fn();
+const { pushMock, fetchRollupsMock } = vi.hoisted(() => ({
+  pushMock: vi.fn<(href: string) => void>(),
+  fetchRollupsMock: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock, replace: pushMock, prefetch: vi.fn() }),
+  usePathname: () => "/dashboard/pet-1",
+}));
+
 vi.mock("@/lib/tractive", async () => {
   const actual = await vi.importActual<typeof import("@/lib/tractive")>("@/lib/tractive");
   return {
@@ -38,7 +48,15 @@ function makePet(overrides: Partial<PetRead> = {}): PetRead {
 
 const USER_ID = "user-uuid";
 
+function twoPets(): PetRead[] {
+  return [
+    makePet({ id: "pet-1", name: "Luna" }),
+    makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
+  ];
+}
+
 beforeEach(() => {
+  pushMock.mockReset();
   fetchRollupsMock.mockReset();
   fetchRollupsMock.mockResolvedValue({ daily: [] });
 });
@@ -48,80 +66,100 @@ afterEach(() => {
 });
 
 describe("DashboardWithPet", () => {
-  it("renders the most-recently-added pet first when no localStorage entry exists", () => {
-    const pets = [
-      makePet({ id: "pet-1", name: "Luna" }),
-      makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
-    ];
-    render(<DashboardWithPet pets={pets} userId={USER_ID} todayLabel="Sat, May 23" />);
+  it("renders the pet named by the active id", () => {
+    render(
+      <DashboardWithPet
+        pets={twoPets()}
+        activePetId="pet-2"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Bowie" })).toBeInTheDocument();
+  });
+
+  it("falls back to the first pet when the active id is unknown", () => {
+    render(
+      <DashboardWithPet
+        pets={twoPets()}
+        activePetId="pet-gone"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
     expect(screen.getByRole("heading", { name: "Luna" })).toBeInTheDocument();
   });
 
-  it("does not render the picker when only one pet exists", () => {
-    render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
-    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /pick a dog/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders the picker and switches the active pet on selection", async () => {
-    const pets = [
-      makePet({ id: "pet-1", name: "Luna" }),
-      makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
-    ];
-    const user = userEvent.setup();
-    render(<DashboardWithPet pets={pets} userId={USER_ID} todayLabel="Sat, May 23" />);
-
-    const picker = await screen.findByRole("button", { name: /luna/i });
-    await user.click(picker);
-    await user.click(screen.getByRole("option", { name: /bowie/i }));
-
-    expect(screen.getByRole("heading", { name: "Bowie" })).toBeInTheDocument();
+  it("persists the active pet to localStorage", () => {
+    render(
+      <DashboardWithPet
+        pets={twoPets()}
+        activePetId="pet-2"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
     expect(window.localStorage.getItem(activePetStorageKey(USER_ID))).toBe("pet-2");
   });
 
-  it("restores the active pet from localStorage on render", async () => {
-    window.localStorage.setItem(activePetStorageKey(USER_ID), "pet-2");
-    const pets = [
-      makePet({ id: "pet-1", name: "Luna" }),
-      makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
-    ];
-    render(<DashboardWithPet pets={pets} userId={USER_ID} todayLabel="Sat, May 23" />);
-    expect(await screen.findByRole("heading", { name: "Bowie" })).toBeInTheDocument();
-  });
-
-  it("falls back to the first pet when localStorage entry is stale", () => {
-    window.localStorage.setItem(activePetStorageKey(USER_ID), "pet-deleted");
-    const pets = [makePet({ id: "pet-1", name: "Luna" })];
-    render(<DashboardWithPet pets={pets} userId={USER_ID} todayLabel="Sat, May 23" />);
-    expect(screen.getByRole("heading", { name: "Luna" })).toBeInTheDocument();
-  });
-
-  it("renders the Add link pointing at /pets/new when there is exactly one pet", () => {
-    render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
-    const addLink = screen.getByRole("link", { name: /^\+ add$/i });
-    expect(addLink).toHaveAttribute("href", "/pets/new");
-  });
-
-  it("fetches rollups for the active pet on mount", async () => {
-    render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
-    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 7));
-  });
-
-  it("re-fetches rollups when the active pet changes", async () => {
-    const pets = [
-      makePet({ id: "pet-1", name: "Luna" }),
-      makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
-    ];
+  it("navigates to the picked pet's dashboard and remembers it", async () => {
     const user = userEvent.setup();
-    render(<DashboardWithPet pets={pets} userId={USER_ID} todayLabel="Sat, May 23" />);
-    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 7));
+    render(
+      <DashboardWithPet
+        pets={twoPets()}
+        activePetId="pet-1"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
 
     await user.click(await screen.findByRole("button", { name: /luna/i }));
     await user.click(screen.getByRole("option", { name: /bowie/i }));
 
+    expect(pushMock).toHaveBeenCalledWith("/dashboard/pet-2");
+    expect(window.localStorage.getItem(activePetStorageKey(USER_ID))).toBe("pet-2");
+  });
+
+  it("does not render the picker when only one pet exists", () => {
+    render(
+      <DashboardWithPet
+        pets={[makePet()]}
+        activePetId="pet-1"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^\+ add$/i })).toHaveAttribute("href", "/pets/new");
+  });
+
+  it("fetches rollups for the active pet on mount", async () => {
+    render(
+      <DashboardWithPet
+        pets={twoPets()}
+        activePetId="pet-2"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
     await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-2", 7));
+  });
+
+  it("re-fetches rollups when the range changes", async () => {
+    const user = userEvent.setup();
+    render(
+      <DashboardWithPet
+        pets={[makePet()]}
+        activePetId="pet-1"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 7));
+
+    await user.click(screen.getByRole("button", { name: "30d" }));
+
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 30));
   });
 
   it("renders activity ring numbers once rollups arrive", async () => {
@@ -142,8 +180,14 @@ describe("DashboardWithPet", () => {
         },
       ],
     });
-    render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
-    // The active-minutes value lands in both the ring label and the stat tile.
+    render(
+      <DashboardWithPet
+        pets={[makePet()]}
+        activePetId="pet-1"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
     await waitFor(() => expect(screen.getAllByText(/1h 30m/i).length).toBeGreaterThan(0));
     expect(
       screen.queryByRole("heading", { name: /connect tractive to see/i }),
@@ -152,26 +196,16 @@ describe("DashboardWithPet", () => {
 
   it("falls back to the placeholder state on a fetch error", async () => {
     fetchRollupsMock.mockRejectedValue(new Error("boom"));
-    render(<DashboardWithPet pets={[makePet()]} userId={USER_ID} todayLabel="Sat, May 23" />);
+    render(
+      <DashboardWithPet
+        pets={[makePet()]}
+        activePetId="pet-1"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
     expect(
       await screen.findByRole("heading", { name: /connect tractive to see/i }),
     ).toBeInTheDocument();
-  });
-
-  it("hides the standalone Add link when more than one pet exists (picker has its own)", async () => {
-    const pets = [
-      makePet({ id: "pet-1", name: "Luna" }),
-      makePet({ id: "pet-2", name: "Bowie", breed_other: "Border Collie" }),
-    ];
-    render(<DashboardWithPet pets={pets} userId={USER_ID} todayLabel="Sat, May 23" />);
-
-    expect(
-      screen.queryByRole("link", { name: /^\+ add$/i }),
-    ).not.toBeInTheDocument();
-
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: /luna/i }));
-    const addAnother = screen.getByRole("link", { name: /\+ add another dog/i });
-    expect(addAnother).toHaveAttribute("href", "/pets/new");
   });
 });
