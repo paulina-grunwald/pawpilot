@@ -21,6 +21,9 @@ class DogMemory(BaseModel):
     value: str
 
 
+DogMemories = list[DogMemory]
+
+
 class DogMemoryStore:
     """Per-dog durable memory backed by a LangGraph ``BaseStore``."""
 
@@ -32,7 +35,6 @@ class DogMemoryStore:
         return ("dog", dog_id)
 
     def save(self, dog_id: str, key: str, value: str) -> DogMemory:
-        """Store (or overwrite) one fact; refuse a new key past the memory cap."""
         namespace = self._namespace(dog_id)
         is_new_key = self._store.get(namespace, key) is None
         if is_new_key and len(self.list(dog_id)) >= self._max_memories:
@@ -40,22 +42,51 @@ class DogMemoryStore:
         self._store.put(namespace, key, {_VALUE_FIELD: value})
         return DogMemory(key=key, value=value)
 
-    def list(self, dog_id: str) -> list[DogMemory]:
+    async def asave(self, dog_id: str, key: str, value: str) -> DogMemory:
+        namespace = self._namespace(dog_id)
+        is_new_key = (await self._store.aget(namespace, key)) is None
+        if is_new_key and len(await self.alist(dog_id)) >= self._max_memories:
+            raise ValueError(f"memory is full (max {self._max_memories} facts per dog)")
+        await self._store.aput(namespace, key, {_VALUE_FIELD: value})
+        return DogMemory(key=key, value=value)
+
+    def list(self, dog_id: str) -> DogMemories:
         items = self._store.search(self._namespace(dog_id), limit=self._max_memories)
         return [
             DogMemory(key=item.key, value=str(item.value.get(_VALUE_FIELD, ""))) for item in items
         ]
 
+    async def alist(self, dog_id: str) -> DogMemories:
+        items = await self._store.asearch(self._namespace(dog_id), limit=self._max_memories)
+        return [
+            DogMemory(key=item.key, value=str(item.value.get(_VALUE_FIELD, ""))) for item in items
+        ]
+
     def delete(self, dog_id: str, key: str) -> bool:
-        """Delete one fact; return whether it existed."""
         if self._store.get(self._namespace(dog_id), key) is None:
             return False
         self._store.delete(self._namespace(dog_id), key)
         return True
 
+    async def adelete(self, dog_id: str, key: str) -> bool:
+        if (await self._store.aget(self._namespace(dog_id), key)) is None:
+            return False
+        await self._store.adelete(self._namespace(dog_id), key)
+        return True
+
+    async def aclear(self, dog_id: str) -> None:
+        namespace = self._namespace(dog_id)
+        for memory in await self.alist(dog_id):
+            await self._store.adelete(namespace, memory.key)
+
     def render_block(self, dog_id: str) -> str:
-        """Render the dog's facts as a system-prompt block, or "" if none."""
-        memories = self.list(dog_id)
+        return self._render(self.list(dog_id))
+
+    async def arender_block(self, dog_id: str) -> str:
+        return self._render(await self.alist(dog_id))
+
+    @staticmethod
+    def _render(memories: DogMemories) -> str:
         if not memories:
             return ""
         lines = [f"- {memory.key}: {memory.value}" for memory in memories]

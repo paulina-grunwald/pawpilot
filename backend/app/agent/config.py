@@ -51,8 +51,13 @@ class AgentSettings(BaseSettings):
         default=5, ge=1, le=20, validation_alias="WEB_SEARCH_MAX_RESULTS"
     )
 
-    memory_backend: Literal["memory"] = Field(default="memory", validation_alias="MEMORY_BACKEND")
+    memory_backend: Literal["memory", "postgres"] = Field(
+        default="memory", validation_alias="MEMORY_BACKEND"
+    )
     max_dog_memories: int = Field(default=20, ge=1, le=100, validation_alias="MAX_DOG_MEMORIES")
+    memory_pool_max_size: int = Field(
+        default=20, ge=1, le=100, validation_alias="AGENT_MEMORY_POOL_MAX_SIZE"
+    )
 
     @model_validator(mode="after")
     def _validate(self) -> AgentSettings:

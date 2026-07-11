@@ -8,6 +8,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.cleanup import clear_dog_memory_quietly
 from app.auth.deps import current_active_user
 from app.auth.models import User
 from app.db.base import get_session
@@ -99,6 +100,7 @@ async def delete_pet(
 
     await session.delete(pet)
     await session.commit()
+    await clear_dog_memory_quietly(str(owner_dir_id))
     await delete_owner_dir_quietly(media, PET_PHOTO_NAMESPACE, owner_dir_id)
     await delete_owner_dir_quietly(media, JOURNAL_PHOTO_NAMESPACE, owner_dir_id)
 

@@ -7,13 +7,26 @@ tripped, and which tools ran (for evaluation and observability).
 
 from __future__ import annotations
 
+import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.rag.schemas import SourceTier
 
 CitationKind = Literal["corpus", "web"]
+
+
+class AgentAskRequest(BaseModel):
+    """Request body for ``POST /agent/ask``.
+
+    ``pet_id`` selects the dog whose long-term memory applies (owner-scoped);
+    ``thread_id`` continues an existing conversation.
+    """
+
+    query: str = Field(max_length=4000)
+    pet_id: uuid.UUID | None = None
+    thread_id: str | None = Field(default=None, max_length=200)
 
 
 class Citation(BaseModel):
@@ -39,3 +52,26 @@ class AgentAnswer(BaseModel):
     citations: list[Citation]
     emergency: bool
     tool_calls: list[str]
+
+
+class AgentStreamChunk(BaseModel):
+    """One piece of streamed answer text."""
+
+    type: Literal["token"] = "token"
+    text: str
+
+
+class AgentStreamFinal(BaseModel):
+    """Closing event: the citations, emergency flag, and tools the run used."""
+
+    type: Literal["final"] = "final"
+    citations: list[Citation]
+    emergency: bool
+    tool_calls: list[str]
+
+
+class AgentStreamError(BaseModel):
+    """Terminal event when a streamed run fails."""
+
+    type: Literal["error"] = "error"
+    detail: str

@@ -1,3 +1,4 @@
+import type { PetPickerOption } from "@/app/_components/pets/PetPicker";
 import { getApiBaseUrl } from "./auth";
 
 export type PetSex = "male" | "female";
@@ -33,6 +34,10 @@ export type PetCreateInput = {
 };
 
 export type PetUpdateInput = Partial<PetCreateInput>;
+
+export function toPetPickerOption(pet: PetRead): PetPickerOption {
+  return { id: pet.id, name: pet.name, breed: pet.breed_other ?? "Dog" };
+}
 
 export type PetsErrorCode =
   | "PET_NOT_FOUND"
