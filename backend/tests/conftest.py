@@ -57,6 +57,7 @@ def database_url(postgres_container: PostgresContainer) -> str:
 
 @pytest_asyncio.fixture(scope="session")
 async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
+    import app.agent.models
     import app.auth.models
     import app.integrations.tractive.models
     import app.journal.models
@@ -68,6 +69,7 @@ async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
         app.pets.models,
         app.integrations.tractive.models,
         app.journal.models,
+        app.agent.models,
     )
 
     test_engine = create_async_engine(database_url, future=True)

@@ -21,7 +21,6 @@ export function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [petsState, setPetsState] = useState<PetsState>({ status: "idle" });
 
-  // Publish open state so the journal FAB can hide while the panel is expanded.
   useEffect(() => {
     setChatOpen(open);
   }, [open, setChatOpen]);
