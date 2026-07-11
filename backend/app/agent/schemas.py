@@ -46,10 +46,10 @@ class Citation(BaseModel):
 class AgentAnswer(BaseModel):
     """The grounded, cited answer to a single dog-health question.
 
-    ``contexts`` carries the raw passages retrieval surfaced this run (corpus and
-    web), for RAGAS generation metrics. It is ``exclude=True`` so it never reaches
-    API clients — the vet corpus is private, and its text must not leak in the
-    ``/agent/ask`` response body.
+    contexts carries the raw passages retrieval surfaced this run (corpus and
+    web), for RAGAS generation metrics. It is exclude=True so it never reaches
+    API clients: the vet corpus is private, and its text must not leak in the
+    /agent/ask response body.
     """
 
     model_config = ConfigDict(frozen=True)

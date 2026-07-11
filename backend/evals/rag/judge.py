@@ -1,12 +1,12 @@
 """Gateway-backed RAGAS judge + generator
 
-RAGAS is wired via its own ``llm_factory`` / ``embedding_factory`` fed a
-synchronous ``openai.OpenAI`` client pointed at the Vercel AI Gateway. The
-judge's async ``.agenerate`` is bridged onto the sync client via
-``asyncio.to_thread`` (RAGAS metric methods call ``agenerate``; the Instructor
+RAGAS is wired via its own llm_factory / embedding_factory fed a
+synchronous openai.OpenAI client pointed at the Vercel AI Gateway. The
+judge's async .agenerate is bridged onto the sync client via
+asyncio.to_thread (RAGAS metric methods call agenerate; the Instructor
 async path is unreliable in some runtimes).
 
-Requires the ``evals`` dependency group:  uv sync --group evals
+Requires the evals dependency group:  uv sync --group evals
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ def _guard_empty_embedding_inputs(embeddings: Any) -> Any:
 
     The RAGAS prechunked transform pipeline can emit empty/whitespace-only
     nodes (e.g. zero-length headline splits). The Gateway rejects empty
-    embedding inputs with a 400 (``input cannot be an empty string``), so we
+    embedding inputs with a 400 (input cannot be an empty string), so we
     substitute a single space, which embeds cleanly and never matches real
     retrieval content.
     """
@@ -71,11 +71,16 @@ def build_generator_embeddings(settings: RagSettings | None = None) -> Any:
     return _guard_empty_embedding_inputs(embeddings)
 
 
-def build_sync_judge_llm(settings: RagSettings | None = None) -> Any:
-    """RAGAS judge LLM whose async ``agenerate`` runs on the sync Gateway client."""
+def build_sync_judge_llm(settings: RagSettings | None = None, model: str | None = None) -> Any:
+    """RAGAS judge LLM whose async agenerate runs on the sync Gateway client.
+
+    model overrides the judge model id (defaults to gen_model); the agent
+    generation eval passes a distinct id to avoid grading answers with the model
+    that produced them.
+    """
     resolved = settings or get_rag_settings()
     judge = llm_factory(
-        resolved.gen_model,
+        model or resolved.gen_model,
         provider="openai",
         client=_gateway_client(resolved),
         mode=instructor.Mode.TOOLS,

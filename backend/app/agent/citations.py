@@ -87,6 +87,6 @@ class CitationRegistry:
         """Every passage the model saw this run, corpus and web, in registration order.
 
         RAGAS generation metrics score the answer against the exact text retrieval
-        surfaced — cited or not — so this accumulates raw chunk/result text.
+        surfaced, cited or not, so this accumulates raw chunk/result text.
         """
         return list(self._retrieved_contexts)
