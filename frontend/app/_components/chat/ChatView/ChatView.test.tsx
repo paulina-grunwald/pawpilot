@@ -68,6 +68,51 @@ describe("ChatView", () => {
     );
   });
 
+  it("clears the composer when the stream ends without a final event", async () => {
+    streamMock.mockReturnValue(scripted([{ type: "token", text: "Partial answer" }]));
+    const user = userEvent.setup();
+    render(<ChatView pets={pets} />);
+
+    await user.type(screen.getByRole("textbox", { name: /ask pawpilot/i }), "hi");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    await waitFor(() => expect(screen.getByText("Partial answer")).toBeInTheDocument());
+    // Not stuck streaming: the composer returns to Send rather than a hung Stop.
+    await waitFor(() => expect(screen.getByRole("button", { name: /send/i })).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /stop/i })).not.toBeInTheDocument();
+  });
+
+  it("does not restore a stuck streaming bubble from a persisted transcript", async () => {
+    window.localStorage.setItem(
+      "pawpilot.chat.transcript.pet-1",
+      JSON.stringify([
+        {
+          id: "u1",
+          role: "user",
+          text: "restored question",
+          citations: [],
+          emergency: false,
+          streaming: false,
+          errored: false,
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          text: "",
+          citations: [],
+          emergency: false,
+          streaming: true,
+          errored: false,
+        },
+      ]),
+    );
+
+    render(<ChatView pets={pets} />);
+
+    await waitFor(() => expect(screen.getByText("restored question")).toBeInTheDocument());
+    expect(screen.queryByText("Thinking…")).not.toBeInTheDocument();
+  });
+
   it("passes a stable thread id across turns of the same conversation", async () => {
     streamMock.mockImplementation(() => scripted([{ type: "final", citations: [], emergency: false, tool_calls: [] }]));
     const user = userEvent.setup();

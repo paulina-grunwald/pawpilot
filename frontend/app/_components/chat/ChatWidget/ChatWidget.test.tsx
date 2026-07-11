@@ -57,6 +57,22 @@ describe("ChatWidget", () => {
     expect(listPetsMock).toHaveBeenCalledTimes(1);
   });
 
+  it("retries loading the dogs after a failure", async () => {
+    listPetsMock.mockRejectedValueOnce(new Error("down")).mockResolvedValueOnce([samplePet]);
+    const user = userEvent.setup();
+    render(<ChatWidget />);
+
+    await user.click(screen.getByRole("button", { name: /ask pawpilot/i }));
+    await waitFor(() => expect(screen.getByText(/couldn't load your dogs/i)).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: /try again/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("textbox", { name: /ask pawpilot/i })).toBeInTheDocument(),
+    );
+    expect(listPetsMock).toHaveBeenCalledTimes(2);
+  });
+
   it("prompts to add a dog when the user has none", async () => {
     listPetsMock.mockResolvedValue([]);
     const user = userEvent.setup();

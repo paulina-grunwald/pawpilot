@@ -8,6 +8,7 @@ import {
   deletePet,
   deletePetPhoto,
   listPetsForBrowser,
+  toPetPickerOption,
   updatePet,
   uploadPetPhoto,
   type PetRead,
@@ -38,6 +39,24 @@ const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
+
+describe("toPetPickerOption", () => {
+  it("maps a PetRead to the id/name/breed picker shape", () => {
+    expect(toPetPickerOption(samplePet)).toEqual({
+      id: "pet-1",
+      name: "Luna",
+      breed: "Aussie mix",
+    });
+  });
+
+  it("falls back to 'Dog' when breed_other is null", () => {
+    expect(toPetPickerOption({ ...samplePet, breed_other: null })).toEqual({
+      id: "pet-1",
+      name: "Luna",
+      breed: "Dog",
+    });
+  });
+});
 
 describe("PetsError", () => {
   it("captures code and status", () => {

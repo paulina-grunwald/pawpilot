@@ -50,11 +50,15 @@ function agentErrorForStatus(status: number): AgentErrorCode {
 }
 
 function parseSseEvent(raw: string): AgentStreamEvent | null {
-  const dataLine = raw.split("\n").find((line) => line.startsWith("data:"));
+  const dataLine = raw.split(/\r?\n/).find((line) => line.startsWith("data:"));
   if (!dataLine) return null;
   const payload = dataLine.slice(dataLine.indexOf(":") + 1).trim();
   if (!payload) return null;
-  return JSON.parse(payload) as AgentStreamEvent;
+  try {
+    return JSON.parse(payload) as AgentStreamEvent;
+  } catch {
+    return null;
+  }
 }
 
 export async function* streamAgentAnswer(
@@ -75,7 +79,13 @@ export async function* streamAgentAnswer(
       signal,
     });
   } catch (caught) {
-    throw new AgentError("NETWORK_ERROR", caught instanceof Error ? caught.message : String(caught));
+    // Preserve an abort as a DOMException so callers can distinguish a user
+    // "Stop" (before response headers arrive) from a genuine network failure.
+    if (caught instanceof DOMException && caught.name === "AbortError") throw caught;
+    throw new AgentError(
+      "NETWORK_ERROR",
+      caught instanceof Error ? caught.message : String(caught),
+    );
   }
 
   if (!response.ok || !response.body) {
@@ -93,6 +103,8 @@ export async function* streamAgentAnswer(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
+
+    buffer = buffer.replace(/\r\n?/g, "\n");
     let separatorIndex = buffer.indexOf("\n\n");
     while (separatorIndex !== -1) {
       const event = parseSseEvent(buffer.slice(0, separatorIndex));

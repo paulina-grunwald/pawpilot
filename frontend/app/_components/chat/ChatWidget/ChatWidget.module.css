@@ -112,6 +112,19 @@
   line-height: 1.5;
 }
 
+.retry {
+  margin-top: 10px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.retry:hover {
+  background: var(--surface-2);
+}
+
 @media (max-width: 520px) {
   .root {
     right: 12px;

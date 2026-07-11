@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChatView } from "@/app/_components/chat/ChatView";
-import type { PetPickerOption } from "@/app/_components/pets/PetPicker";
+import { toPetPickerOption } from "@/lib/pets";
 import { requireCurrentUser } from "@/lib/auth.server";
 import { fetchPetsForCurrentUser } from "@/lib/pets.server";
 
@@ -24,11 +24,5 @@ export default async function ChatPage() {
     );
   }
 
-  const options: PetPickerOption[] = pets.map((pet) => ({
-    id: pet.id,
-    name: pet.name,
-    breed: pet.breed_other ?? "Dog",
-  }));
-
-  return <ChatView pets={options} />;
+  return <ChatView pets={pets.map(toPetPickerOption)} />;
 }

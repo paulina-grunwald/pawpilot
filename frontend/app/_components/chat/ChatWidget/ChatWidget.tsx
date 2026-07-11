@@ -1,12 +1,12 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ChatIcon } from "@/app/_components/icons";
 import { PetPicker, type PetPickerOption } from "@/app/_components/pets/PetPicker";
-import { listPetsForBrowser } from "@/lib/pets";
+import { listPetsForBrowser, toPetPickerOption } from "@/lib/pets";
 import { ChatComposer } from "../ChatComposer";
-import { ChatMessage } from "../ChatMessage";
+import { ChatTranscript } from "../ChatTranscript";
 import { useChat } from "../useChat";
 import styles from "./ChatWidget.module.css";
 
@@ -25,14 +25,7 @@ export function ChatWidget() {
     setPetsState({ status: "loading" });
     try {
       const pets = await listPetsForBrowser();
-      setPetsState({
-        status: "ready",
-        pets: pets.map((pet) => ({
-          id: pet.id,
-          name: pet.name,
-          breed: pet.breed_other ?? "Dog",
-        })),
-      });
+      setPetsState({ status: "ready", pets: pets.map(toPetPickerOption) });
     } catch {
       setPetsState({ status: "error" });
     }
@@ -62,7 +55,12 @@ export function ChatWidget() {
           <div className={styles.panelBody}>
             {petsState.status === "loading" && <p className={styles.hint}>Loading…</p>}
             {petsState.status === "error" && (
-              <p className={styles.hint}>Couldn&apos;t load your dogs. Please try again.</p>
+              <div className={styles.hint}>
+                <p>Couldn&apos;t load your dogs.</p>
+                <button type="button" className={styles.retry} onClick={() => void loadPets()}>
+                  Try again
+                </button>
+              </div>
             )}
             {petsState.status === "ready" && petsState.pets.length === 0 && (
               <p className={styles.hint}>Add a dog to start asking about their health.</p>
@@ -88,12 +86,6 @@ export function ChatWidget() {
 
 function ChatPanel({ pets }: { pets: PetPickerOption[] }) {
   const chat = useChat(pets);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const node = scrollRef.current;
-    node?.scrollTo?.({ top: node.scrollHeight, behavior: "smooth" });
-  }, [chat.messages]);
 
   return (
     <>
@@ -108,15 +100,15 @@ function ChatPanel({ pets }: { pets: PetPickerOption[] }) {
           New
         </button>
       </div>
-      <div ref={scrollRef} className={styles.transcript}>
-        {chat.messages.length === 0 ? (
+      <ChatTranscript
+        messages={chat.messages}
+        className={styles.transcript}
+        emptyState={
           <p className={styles.empty}>
             Ask anything about {chat.activePet.name} — every answer cites its sources.
           </p>
-        ) : (
-          chat.messages.map((message) => <ChatMessage key={message.id} message={message} />)
-        )}
-      </div>
+        }
+      />
       <div className={styles.composerWrap}>
         <ChatComposer
           onSend={chat.sendMessage}

@@ -90,4 +90,62 @@ describe("streamAgentAnswer", () => {
       code: "AGENT_VALIDATION",
     });
   });
+
+  it("parses events delimited by CRLF blank lines", async () => {
+    const body =
+      'data: {"type":"token","text":"Hi"}\r\n\r\n' +
+      'data: {"type":"final","citations":[],"emergency":false,"tool_calls":[]}\r\n\r\n';
+    server.use(
+      http.post(
+        `${API}/agent/ask/stream`,
+        () => new HttpResponse(body, { headers: { "content-type": "text/event-stream" } }),
+      ),
+    );
+
+    const events = await collect(streamAgentAnswer({ query: "hi" }));
+    expect(events).toEqual([
+      { type: "token", text: "Hi" },
+      { type: "final", citations: [], emergency: false, tool_calls: [] },
+    ]);
+  });
+
+  it("skips non-JSON data lines instead of aborting the whole stream", async () => {
+    const body =
+      "data: [DONE]\n\n" +
+      'data: {"type":"token","text":"ok"}\n\n' +
+      'data: {"type":"final","citations":[],"emergency":false,"tool_calls":[]}\n\n';
+    server.use(
+      http.post(
+        `${API}/agent/ask/stream`,
+        () => new HttpResponse(body, { headers: { "content-type": "text/event-stream" } }),
+      ),
+    );
+
+    const events = await collect(streamAgentAnswer({ query: "hi" }));
+    expect(events).toEqual([
+      { type: "token", text: "ok" },
+      { type: "final", citations: [], emergency: false, tool_calls: [] },
+    ]);
+  });
+
+  it("re-throws an aborted request as a DOMException, not a NETWORK_ERROR", async () => {
+    server.use(
+      http.post(
+        `${API}/agent/ask/stream`,
+        () => new HttpResponse("data: {}\n\n", { headers: { "content-type": "text/event-stream" } }),
+      ),
+    );
+    const controller = new AbortController();
+    controller.abort();
+
+    let caught: unknown;
+    try {
+      await collect(streamAgentAnswer({ query: "hi" }, controller.signal));
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(DOMException);
+    expect((caught as DOMException).name).toBe("AbortError");
+    expect(caught).not.toBeInstanceOf(AgentError);
+  });
 });
