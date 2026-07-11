@@ -1,0 +1,260 @@
+"""`run_agent` / `arun_agent` — the typed entrypoints to the Ask PawPilot agent.
+
+A run is: a deterministic red-flag pre-check, the ReAct tool-calling loop over the
+vet corpus and web search, then citation resolution over the ids the model cited.
+Every run is traced to LangSmith when tracing is enabled.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import BaseMessage, HumanMessage
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.errors import GraphRecursionError
+from langgraph.store.memory import InMemoryStore
+from langsmith import traceable
+
+from app.agent.citations import CitationRegistry, extract_referenced_ids
+from app.agent.config import AgentSettings, get_agent_settings
+from app.agent.graph import (
+    build_agent_graph,
+    build_chat_model,
+    tool_call_budget_to_recursion_limit,
+)
+from app.agent.memory import DogMemoryStore
+from app.agent.memory_tools import build_memory_tools
+from app.agent.prompt import PROMPT_VERSION, compose_system_prompt
+from app.agent.red_flags import EMERGENCY_BANNER, has_red_flag
+from app.agent.schemas import AgentAnswer
+from app.agent.tools import build_agent_tools
+from app.agent.web_search import TavilyWebSearch, WebSearch
+from app.rag.observability import configure_langsmith
+from app.rag.retriever import VetCorpusRetriever, build_retriever
+
+_DEFAULT_TOP_K = 6
+_MAX_QUERY_LENGTH = 2000
+_BUDGET_EXHAUSTED_MESSAGE = (
+    "I couldn't finish researching this within my tool-call budget. Please try "
+    "rephrasing your question, and contact your veterinarian if this is urgent."
+)
+
+
+def _validate_query(query: str) -> None:
+    """Reject empty or oversized questions before they reach the model."""
+    if not query.strip():
+        raise ValueError("query must not be empty")
+    if len(query) > _MAX_QUERY_LENGTH:
+        raise ValueError(f"query must be at most {_MAX_QUERY_LENGTH} characters")
+
+
+def _message_text(message: BaseMessage) -> str:
+    """Flatten a message's content (string or content blocks) to plain text."""
+    content = message.content
+    if isinstance(content, str):
+        return content
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            parts.append(str(block.get("text", "")))
+    return "".join(parts)
+
+
+class _PreparedRun:
+    """Live handles for one run, shared by the sync and async paths.
+
+    A plain class rather than a `BaseModel`: it carries a compiled graph and the
+    ``invoked_tools`` accumulator that the tool closures append to by reference —
+    Pydantic would copy that list on validation and the appends would be lost.
+    """
+
+    def __init__(
+        self,
+        *,
+        graph: Any,
+        registry: CitationRegistry,
+        invoked_tools: list[str],
+        emergency: bool,
+        messages: list[BaseMessage],
+        config: dict[str, Any],
+    ) -> None:
+        self.graph = graph
+        self.registry = registry
+        self.invoked_tools = invoked_tools
+        self.emergency = emergency
+        self.messages = messages
+        self.config = config
+
+
+class PawPilotAgent:
+    """The agent brain: a chat model plus the corpus and web-search tools.
+
+    Constructed with explicit collaborators so tests can inject a scripted model,
+    an in-memory retriever, and a fake web search with no keys or network.
+    """
+
+    def __init__(
+        self,
+        *,
+        model: BaseChatModel,
+        retriever: VetCorpusRetriever,
+        web_search: WebSearch,
+        settings: AgentSettings,
+        checkpointer: BaseCheckpointSaver[Any] | None = None,
+        memory_store: DogMemoryStore | None = None,
+    ) -> None:
+        self._model = model
+        self._retriever = retriever
+        self._web_search = web_search
+        self._settings = settings
+        self._checkpointer = checkpointer
+        self._memory_store = memory_store
+
+    def _prepare_run(
+        self, query: str, *, top_k: int, thread_id: str | None, dog_id: str | None
+    ) -> _PreparedRun:
+        _validate_query(query)
+        registry = CitationRegistry()
+        invoked_tools: list[str] = []
+        tools = build_agent_tools(
+            self._retriever, self._web_search, registry, invoked_tools, top_k=top_k
+        )
+
+        memory_block = ""
+        memory_active = False
+        if dog_id is not None and self._memory_store is not None:
+            memory_active = True
+            tools = tools + build_memory_tools(self._memory_store, dog_id, invoked_tools)
+            memory_block = self._memory_store.render_block(dog_id)
+        system_prompt = compose_system_prompt(
+            memory_block=memory_block, include_memory_rule=memory_active
+        )
+
+        use_thread = thread_id is not None and self._checkpointer is not None
+        checkpointer = self._checkpointer if use_thread else None
+        graph = build_agent_graph(
+            self._model, tools, system_prompt=system_prompt, checkpointer=checkpointer
+        )
+
+        config: dict[str, Any] = {
+            "recursion_limit": tool_call_budget_to_recursion_limit(
+                self._settings.agent_max_tool_calls
+            ),
+            "run_name": "ask_pawpilot",
+            "tags": ["agent", "010b"],
+            "metadata": {
+                "prompt_version": PROMPT_VERSION,
+                "thread_id": thread_id,
+                "dog_id": dog_id,
+            },
+        }
+        if use_thread:
+            config["configurable"] = {"thread_id": thread_id}
+
+        return _PreparedRun(
+            graph=graph,
+            registry=registry,
+            invoked_tools=invoked_tools,
+            emergency=has_red_flag(query),
+            messages=[HumanMessage(query)],
+            config=config,
+        )
+
+    def _assemble_answer(self, final_text: str, prepared: _PreparedRun) -> AgentAnswer:
+        referenced_ids = extract_referenced_ids(final_text)
+        citations = prepared.registry.resolve(referenced_ids)
+        text = EMERGENCY_BANNER + final_text if prepared.emergency else final_text
+        return AgentAnswer(
+            text=text,
+            citations=citations,
+            emergency=prepared.emergency,
+            tool_calls=list(prepared.invoked_tools),
+        )
+
+    @traceable(run_type="chain", name="ask_pawpilot")
+    def run(
+        self,
+        query: str,
+        *,
+        thread_id: str | None = None,
+        dog_id: str | None = None,
+        top_k: int = _DEFAULT_TOP_K,
+    ) -> AgentAnswer:
+        prepared = self._prepare_run(query, top_k=top_k, thread_id=thread_id, dog_id=dog_id)
+        try:
+            result = prepared.graph.invoke({"messages": prepared.messages}, config=prepared.config)
+        except GraphRecursionError:
+            return self._assemble_answer(_BUDGET_EXHAUSTED_MESSAGE, prepared)
+        return self._assemble_answer(_message_text(result["messages"][-1]), prepared)
+
+    @traceable(run_type="chain", name="ask_pawpilot")
+    async def arun(
+        self,
+        query: str,
+        *,
+        thread_id: str | None = None,
+        dog_id: str | None = None,
+        top_k: int = _DEFAULT_TOP_K,
+    ) -> AgentAnswer:
+        prepared = self._prepare_run(query, top_k=top_k, thread_id=thread_id, dog_id=dog_id)
+        try:
+            result = await prepared.graph.ainvoke(
+                {"messages": prepared.messages}, config=prepared.config
+            )
+        except GraphRecursionError:
+            return self._assemble_answer(_BUDGET_EXHAUSTED_MESSAGE, prepared)
+        return self._assemble_answer(_message_text(result["messages"][-1]), prepared)
+
+
+_default_agent: PawPilotAgent | None = None
+
+
+def _get_default_agent() -> PawPilotAgent:
+    """Lazily build the process-wide agent from live settings and services.
+
+    The checkpointer and store are process-wide so memory persists across calls;
+    both are in-memory for now (a persistent swap is a 010c concern).
+    """
+    global _default_agent
+    if _default_agent is None:
+        configure_langsmith()
+        settings = get_agent_settings()
+        _default_agent = PawPilotAgent(
+            model=build_chat_model(settings),
+            retriever=build_retriever(),
+            web_search=TavilyWebSearch(settings),
+            settings=settings,
+            checkpointer=InMemorySaver(),
+            memory_store=DogMemoryStore(InMemoryStore(), max_memories=settings.max_dog_memories),
+        )
+    return _default_agent
+
+
+def run_agent(
+    query: str,
+    *,
+    thread_id: str | None = None,
+    dog_id: str | None = None,
+    top_k: int = _DEFAULT_TOP_K,
+) -> AgentAnswer:
+    """Answer a dog-health question with a grounded, cited `AgentAnswer`.
+
+    ``thread_id`` continues a conversation (short-term memory); ``dog_id`` recalls
+    and updates durable facts about that dog (long-term memory).
+    """
+    return _get_default_agent().run(query, thread_id=thread_id, dog_id=dog_id, top_k=top_k)
+
+
+async def arun_agent(
+    query: str,
+    *,
+    thread_id: str | None = None,
+    dog_id: str | None = None,
+    top_k: int = _DEFAULT_TOP_K,
+) -> AgentAnswer:
+    """Async counterpart to `run_agent` (wrapped by the 010c chat endpoint)."""
+    return await _get_default_agent().arun(query, thread_id=thread_id, dog_id=dog_id, top_k=top_k)

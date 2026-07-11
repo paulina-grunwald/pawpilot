@@ -12,6 +12,7 @@ from app.auth.deps import current_active_user
 from app.auth.models import User
 from app.db.base import get_session
 from app.journal.router import JOURNAL_PHOTO_NAMESPACE
+from app.media.cleanup import delete_media_quietly, delete_owner_dir_quietly
 from app.media.deps import get_media_storage
 from app.media.storage import (
     MIME_BY_EXTENSION,
@@ -98,8 +99,8 @@ async def delete_pet(
 
     await session.delete(pet)
     await session.commit()
-    await media.delete_owner_dir(PET_PHOTO_NAMESPACE, owner_dir_id)
-    await media.delete_owner_dir(JOURNAL_PHOTO_NAMESPACE, owner_dir_id)
+    await delete_owner_dir_quietly(media, PET_PHOTO_NAMESPACE, owner_dir_id)
+    await delete_owner_dir_quietly(media, JOURNAL_PHOTO_NAMESPACE, owner_dir_id)
 
 
 @pets_router.get("/{pet_id}/photo")
@@ -167,12 +168,13 @@ async def upload_pet_photo(
     except Exception:
         # Roll back the stored object so a commit failure does not leak the
         # freshly written file (DB still points at prior_path, which is fine).
-        await media.delete(stored.relative_path)
+        # Best-effort so a cleanup error cannot mask the original commit error.
+        await delete_media_quietly(media, stored.relative_path)
         raise
     await session.refresh(pet)
 
     if prior_path and prior_path != stored.relative_path:
-        await media.delete(prior_path)
+        await delete_media_quietly(media, prior_path)
 
     return pet
 
@@ -189,6 +191,7 @@ async def delete_pet_photo(
     pet.photo_path = None
     await session.commit()
     await session.refresh(pet)
-    # MediaStorage.delete is a no-op when prior_path is None or missing.
-    await media.delete(prior_path)
+    # Best-effort: the photo_path is already cleared and committed, so a failed
+    # object delete must not fail the request (worst case is an orphaned object).
+    await delete_media_quietly(media, prior_path)
     return pet
