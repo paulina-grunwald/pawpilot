@@ -1,5 +1,4 @@
-"""LangSmith observability wiring
-"""
+"""LangSmith observability wiring"""
 
 from __future__ import annotations
 
