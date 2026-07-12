@@ -15,15 +15,24 @@ import asyncio
 from typing import Any
 
 import instructor
+from langsmith.wrappers import wrap_openai
 from openai import OpenAI
 from ragas.embeddings.base import embedding_factory
 from ragas.llms import llm_factory
 
 from app.rag.config import RagSettings, get_rag_settings
+from app.rag.observability import tracing_enabled
 
 
 def _gateway_client(settings: RagSettings) -> OpenAI:
-    return OpenAI(api_key=settings.gateway_api_key, base_url=settings.gateway_base_url)
+    """Gateway OpenAI client, wrapped for LangSmith when tracing is on.
+
+    wrap_openai instruments chat/completions calls in place and returns the same
+    client, so the RAGAS judge's calls surface as traces. Embedding calls are not
+    wrapped by wrap_openai, so only the judge LLM metrics appear, not embeddings.
+    """
+    client = OpenAI(api_key=settings.gateway_api_key, base_url=settings.gateway_base_url)
+    return wrap_openai(client) if tracing_enabled() else client
 
 
 def build_generator_llm(settings: RagSettings | None = None) -> Any:

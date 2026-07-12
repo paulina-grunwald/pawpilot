@@ -244,6 +244,7 @@ class PawPilotAgent:
             return self._assemble_answer(_BUDGET_EXHAUSTED_MESSAGE, prepared)
         return self._assemble_answer(_message_text(result["messages"][-1]), prepared)
 
+    @traceable(run_type="chain", name="ask_pawpilot")
     async def astream_run(
         self,
         query: str,
