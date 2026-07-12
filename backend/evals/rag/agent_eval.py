@@ -1,5 +1,4 @@
-"""Deterministic PawPilot agent for RAGAS generation evals.
-"""
+"""Deterministic PawPilot agent for RAGAS generation evals."""
 
 from __future__ import annotations
 
@@ -43,7 +42,10 @@ class EvalAgent:
 def build_eval_agent(
     *, settings: AgentSettings | None = None, mode: RetrievalMode = "dense"
 ) -> EvalAgent:
-    """Assemble the deterministic eval agent (real retriever, faked web + memory). mode selects the retriever configuration (dense or rerank) so the same harness scores either; hybrid stays unwired and the retriever rejects it.
+    """Assemble the deterministic eval agent (real retriever, faked web + memory).
+
+    mode selects the retriever configuration (dense or rerank) so the same
+    harness scores either; hybrid stays unwired and the retriever rejects it.
     """
     resolved = build_eval_settings(settings)
     agent = PawPilotAgent(

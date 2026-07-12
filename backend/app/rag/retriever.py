@@ -1,6 +1,8 @@
 """Retrieval over the vet corpus (dense, with an optional rerank stage).
 
-VetCorpusRetriever.retrieve embeds the query, runs a cosine search over the dense vector with optional source_id / source_tier filters, and maps each hit's payload back into a RetrievedChunk.
+VetCorpusRetriever.retrieve embeds the query, runs a cosine search over the
+dense vector with optional source_id / source_tier filters, and maps each hit's
+payload back into a RetrievedChunk.
 """
 
 from __future__ import annotations

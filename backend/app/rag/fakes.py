@@ -1,5 +1,4 @@
-"""Deterministic, network-free test doubles for the RAG embedding and rerank backends.
-"""
+"""Deterministic, network-free test doubles for the RAG embedding and rerank backends."""
 
 from __future__ import annotations
 

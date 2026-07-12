@@ -1,5 +1,4 @@
-"""Cross-encoder reranking over dense candidates
-"""
+"""Cross-encoder reranking over dense candidates"""
 
 from __future__ import annotations
 

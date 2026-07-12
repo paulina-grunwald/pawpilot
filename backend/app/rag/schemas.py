@@ -1,12 +1,10 @@
-"""Pydantic contracts for the RAG backbone.
-"""
+"""Pydantic contracts for the RAG backbone."""
 
 from __future__ import annotations
 
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 SourceTier = Literal["guideline", "consensus", "primary_research", "breed", "food"]
 

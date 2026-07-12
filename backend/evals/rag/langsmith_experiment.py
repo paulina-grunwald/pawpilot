@@ -152,7 +152,6 @@ async def run_generation_experiment(*, mode: str = "dense", limit: int | None = 
     )
 
 
-
 # Retrieval experiment
 def recall_at_k_by_ids(
     expected_source_ids: list[str], retrieved_source_ids: list[str], k: int
@@ -208,7 +207,9 @@ async def run_retrieval_experiment(*, mode: str = "dense", limit: int | None = N
         client=client,
     )
 
+
 # Dataset sync + entrypoint
+
 
 def sync_dataset(client: Any, name: str, examples: list[dict[str, Any]], description: str) -> None:
     """Create the dataset with these examples if it does not exist yet (idempotent).
