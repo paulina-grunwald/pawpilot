@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agent import runner
 from app.agent.fakes import ScriptedChatModel
-from app.agent.prompt import VET_DISCLAIMER
+from app.agent.prompt import REFUSAL_MESSAGE, VET_DISCLAIMER
 from app.agent.red_flags import EMERGENCY_BANNER
 from app.agent.runner import (
     PawPilotAgent,
@@ -152,15 +152,33 @@ def test_run_no_banner_for_ordinary_question() -> None:
     assert answer.emergency is False
     assert not answer.text.startswith(EMERGENCY_BANNER)
 
+# Off-topic refusal (scope guardrail)
 
-# --------------------------------------------------------------------------- #
+def test_run_off_topic_refusal_assembles_as_a_clean_answer() -> None:
+
+    agent = build_test_agent(responses=[AIMessage(content=REFUSAL_MESSAGE)])
+    answer = agent.run("What is the weather in Berlin today?")
+    assert answer.text == REFUSAL_MESSAGE
+    assert answer.tool_calls == []
+    assert answer.citations == []
+    assert answer.emergency is False
+
+
+async def test_arun_off_topic_refusal_assembles_as_a_clean_answer() -> None:
+    agent = build_test_agent(responses=[AIMessage(content=REFUSAL_MESSAGE)])
+    answer = await agent.arun("Write me a Python script to sort a list.")
+    assert answer.text == REFUSAL_MESSAGE
+    assert answer.tool_calls == []
+    assert answer.citations == []
+    assert answer.emergency is False
+
+
+
 # Tool-call budget exhaustion
-# --------------------------------------------------------------------------- #
 
 
 def test_run_returns_budget_message_when_loop_never_terminates() -> None:
-    # A model that only ever calls a tool never produces a final answer, so the
-    # graph exhausts its recursion limit.
+
     agent = build_test_agent(
         responses=[tool_call_message("retrieve_vet_corpus", "loop")],
         chunks=[make_chunk()],
