@@ -12,17 +12,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from langchain_core.messages import AIMessage
 
 from app.agent.prompt import VET_DISCLAIMER
 from app.agent.red_flags import EMERGENCY_BANNER
+from app.agent.runner import _BUDGET_EXHAUSTED_MESSAGE as BUDGET_EXHAUSTED_MESSAGE
+from app.agent.schemas import AgentAnswer
 from evals.rag.agent_eval import EvalAgent
 from evals.rag.generation import GenerationCase
 from evals.rag.generation_metrics import (
     GENERATION_METRIC_NAMES,
+    GenerationSample,
     GenerationScorer,
     GenerationScores,
 )
@@ -37,6 +40,7 @@ from evals.rag.run_agent_eval import (
     write_generation_baseline,
 )
 from tests.agent.conftest import (
+    RaisingChatModel,
     build_test_agent,
     make_agent_settings,
     make_chunk,
@@ -166,12 +170,8 @@ def test_render_markdown_has_summary_table_and_percase() -> None:
     assert "noise_sensitivity (lower better)" in markdown
     assert "## Per-case" in markdown
     assert "## Conclusions" in markdown
-    assert "-" in markdown  # the budget-exhausted row shows dashes for scores
+    assert "-" in markdown
 
-
-# --------------------------------------------------------------------------- #
-# write_generation_baseline
-# --------------------------------------------------------------------------- #
 
 
 def test_write_generation_baseline_round_trips(tmp_path: Path) -> None:
@@ -323,3 +323,100 @@ async def test_run_eval_records_scoring_failure_as_errored() -> None:
     assert results[0].errored is True
     assert results[0].scores is None
     assert results[0].budget_exhausted is False
+
+
+async def test_run_eval_records_agent_failure_as_errored() -> None:
+    # A crash inside the agent (not the judge) must also be isolated as errored,
+    # and the scorer must never be reached for a case whose answer never arrived.
+    agent = EvalAgent(build_test_agent(model=RaisingChatModel()))
+    scorer, metrics = _recording_scorer()
+    case = GenerationCase(user_input="How often are boosters needed?", reference="Every 3 years.")
+
+    results = await run_eval(agent, scorer, [case])
+
+    assert len(results) == 1
+    assert results[0].errored is True
+    assert results[0].scores is None
+    assert results[0].budget_exhausted is False
+    assert results[0].emergency is False  # the agent-failure branch forces emergency off
+    assert metrics["faithfulness"].calls == []  # scoring is skipped when the agent failed
+
+
+# --------------------------------------------------------------------------- #
+# run_eval - concurrency contract (order preservation + per-case isolation)
+# --------------------------------------------------------------------------- #
+
+
+class _ScriptedEvalAgent:
+    """A concurrency-safe fake EvalAgent: each question maps to its own answer.
+
+    build_test_agent's scripted model is a shared response queue, so two cases
+    racing on it would be nondeterministic. Keying answers by question lets the
+    cases run truly concurrently, which is what pins run_eval's ordering.
+    """
+
+    def __init__(self, answers: dict[str, AgentAnswer]) -> None:
+        self._answers = answers
+
+    async def answer(self, question: str) -> AgentAnswer:
+        return self._answers[question]
+
+
+class _SelectiveScorer:
+    """A fake GenerationScorer that scores every sample except one, which it fails."""
+
+    def __init__(self, scores: GenerationScores, *, fail_on: str) -> None:
+        self._scores = scores
+        self._fail_on = fail_on
+
+    async def ascore(self, sample: GenerationSample) -> GenerationScores:
+        if sample.user_input == self._fail_on:
+            raise RuntimeError("judge boom")
+        return self._scores
+
+
+def _agent_answer(text: str, *, contexts: list[str] | None = None) -> AgentAnswer:
+    return AgentAnswer(
+        text=text,
+        citations=[],
+        emergency=False,
+        tool_calls=[],
+        contexts=["Adult dogs need a booster every three years."] if contexts is None else contexts,
+    )
+
+
+async def test_run_eval_preserves_order_across_mixed_outcomes() -> None:
+    # run_eval fans cases out concurrently (bounded semaphore + gather): results
+    # must come back in input order, and one budget-exhausted or errored case must
+    # not stop its siblings from scoring.
+    good = GenerationCase(user_input="q-good", reference="ref")
+    budget = GenerationCase(user_input="q-budget", reference="ref")
+    bad = GenerationCase(user_input="q-bad", reference="ref")
+    agent = cast(
+        EvalAgent,
+        _ScriptedEvalAgent(
+            {
+                "q-good": _agent_answer(f"A grounded answer [S1]. {VET_DISCLAIMER}"),
+                "q-budget": _agent_answer(BUDGET_EXHAUSTED_MESSAGE, contexts=[]),
+                "q-bad": _agent_answer(f"Another grounded answer [S1]. {VET_DISCLAIMER}"),
+            }
+        ),
+    )
+    scores = _scores(0.9, 0.8, 0.7, 0.1)
+    scorer = cast(GenerationScorer, _SelectiveScorer(scores, fail_on="q-bad"))
+
+    results = await run_eval(agent, scorer, [good, budget, bad])
+
+    assert [result.user_input for result in results] == ["q-good", "q-budget", "q-bad"]
+    # the good case still scores, despite a budget-exhausted and an errored sibling
+    assert results[0].scores == scores
+    assert results[0].errored is False
+    assert results[0].budget_exhausted is False
+    # budget-exhausted case: skipped, not scored, not errored
+    assert results[1].budget_exhausted is True
+    assert results[1].scores is None
+    assert results[1].errored is False
+    # failing case: isolated as errored, never crashing the batch
+    assert results[2].errored is True
+    assert results[2].scores is None
+    assert results[2].budget_exhausted is False

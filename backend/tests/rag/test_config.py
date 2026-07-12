@@ -9,11 +9,29 @@ from app.rag.config import RagSettings
 
 _KEY_ALIASES = ("VERCEL_AI_GATEWAY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN")
 
+# Every RagSettings validation alias. The default-value assertions below only hold
+# in a clean environment, so all of these are cleared: an ambient shell or CI
+# export of any RAG_* / QDRANT_* knob would otherwise perturb the built-in defaults.
+_RAG_ENV_ALIASES = (
+    *_KEY_ALIASES,
+    "RAG_GATEWAY_BASE_URL",
+    "RAG_EMBED_MODEL",
+    "RAG_EMBED_DIMENSIONS",
+    "RAG_EMBED_BATCH_SIZE",
+    "RAG_GEN_MODEL",
+    "AGENT_EVAL_JUDGE_MODEL",
+    "QDRANT_URL",
+    "QDRANT_API_KEY",
+    "RAG_COLLECTION",
+    "RAG_DEFAULT_TOP_K",
+    "RAG_FUSED_CANDIDATES",
+)
+
 
 def _isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Run in an empty cwd (no `.env`) with all RAG env vars cleared."""
+    """Run in an empty cwd (no `.env`) with every RAG env var cleared."""
     monkeypatch.chdir(tmp_path)
-    for name in (*_KEY_ALIASES, "RAG_EMBED_MODEL", "RAG_GEN_MODEL", "AGENT_EVAL_JUDGE_MODEL"):
+    for name in _RAG_ENV_ALIASES:
         monkeypatch.delenv(name, raising=False)
 
 
