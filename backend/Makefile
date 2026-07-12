@@ -1,4 +1,4 @@
-.PHONY: install dev lint format typecheck test check db-up db-down db-upgrade db-downgrade db-revision corpus-ingest retrieval-report rag-eval agent-eval
+.PHONY: install dev lint format typecheck test check db-up db-down db-upgrade db-downgrade db-revision corpus-ingest retrieval-report rag-eval agent-eval langsmith-experiments
 
 install:
 	uv sync
@@ -55,3 +55,8 @@ rag-eval:
 agent-eval:
 	uv sync --group evals
 	uv run python -m evals.rag.run_agent_eval $(ARGS)
+
+# RAGAS evals as LangSmith Datasets + Experiments (opt-in; needs live LangSmith + Gateway creds)
+langsmith-experiments:
+	uv sync --group evals
+	uv run python -m evals.rag.langsmith_experiment $(ARGS)
