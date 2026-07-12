@@ -1,4 +1,4 @@
-"""LangSmith observability wiring"""
+"""LangSmith observability wiring."""
 
 from __future__ import annotations
 
@@ -30,15 +30,22 @@ def tracing_enabled() -> bool:
 
 
 def configure_langsmith() -> bool:
+    """Apply LangSmith settings to the environment. Call once at app startup.
 
+    Pins the EU endpoint and project without overriding values already set. When
+    tracing is on, LANGSMITH_TRACING is normalized to "true" (so alternate truthy
+    spellings like "1" still trace) and the API key is promoted into the
+    environment, which is where the LangSmith client reads it. config.tracing is
+    the single source of truth for whether tracing is enabled.
+    """
     config = LangSmithSettings()
     os.environ.setdefault("LANGSMITH_ENDPOINT", config.endpoint)
     os.environ.setdefault("LANGSMITH_PROJECT", config.project)
     if config.tracing:
-        os.environ.setdefault("LANGSMITH_TRACING", "true")
+        os.environ["LANGSMITH_TRACING"] = "true"
         key = config.api_key.get_secret_value()
         if key:
             os.environ.setdefault("LANGSMITH_API_KEY", key)
         else:
             print("LANGSMITH_TRACING is on but LANGSMITH_API_KEY is empty; traces will not export.")
-    return tracing_enabled()
+    return config.tracing

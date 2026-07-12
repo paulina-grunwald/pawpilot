@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -39,10 +40,48 @@ def test_configure_respects_existing_endpoint(monkeypatch: pytest.MonkeyPatch) -
     assert os.environ["LANGSMITH_ENDPOINT"] == "https://custom.smith.example"
 
 
-def test_configure_enables_and_promotes_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_configure_enables_tracing_when_on(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LANGSMITH_TRACING", "true")
     monkeypatch.setenv("LANGSMITH_API_KEY", "ls-secret")
-    enabled = configure_langsmith()
-    assert enabled is True
+    assert configure_langsmith() is True
     assert tracing_enabled() is True
-    assert os.environ["LANGSMITH_API_KEY"] == "ls-secret"
+
+
+def test_configure_normalizes_alternate_truthy_tracing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    for name in ("LANGSMITH_API_KEY", "LANGSMITH_ENDPOINT", "LANGSMITH_PROJECT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("LANGSMITH_TRACING", "1")
+    monkeypatch.chdir(tmp_path)
+    assert configure_langsmith() is True
+    assert os.environ["LANGSMITH_TRACING"] == "true"
+    assert tracing_enabled() is True
+
+
+def test_configure_promotes_key_from_dotenv(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    for name in (
+        "LANGSMITH_TRACING",
+        "LANGSMITH_API_KEY",
+        "LANGSMITH_ENDPOINT",
+        "LANGSMITH_PROJECT",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    (tmp_path / ".env").write_text("LANGSMITH_TRACING=true\nLANGSMITH_API_KEY=ls-from-dotenv\n")
+    monkeypatch.chdir(tmp_path)
+    assert configure_langsmith() is True
+    assert os.environ["LANGSMITH_API_KEY"] == "ls-from-dotenv"
+
+
+def test_configure_warns_when_tracing_on_but_key_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for name in ("LANGSMITH_API_KEY", "LANGSMITH_ENDPOINT", "LANGSMITH_PROJECT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("LANGSMITH_TRACING", "true")
+    monkeypatch.chdir(tmp_path)
+    assert configure_langsmith() is True
+    assert "LANGSMITH_API_KEY" not in os.environ
+    assert "traces will not export" in capsys.readouterr().out
