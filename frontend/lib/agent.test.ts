@@ -2,7 +2,13 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { getApiBaseUrl } from "./auth";
-import { AgentError, streamAgentAnswer, type AgentStreamEvent } from "./agent";
+import {
+  AgentError,
+  getThread,
+  listThreads,
+  streamAgentAnswer,
+  type AgentStreamEvent,
+} from "./agent";
 
 const API = getApiBaseUrl();
 
@@ -146,5 +152,77 @@ describe("streamAgentAnswer", () => {
     }
     expect((caught as Error).name).toBe("AbortError");
     expect(caught).not.toBeInstanceOf(AgentError);
+  });
+});
+
+describe("listThreads", () => {
+  it("returns the user's conversations, filtered by pet", async () => {
+    let requestedUrl = "";
+    server.use(
+      http.get(`${API}/agent/threads`, ({ request }) => {
+        requestedUrl = request.url;
+        return HttpResponse.json([
+          {
+            thread_id: "t1",
+            pet_id: "pet-1",
+            title: "Diet",
+            created_at: "2026-07-10T00:00:00Z",
+            updated_at: "2026-07-11T00:00:00Z",
+          },
+        ]);
+      }),
+    );
+
+    const threads = await listThreads("pet-1");
+    expect(threads).toHaveLength(1);
+    expect(threads[0].title).toBe("Diet");
+    expect(requestedUrl).toContain("pet_id=pet-1");
+  });
+
+  it("omits the pet filter when no pet is given", async () => {
+    let requestedUrl = "";
+    server.use(
+      http.get(`${API}/agent/threads`, ({ request }) => {
+        requestedUrl = request.url;
+        return HttpResponse.json([]);
+      }),
+    );
+
+    await listThreads();
+    expect(requestedUrl).not.toContain("pet_id");
+  });
+
+  it("throws AGENT_UNAUTHENTICATED on a 401", async () => {
+    server.use(http.get(`${API}/agent/threads`, () => new HttpResponse(null, { status: 401 })));
+    await expect(listThreads()).rejects.toMatchObject({ code: "AGENT_UNAUTHENTICATED" });
+  });
+});
+
+describe("getThread", () => {
+  it("fetches a conversation's reconstructed transcript", async () => {
+    server.use(
+      http.get(`${API}/agent/threads/conv-1`, () =>
+        HttpResponse.json({
+          thread_id: "conv-1",
+          pet_id: "pet-1",
+          title: "Diet",
+          messages: [
+            { role: "user", text: "Diet?" },
+            { role: "assistant", text: "Feed twice daily." },
+          ],
+        }),
+      ),
+    );
+
+    const detail = await getThread("conv-1");
+    expect(detail.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
+    expect(detail.messages[1].text).toBe("Feed twice daily.");
+  });
+
+  it("throws an AgentError on a 404", async () => {
+    server.use(
+      http.get(`${API}/agent/threads/nope`, () => new HttpResponse(null, { status: 404 })),
+    );
+    await expect(getThread("nope")).rejects.toBeInstanceOf(AgentError);
   });
 });

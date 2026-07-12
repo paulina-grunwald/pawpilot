@@ -29,7 +29,12 @@ from app.agent.memory import DogMemoryStore
 from app.agent.memory_tools import build_memory_tools
 from app.agent.prompt import PROMPT_VERSION, compose_system_prompt
 from app.agent.red_flags import EMERGENCY_BANNER, has_red_flag
-from app.agent.schemas import AgentAnswer, AgentStreamChunk, AgentStreamFinal
+from app.agent.schemas import (
+    AgentAnswer,
+    AgentStreamChunk,
+    AgentStreamFinal,
+    AgentThreadMessage,
+)
 from app.agent.tools import build_agent_tools
 from app.agent.web_search import TavilyWebSearch, WebSearch
 from app.rag.observability import configure_langsmith
@@ -289,6 +294,32 @@ class PawPilotAgent:
             emergency=prepared.emergency,
             tool_calls=list(prepared.invoked_tools),
         )
+
+    async def aget_thread_transcript(self, thread_id: str) -> list[AgentThreadMessage]:
+        """Reconstruct a saved conversation's user/assistant turns from the checkpoint.
+
+        Reads the latest checkpoint for ``thread_id`` and keeps the human questions
+        and the assistant's answers, dropping tool-call scaffolding. Citations are
+        not persisted per message, so history renders as plain text.
+        """
+        if self._checkpointer is None:
+            return []
+        checkpoint_tuple = await self._checkpointer.aget_tuple(
+            {"configurable": {"thread_id": thread_id}}
+        )
+        if checkpoint_tuple is None:
+            return []
+        channel_values = checkpoint_tuple.checkpoint.get("channel_values", {})
+        messages = channel_values.get("messages", [])
+        transcript: list[AgentThreadMessage] = []
+        for message in messages:
+            if isinstance(message, HumanMessage):
+                transcript.append(AgentThreadMessage(role="user", text=_message_text(message)))
+            elif isinstance(message, AIMessage):
+                text = _message_text(message)
+                if text.strip():
+                    transcript.append(AgentThreadMessage(role="assistant", text=text))
+        return transcript
 
 
 _default_agent: PawPilotAgent | None = None

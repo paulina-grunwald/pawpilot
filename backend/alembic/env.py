@@ -10,13 +10,15 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+from app.agent.models import AgentThread
 from app.auth.models import User
 from app.config import settings
 from app.db.base import Base
 from app.integrations.tractive.models import TractiveDayRollup, TractiveRawPayload
+from app.journal.models import JournalEntry
 from app.pets.models import Pet
 
-_ = (User, Pet, TractiveDayRollup, TractiveRawPayload)
+_ = (User, Pet, TractiveDayRollup, TractiveRawPayload, JournalEntry, AgentThread)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

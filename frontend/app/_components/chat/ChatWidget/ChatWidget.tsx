@@ -4,10 +4,12 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useFloatingDock } from "@/app/_components/floating/FloatingDockContext";
 import { ChatIcon } from "@/app/_components/icons";
-import { PetPicker, type PetPickerOption } from "@/app/_components/pets/PetPicker";
+import type { PetPickerOption } from "@/app/_components/pets/PetPicker";
 import { listPetsForBrowser, toPetPickerOption } from "@/lib/pets";
 import { ChatComposer } from "../ChatComposer";
+import { ChatHistory } from "../ChatHistory";
 import { ChatTranscript } from "../ChatTranscript";
+import { useActivePetId } from "../useActivePetId";
 import { useChat } from "../useChat";
 import styles from "./ChatWidget.module.css";
 
@@ -15,7 +17,7 @@ type PetsState =
   | { status: "idle" | "loading" | "error" }
   | { status: "ready"; pets: PetPickerOption[] };
 
-export function ChatWidget() {
+export function ChatWidget({ userId }: { userId: string }) {
   const pathname = usePathname();
   const { setChatOpen } = useFloatingDock();
   const [open, setOpen] = useState(false);
@@ -72,7 +74,7 @@ export function ChatWidget() {
               <p className={styles.hint}>Add a dog to start asking about their health.</p>
             )}
             {petsState.status === "ready" && petsState.pets.length > 0 && (
-              <ChatPanel pets={petsState.pets} />
+              <ChatPanel pets={petsState.pets} userId={userId} />
             )}
           </div>
         </section>
@@ -90,31 +92,65 @@ export function ChatWidget() {
   );
 }
 
-function ChatPanel({ pets }: { pets: PetPickerOption[] }) {
-  const chat = useChat(pets);
+function ChatPanel({ pets, userId }: { pets: PetPickerOption[]; userId: string }) {
+  const activePetId = useActivePetId(pets, userId);
+  const chat = useChat(pets, activePetId);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  function toggleHistory() {
+    setHistoryOpen((open) => {
+      if (!open) void chat.refreshThreads();
+      return !open;
+    });
+  }
+
+  function handleSelectThread(threadId: string) {
+    void chat.selectThread(threadId);
+    setHistoryOpen(false);
+  }
+
+  function handleNewConversation() {
+    chat.newConversation();
+    setHistoryOpen(false);
+  }
 
   return (
     <>
       <div className={styles.panelControls}>
-        <PetPicker
-          pets={pets}
-          activePetId={chat.activePetId}
-          onSelect={chat.setActivePetId}
-          align="start"
-        />
-        <button type="button" className={styles.newChat} onClick={chat.newConversation}>
-          New
-        </button>
+        <span className={styles.activePet}>{chat.activePet.name}</span>
+        <div className={styles.controlButtons}>
+          <button
+            type="button"
+            className={styles.newChat}
+            onClick={toggleHistory}
+            aria-pressed={historyOpen}
+          >
+            {historyOpen ? "Close" : "History"}
+          </button>
+          <button type="button" className={styles.newChat} onClick={handleNewConversation}>
+            New
+          </button>
+        </div>
       </div>
-      <ChatTranscript
-        messages={chat.messages}
-        className={styles.transcript}
-        emptyState={
-          <p className={styles.empty}>
-            Ask anything about {chat.activePet.name} — every answer cites its sources.
-          </p>
-        }
-      />
+      {historyOpen ? (
+        <ChatHistory
+          threads={chat.threads}
+          activeThreadId={chat.activeThreadId}
+          loading={chat.threadsLoading}
+          onSelect={handleSelectThread}
+          onNewConversation={handleNewConversation}
+        />
+      ) : (
+        <ChatTranscript
+          messages={chat.messages}
+          className={styles.transcript}
+          emptyState={
+            <p className={styles.empty}>
+              Ask anything about {chat.activePet.name} — every answer cites its sources.
+            </p>
+          }
+        />
+      )}
       <div className={styles.composerWrap}>
         <ChatComposer
           onSend={chat.sendMessage}

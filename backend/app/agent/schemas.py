@@ -8,6 +8,7 @@ tripped, and which tools ran (for evaluation and observability).
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.rag.schemas import SourceTier
 
 CitationKind = Literal["corpus", "web"]
+ThreadMessageRole = Literal["user", "assistant"]
 
 
 class AgentAskRequest(BaseModel):
@@ -82,3 +84,33 @@ class AgentStreamError(BaseModel):
 
     type: Literal["error"] = "error"
     detail: str
+
+
+class AgentThreadSummary(BaseModel):
+    """One past conversation in the user's history list.
+
+    ``thread_id`` is the client-facing id (the per-user namespace prefix stripped)
+    so the frontend can resume the conversation by passing it back to ``/ask``.
+    """
+
+    thread_id: str
+    pet_id: uuid.UUID | None
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgentThreadMessage(BaseModel):
+    """A single reconstructed turn of a past conversation."""
+
+    role: ThreadMessageRole
+    text: str
+
+
+class AgentThreadDetail(BaseModel):
+    """A past conversation with its reconstructed transcript."""
+
+    thread_id: str
+    pet_id: uuid.UUID | None
+    title: str | None
+    messages: list[AgentThreadMessage]

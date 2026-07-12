@@ -49,7 +49,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
         {children}
-        <ChatWidget />
+        <ChatWidget userId={user.id} />
         <JournalFab userId={user.id} />
       </div>
     </FloatingDockProvider>

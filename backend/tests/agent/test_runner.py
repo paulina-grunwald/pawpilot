@@ -398,3 +398,31 @@ async def test_arun_agent_module_helper_uses_default(monkeypatch: pytest.MonkeyP
         assert "Async answer." in answer.text
     finally:
         runner.clear_default_agent()
+
+
+# --------------------------------------------------------------------------- #
+# aget_thread_transcript
+# --------------------------------------------------------------------------- #
+
+
+async def test_aget_thread_transcript_without_checkpointer_is_empty() -> None:
+    agent = build_test_agent(responses=[AIMessage(content="hi")], with_thread=False)
+    assert await agent.aget_thread_transcript("conv-1") == []
+
+
+async def test_aget_thread_transcript_unknown_thread_is_empty() -> None:
+    agent = build_test_agent(responses=[AIMessage(content="hi")], with_thread=True)
+    assert await agent.aget_thread_transcript("never-used") == []
+
+
+async def test_aget_thread_transcript_reconstructs_turns() -> None:
+    agent = build_test_agent(
+        responses=[AIMessage(content=f"Feed twice daily. {VET_DISCLAIMER}")],
+        with_thread=True,
+    )
+    await agent.arun("How often to feed?", thread_id="conv-1")
+
+    transcript = await agent.aget_thread_transcript("conv-1")
+    assert [message.role for message in transcript] == ["user", "assistant"]
+    assert transcript[0].text == "How often to feed?"
+    assert "Feed twice daily." in transcript[1].text

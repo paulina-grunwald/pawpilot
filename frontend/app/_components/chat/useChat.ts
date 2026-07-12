@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { PetPickerOption } from "@/app/_components/pets/PetPicker";
-import { AgentError, streamAgentAnswer } from "@/lib/agent";
+import {
+  AgentError,
+  type AgentThreadMessage,
+  type AgentThreadSummary,
+  getThread,
+  listThreads,
+  streamAgentAnswer,
+} from "@/lib/agent";
 import type { ChatMessageModel } from "./ChatMessage";
 
 type TranscriptMap = Record<string, ChatMessageModel[]>;
@@ -59,6 +66,22 @@ function getThreadId(petId: string): string {
   }
 }
 
+function peekThreadId(petId: string): string | null {
+  try {
+    return window.localStorage.getItem(`${THREAD_KEY_PREFIX}${petId}`);
+  } catch {
+    return null;
+  }
+}
+
+function setThreadId(petId: string, threadId: string): void {
+  try {
+    window.localStorage.setItem(`${THREAD_KEY_PREFIX}${petId}`, threadId);
+  } catch {
+    return;
+  }
+}
+
 function clearThreadId(petId: string): void {
   try {
     window.localStorage.removeItem(`${THREAD_KEY_PREFIX}${petId}`);
@@ -67,12 +90,28 @@ function clearThreadId(petId: string): void {
   }
 }
 
+function messagesFromThread(messages: AgentThreadMessage[]): ChatMessageModel[] {
+  return messages.map((message) => ({
+    id: newId(),
+    role: message.role,
+    text: message.text,
+    citations: [],
+    emergency: false,
+    streaming: false,
+    errored: false,
+  }));
+}
+
 export type ChatController = {
   activePetId: string;
   activePet: PetPickerOption;
-  setActivePetId: (petId: string) => void;
   messages: ChatMessageModel[];
   pending: boolean;
+  threads: AgentThreadSummary[];
+  threadsLoading: boolean;
+  activeThreadId: string | null;
+  refreshThreads: () => Promise<void>;
+  selectThread: (threadId: string) => Promise<void>;
   sendMessage: (query: string) => Promise<void>;
   stop: () => void;
   newConversation: () => void;
@@ -88,11 +127,13 @@ function useHydrated(): boolean {
   );
 }
 
-export function useChat(pets: PetPickerOption[]): ChatController {
+export function useChat(pets: PetPickerOption[], activePetId: string): ChatController {
   const hydrated = useHydrated();
-  const [activePetId, setActivePetId] = useState(pets[0].id);
   const [transcripts, setTranscripts] = useState<TranscriptMap>(() => loadAllTranscripts(pets));
   const [pendingPets, setPendingPets] = useState<PendingMap>({});
+  const [threads, setThreads] = useState<AgentThreadSummary[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const abortControllers = useRef<Map<string, AbortController>>(new Map());
 
   const pending = pendingPets[activePetId] ?? false;
@@ -105,6 +146,15 @@ export function useChat(pets: PetPickerOption[]): ChatController {
     if (!hydrated || pendingPets[activePetId]) return;
     saveTranscript(activePetId, messages);
   }, [hydrated, pendingPets, activePetId, messages]);
+
+  // The active conversation and its history are per pet: re-read the current
+  // thread and drop the previous dog's list when the focused pet changes.
+  useEffect(() => {
+    if (!hydrated) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveThreadId(peekThreadId(activePetId));
+    setThreads([]);
+  }, [hydrated, activePetId]);
 
   useEffect(() => {
     const controllers = abortControllers.current;
@@ -131,6 +181,7 @@ export function useChat(pets: PetPickerOption[]): ChatController {
       const petId = activePetId;
       if (pendingPets[petId]) return;
       const threadId = getThreadId(petId);
+      setActiveThreadId(threadId);
       const assistantId = newId();
       setTranscripts((prev) => ({
         ...prev,
@@ -218,6 +269,33 @@ export function useChat(pets: PetPickerOption[]): ChatController {
     [activePetId, pendingPets, updateMessage],
   );
 
+  const refreshThreads = useCallback(async () => {
+    setThreadsLoading(true);
+    try {
+      setThreads(await listThreads(activePetId));
+    } catch {
+      setThreads([]);
+    } finally {
+      setThreadsLoading(false);
+    }
+  }, [activePetId]);
+
+  const selectThread = useCallback(
+    async (threadId: string) => {
+      const petId = activePetId;
+      abortControllers.current.get(petId)?.abort();
+      try {
+        const detail = await getThread(threadId);
+        setTranscripts((prev) => ({ ...prev, [petId]: messagesFromThread(detail.messages) }));
+        setThreadId(petId, threadId);
+        setActiveThreadId(threadId);
+      } catch {
+        // Keep the current transcript in place if the conversation can't be loaded.
+      }
+    },
+    [activePetId],
+  );
+
   const stop = useCallback(() => {
     abortControllers.current.get(activePetId)?.abort();
   }, [activePetId]);
@@ -225,6 +303,7 @@ export function useChat(pets: PetPickerOption[]): ChatController {
   const newConversation = useCallback(() => {
     abortControllers.current.get(activePetId)?.abort();
     clearThreadId(activePetId);
+    setActiveThreadId(null);
     setTranscripts((prev) => ({ ...prev, [activePetId]: [] }));
   }, [activePetId]);
 
@@ -233,9 +312,13 @@ export function useChat(pets: PetPickerOption[]): ChatController {
   return {
     activePetId,
     activePet,
-    setActivePetId,
     messages,
     pending,
+    threads,
+    threadsLoading,
+    activeThreadId,
+    refreshThreads,
+    selectThread,
     sendMessage,
     stop,
     newConversation,

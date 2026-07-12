@@ -15,6 +15,8 @@ vi.mock("@/lib/pets", async (importOriginal) => {
   return { ...actual, listPetsForBrowser: listPetsMock };
 });
 
+const USER_ID = "user-1";
+
 const samplePet: PetRead = {
   id: "pet-1",
   name: "Luna",
@@ -42,7 +44,7 @@ afterEach(() => {
 
 describe("ChatWidget", () => {
   it("shows the launcher and hides the panel until opened", () => {
-    render(<ChatWidget />);
+    render(<ChatWidget userId={USER_ID} />);
     expect(screen.getByRole("button", { name: /ask pawpilot/i })).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
@@ -50,7 +52,7 @@ describe("ChatWidget", () => {
   it("opens the panel and loads the chat on click", async () => {
     listPetsMock.mockResolvedValue([samplePet]);
     const user = userEvent.setup();
-    render(<ChatWidget />);
+    render(<ChatWidget userId={USER_ID} />);
 
     await user.click(screen.getByRole("button", { name: /ask pawpilot/i }));
 
@@ -63,7 +65,7 @@ describe("ChatWidget", () => {
   it("retries loading the dogs after a failure", async () => {
     listPetsMock.mockRejectedValueOnce(new Error("down")).mockResolvedValueOnce([samplePet]);
     const user = userEvent.setup();
-    render(<ChatWidget />);
+    render(<ChatWidget userId={USER_ID} />);
 
     await user.click(screen.getByRole("button", { name: /ask pawpilot/i }));
     await waitFor(() => expect(screen.getByText(/couldn't load your dogs/i)).toBeInTheDocument());
@@ -79,7 +81,7 @@ describe("ChatWidget", () => {
   it("prompts to add a dog when the user has none", async () => {
     listPetsMock.mockResolvedValue([]);
     const user = userEvent.setup();
-    render(<ChatWidget />);
+    render(<ChatWidget userId={USER_ID} />);
 
     await user.click(screen.getByRole("button", { name: /ask pawpilot/i }));
 
@@ -88,7 +90,22 @@ describe("ChatWidget", () => {
 
   it("renders nothing on the dedicated chat page", () => {
     pathnameMock.mockReturnValue("/chat");
-    const { container } = render(<ChatWidget />);
+    const { container } = render(<ChatWidget userId={USER_ID} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("chats about the dog named in the current route, without a picker", async () => {
+    const secondPet: PetRead = { ...samplePet, id: "pet-2", name: "Rex", breed_other: "Beagle" };
+    listPetsMock.mockResolvedValue([samplePet, secondPet]);
+    pathnameMock.mockReturnValue("/dashboard/pet-2");
+    const user = userEvent.setup();
+    render(<ChatWidget userId={USER_ID} />);
+
+    await user.click(screen.getByRole("button", { name: /ask pawpilot/i }));
+
+    await waitFor(() => expect(screen.getByText("Rex")).toBeInTheDocument());
+    expect(screen.getByText(/every answer cites its sources/i)).toHaveTextContent(/about Rex/i);
+    // The picker is gone: the dog is derived from the URL, not chosen.
+    expect(screen.queryByRole("button", { name: /pick a dog|luna|rex/i })).not.toBeInTheDocument();
   });
 });

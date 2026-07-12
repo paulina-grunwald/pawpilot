@@ -5,7 +5,7 @@ import { requireCurrentUser } from "@/lib/auth.server";
 import { fetchPetsForCurrentUser } from "@/lib/pets.server";
 
 export default async function ChatPage() {
-  await requireCurrentUser();
+  const user = await requireCurrentUser();
   const pets = await fetchPetsForCurrentUser();
 
   if (pets.length === 0) {
@@ -24,5 +24,5 @@ export default async function ChatPage() {
     );
   }
 
-  return <ChatView pets={pets.map(toPetPickerOption)} />;
+  return <ChatView pets={pets.map(toPetPickerOption)} userId={user.id} />;
 }

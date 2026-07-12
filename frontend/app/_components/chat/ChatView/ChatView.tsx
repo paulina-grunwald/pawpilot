@@ -1,13 +1,35 @@
 "use client";
 
-import { PetPicker, type PetPickerOption } from "@/app/_components/pets/PetPicker";
+import { useState } from "react";
+import type { PetPickerOption } from "@/app/_components/pets/PetPicker";
 import { ChatComposer } from "../ChatComposer";
+import { ChatHistory } from "../ChatHistory";
 import { ChatTranscript } from "../ChatTranscript";
+import { useActivePetId } from "../useActivePetId";
 import { useChat } from "../useChat";
 import styles from "./ChatView.module.css";
 
-export function ChatView({ pets }: { pets: PetPickerOption[] }) {
-  const chat = useChat(pets);
+export function ChatView({ pets, userId }: { pets: PetPickerOption[]; userId: string }) {
+  const activePetId = useActivePetId(pets, userId);
+  const chat = useChat(pets, activePetId);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  function toggleHistory() {
+    setHistoryOpen((open) => {
+      if (!open) void chat.refreshThreads();
+      return !open;
+    });
+  }
+
+  function handleSelectThread(threadId: string) {
+    void chat.selectThread(threadId);
+    setHistoryOpen(false);
+  }
+
+  function handleNewConversation() {
+    chat.newConversation();
+    setHistoryOpen(false);
+  }
 
   return (
     <main className={styles.page}>
@@ -19,25 +41,42 @@ export function ChatView({ pets }: { pets: PetPickerOption[] }) {
           </p>
         </div>
         <div className={styles.headerActions}>
-          <PetPicker pets={pets} activePetId={chat.activePetId} onSelect={chat.setActivePetId} />
-          <button type="button" className={styles.newChat} onClick={chat.newConversation}>
+          <button
+            type="button"
+            className={styles.newChat}
+            onClick={toggleHistory}
+            aria-pressed={historyOpen}
+          >
+            {historyOpen ? "Close history" : "History"}
+          </button>
+          <button type="button" className={styles.newChat} onClick={handleNewConversation}>
             New conversation
           </button>
         </div>
       </header>
 
-      <ChatTranscript
-        messages={chat.messages}
-        className={styles.transcript}
-        emptyState={
-          <div className={styles.empty}>
-            <p className={styles.emptyTitle}>Ask anything about {chat.activePet.name}.</p>
-            <p className={styles.emptyHint}>
-              Diet, symptoms, meds, breed-specific care — every answer cites its sources.
-            </p>
-          </div>
-        }
-      />
+      {historyOpen ? (
+        <ChatHistory
+          threads={chat.threads}
+          activeThreadId={chat.activeThreadId}
+          loading={chat.threadsLoading}
+          onSelect={handleSelectThread}
+          onNewConversation={handleNewConversation}
+        />
+      ) : (
+        <ChatTranscript
+          messages={chat.messages}
+          className={styles.transcript}
+          emptyState={
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>Ask anything about {chat.activePet.name}.</p>
+              <p className={styles.emptyHint}>
+                Diet, symptoms, meds, breed-specific care — every answer cites its sources.
+              </p>
+            </div>
+          }
+        />
+      )}
 
       <div className={styles.composerWrap}>
         <ChatComposer

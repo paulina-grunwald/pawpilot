@@ -85,6 +85,20 @@ async def test_record_thread_is_idempotent_and_keeps_owner(db_session: AsyncSess
     assert rows[0].owner_user_id == first_owner
 
 
+async def test_record_thread_persists_title_and_keeps_it_on_conflict(
+    db_session: AsyncSession,
+) -> None:
+    owner = uuid.uuid4()
+    await record_thread_quietly(db_session, "thread-1", owner, title="First question")
+    # A later turn only bumps updated_at; the title stays the first question asked.
+    await record_thread_quietly(db_session, "thread-1", owner, title="Second question")
+
+    rows = (await db_session.execute(select(AgentThread))).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].title == "First question"
+    assert rows[0].pet_id is None
+
+
 async def test_record_thread_swallows_errors() -> None:
     broken_session = AsyncMock(spec=AsyncSession)
     broken_session.execute.side_effect = RuntimeError("db down")

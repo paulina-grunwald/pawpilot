@@ -43,11 +43,7 @@ def _answer_agent() -> PawPilotAgent:
         with_memory=True,
     )
 
-
-# --------------------------------------------------------------------------- #
 # POST /agent/ask
-# --------------------------------------------------------------------------- #
-
 
 async def test_ask_requires_authentication(client: AsyncClient) -> None:
     response = await client.post("/agent/ask", json={"query": "hello"})
@@ -161,11 +157,7 @@ async def test_ask_returns_503_when_agent_fails(
     assert rows == []
 
 
-# --------------------------------------------------------------------------- #
 # POST /agent/ask/stream
-# --------------------------------------------------------------------------- #
-
-
 def _parse_sse(raw: str) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
     for block in raw.split("\n\n"):
@@ -227,3 +219,112 @@ async def test_stream_emits_error_event_when_agent_fails(
     events = _parse_sse(body.decode())
     assert events[-1]["type"] == "error"
     assert events[-1]["detail"] == "AGENT_UNAVAILABLE"
+
+
+# GET /agent/threads  and  GET /agent/threads/{thread_id}
+
+async def test_threads_require_authentication(client: AsyncClient) -> None:
+    assert (await client.get("/agent/threads")).status_code == 401
+    assert (await client.get("/agent/threads/conv-1")).status_code == 401
+
+
+async def test_list_threads_empty_by_default(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get("/agent/threads")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_list_threads_returns_recorded_conversations(
+    authenticated_client: AsyncClient,
+    install_agent: Callable[[PawPilotAgent], None],
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    install_agent(_answer_agent())
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+
+    ask = await authenticated_client.post(
+        "/agent/ask",
+        json={
+            "query": "How often should I feed my puppy?",
+            "pet_id": pet_id,
+            "thread_id": "conv-1",
+        },
+    )
+    assert ask.status_code == 200, ask.text
+
+    response = await authenticated_client.get("/agent/threads")
+    assert response.status_code == 200
+    threads = response.json()
+    assert len(threads) == 1
+    # The per-user namespace prefix is stripped: the client resumes with this id.
+    assert threads[0]["thread_id"] == "conv-1"
+    assert threads[0]["pet_id"] == pet_id
+    assert threads[0]["title"] == "How often should I feed my puppy?"
+
+
+async def test_list_threads_filters_by_pet(
+    authenticated_client: AsyncClient,
+    install_agent: Callable[[PawPilotAgent], None],
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    install_agent(_answer_agent())
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+
+    await authenticated_client.post(
+        "/agent/ask", json={"query": "Diet?", "pet_id": pet_id, "thread_id": "conv-1"}
+    )
+
+    same_pet = await authenticated_client.get(f"/agent/threads?pet_id={pet_id}")
+    assert [thread["thread_id"] for thread in same_pet.json()] == ["conv-1"]
+
+    other_pet = await authenticated_client.get(
+        "/agent/threads?pet_id=00000000-0000-0000-0000-000000000000"
+    )
+    assert other_pet.json() == []
+
+
+async def test_get_thread_reconstructs_transcript(
+    authenticated_client: AsyncClient,
+    install_agent: Callable[[PawPilotAgent], None],
+) -> None:
+    install_agent(_answer_agent())
+    await authenticated_client.post(
+        "/agent/ask", json={"query": "How often to feed?", "thread_id": "conv-1"}
+    )
+
+    response = await authenticated_client.get("/agent/threads/conv-1")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["thread_id"] == "conv-1"
+    assert [message["role"] for message in body["messages"]] == ["user", "assistant"]
+    assert body["messages"][0]["text"] == "How often to feed?"
+    assert "Feed twice daily." in body["messages"][1]["text"]
+
+
+async def test_get_thread_unknown_returns_404(authenticated_client: AsyncClient) -> None:
+    response = await authenticated_client.get("/agent/threads/does-not-exist")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "THREAD_NOT_FOUND"
+
+
+async def test_threads_are_owner_scoped(
+    authenticated_client: AsyncClient,
+    install_agent: Callable[[PawPilotAgent], None],
+) -> None:
+    install_agent(_answer_agent())
+    await authenticated_client.post(
+        "/agent/ask", json={"query": "Alice's question", "thread_id": "conv-1"}
+    )
+
+    # Switch the same client to a second user; Alice's thread must be invisible.
+    await authenticated_client.post(
+        "/auth/register", json={"email": "bob@example.com", "password": "correct-horse-battery"}
+    )
+    login = await authenticated_client.post(
+        "/auth/login",
+        data={"username": "bob@example.com", "password": "correct-horse-battery"},
+    )
+    assert login.status_code == 204, login.text
+
+    assert (await authenticated_client.get("/agent/threads")).json() == []
+    assert (await authenticated_client.get("/agent/threads/conv-1")).status_code == 404

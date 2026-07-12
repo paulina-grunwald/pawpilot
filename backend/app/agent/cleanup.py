@@ -38,11 +38,26 @@ async def clear_dog_memory_quietly(dog_id: str) -> None:
 
 
 async def record_thread_quietly(
-    session: AsyncSession, thread_id: str, owner_user_id: uuid.UUID
+    session: AsyncSession,
+    thread_id: str,
+    owner_user_id: uuid.UUID,
+    *,
+    pet_id: uuid.UUID | None = None,
+    title: str | None = None,
 ) -> None:
+    """Record (or touch) a conversation thread for history and retention.
+
+    On first sight the row captures the dog and a title; later turns only bump
+    ``updated_at`` (via ON CONFLICT) so the title stays the first question asked.
+    """
     statement = (
         pg_insert(AgentThread)
-        .values(thread_id=thread_id, owner_user_id=owner_user_id)
+        .values(
+            thread_id=thread_id,
+            owner_user_id=owner_user_id,
+            pet_id=pet_id,
+            title=title,
+        )
         .on_conflict_do_update(index_elements=["thread_id"], set_={"updated_at": func.now()})
     )
     try:

@@ -23,6 +23,28 @@ export type AgentStreamEvent =
   | { type: "final"; citations: Citation[]; emergency: boolean; tool_calls: string[] }
   | { type: "error"; detail: string };
 
+export type ThreadMessageRole = "user" | "assistant";
+
+export type AgentThreadSummary = {
+  thread_id: string;
+  pet_id: string | null;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentThreadMessage = {
+  role: ThreadMessageRole;
+  text: string;
+};
+
+export type AgentThreadDetail = {
+  thread_id: string;
+  pet_id: string | null;
+  title: string | null;
+  messages: AgentThreadMessage[];
+};
+
 export type AgentErrorCode =
   | "AGENT_UNAUTHENTICATED"
   | "AGENT_VALIDATION"
@@ -59,6 +81,40 @@ function parseSseEvent(raw: string): AgentStreamEvent | null {
   } catch {
     return null;
   }
+}
+
+async function getAgentJson<T>(path: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method: "GET",
+      credentials: "include",
+    });
+  } catch (caught) {
+    throw new AgentError(
+      "NETWORK_ERROR",
+      caught instanceof Error ? caught.message : String(caught),
+    );
+  }
+  if (!response.ok) {
+    throw new AgentError(
+      agentErrorForStatus(response.status),
+      `GET ${path} failed with ${response.status}`,
+      response.status,
+    );
+  }
+  return (await response.json()) as T;
+}
+
+/** List the current user's past conversations, newest first, optionally for one dog. */
+export async function listThreads(petId?: string): Promise<AgentThreadSummary[]> {
+  const query = petId ? `?pet_id=${encodeURIComponent(petId)}` : "";
+  return getAgentJson<AgentThreadSummary[]>(`/agent/threads${query}`);
+}
+
+/** Fetch a past conversation's reconstructed transcript. */
+export async function getThread(threadId: string): Promise<AgentThreadDetail> {
+  return getAgentJson<AgentThreadDetail>(`/agent/threads/${encodeURIComponent(threadId)}`);
 }
 
 export async function* streamAgentAnswer(

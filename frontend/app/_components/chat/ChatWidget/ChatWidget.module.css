@@ -79,6 +79,16 @@
   padding: 10px 12px;
   border-bottom: 1px solid var(--hairline);
 }
+.activePet {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.controlButtons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .newChat {
   border: 1px solid var(--hairline-strong);
   background: transparent;
