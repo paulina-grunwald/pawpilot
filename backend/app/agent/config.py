@@ -1,7 +1,4 @@
 """Agent settings — reuses the Vercel AI Gateway credentials plus Tavily.
-
-The chat model runs through the same Gateway key as embeddings and generation
-(spec 009a); this adds the agent-specific knobs and the Tavily web-search key.
 """
 
 from __future__ import annotations
@@ -52,7 +49,7 @@ class AgentSettings(BaseSettings):
     )
 
     memory_backend: Literal["memory", "postgres"] = Field(
-        default="memory", validation_alias="MEMORY_BACKEND"
+        default="postgres", validation_alias="MEMORY_BACKEND"
     )
     max_dog_memories: int = Field(default=20, ge=1, le=100, validation_alias="MAX_DOG_MEMORIES")
     memory_pool_max_size: int = Field(
