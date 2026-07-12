@@ -44,7 +44,13 @@ class Citation(BaseModel):
 
 
 class AgentAnswer(BaseModel):
-    """The grounded, cited answer to a single dog-health question."""
+    """The grounded, cited answer to a single dog-health question.
+
+    contexts carries the raw passages retrieval surfaced this run (corpus and
+    web), for RAGAS generation metrics. It is exclude=True so it never reaches
+    API clients: the vet corpus is private, and its text must not leak in the
+    /agent/ask response body.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -52,6 +58,7 @@ class AgentAnswer(BaseModel):
     citations: list[Citation]
     emergency: bool
     tool_calls: list[str]
+    contexts: list[str] = Field(default_factory=list, exclude=True)
 
 
 class AgentStreamChunk(BaseModel):

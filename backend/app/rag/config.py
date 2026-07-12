@@ -46,6 +46,10 @@ class RagSettings(BaseSettings):
         default="openai/gpt-5.4-mini",
         validation_alias="RAG_GEN_MODEL",
     )
+    agent_eval_judge_model: str | None = Field(
+        default=None,
+        validation_alias="AGENT_EVAL_JUDGE_MODEL",
+    )
 
     qdrant_url: str = Field(default="http://localhost:6333", validation_alias="QDRANT_URL")
     qdrant_api_key: str | None = Field(default=None, validation_alias="QDRANT_API_KEY")
@@ -59,7 +63,10 @@ class RagSettings(BaseSettings):
         if not self.gateway_api_key:
             raise ValueError("A Vercel AI Gateway key is required")
 
-        for role, model_id in (("embed_model", self.embed_model), ("gen_model", self.gen_model)):
+        models = [("embed_model", self.embed_model), ("gen_model", self.gen_model)]
+        if self.agent_eval_judge_model is not None:
+            models.append(("agent_eval_judge_model", self.agent_eval_judge_model))
+        for role, model_id in models:
             if "/" not in model_id:
                 raise ValueError(
                     f"{role} must be a provider-qualified AI Gateway id (e.g. 'openai/...'); "

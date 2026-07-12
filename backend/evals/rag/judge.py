@@ -1,12 +1,12 @@
 """Gateway-backed RAGAS judge + generator
 
-RAGAS is wired via its own ``llm_factory`` / ``embedding_factory`` fed a
-synchronous ``openai.OpenAI`` client pointed at the Vercel AI Gateway. The
-judge's async ``.agenerate`` is bridged onto the sync client via
-``asyncio.to_thread`` (RAGAS metric methods call ``agenerate``; the Instructor
+RAGAS is wired via its own llm_factory / embedding_factory fed a
+synchronous openai.OpenAI client pointed at the Vercel AI Gateway. The
+judge's async .agenerate is bridged onto the sync client via
+asyncio.to_thread (RAGAS metric methods call agenerate; the Instructor
 async path is unreliable in some runtimes).
 
-Requires the ``evals`` dependency group:  uv sync --group evals
+Requires the evals dependency group:  uv sync --group evals
 """
 
 from __future__ import annotations
@@ -15,15 +15,24 @@ import asyncio
 from typing import Any
 
 import instructor
+from langsmith.wrappers import wrap_openai
 from openai import OpenAI
 from ragas.embeddings.base import embedding_factory
 from ragas.llms import llm_factory
 
 from app.rag.config import RagSettings, get_rag_settings
+from app.rag.observability import tracing_enabled
 
 
 def _gateway_client(settings: RagSettings) -> OpenAI:
-    return OpenAI(api_key=settings.gateway_api_key, base_url=settings.gateway_base_url)
+    """Gateway OpenAI client, wrapped for LangSmith when tracing is on.
+
+    wrap_openai instruments chat/completions calls in place and returns the same
+    client, so the RAGAS judge's calls surface as traces. Embedding calls are not
+    wrapped by wrap_openai, so only the judge LLM metrics appear, not embeddings.
+    """
+    client = OpenAI(api_key=settings.gateway_api_key, base_url=settings.gateway_base_url)
+    return wrap_openai(client) if tracing_enabled() else client
 
 
 def build_generator_llm(settings: RagSettings | None = None) -> Any:
@@ -45,7 +54,7 @@ def _guard_empty_embedding_inputs(embeddings: Any) -> Any:
 
     The RAGAS prechunked transform pipeline can emit empty/whitespace-only
     nodes (e.g. zero-length headline splits). The Gateway rejects empty
-    embedding inputs with a 400 (``input cannot be an empty string``), so we
+    embedding inputs with a 400 (input cannot be an empty string), so we
     substitute a single space, which embeds cleanly and never matches real
     retrieval content.
     """
@@ -63,25 +72,52 @@ def _guard_empty_embedding_inputs(embeddings: Any) -> Any:
     return embeddings
 
 
+def _bridge_async_embeddings(embeddings: Any) -> Any:
+    """Run async embedding calls on the sync client via a worker thread.
+
+    AnswerRelevancy awaits aembed_text/aembed_texts, but the Gateway embeddings
+    wrap a synchronous OpenAI client (which raises on the async methods). Bridge
+    the async methods onto the sync ones, mirroring the judge LLM's agenerate
+    bridge, so the blocking call runs off the event loop.
+    """
+
+    async def aembed_text(text: str, **kwargs: Any) -> Any:
+        return await asyncio.to_thread(embeddings.embed_text, text, **kwargs)
+
+    async def aembed_texts(texts: list[str], **kwargs: Any) -> Any:
+        return await asyncio.to_thread(embeddings.embed_texts, texts, **kwargs)
+
+    embeddings.aembed_text = aembed_text
+    embeddings.aembed_texts = aembed_texts
+    return embeddings
+
+
 def build_generator_embeddings(settings: RagSettings | None = None) -> Any:
     resolved = settings or get_rag_settings()
     embeddings = embedding_factory(
         "openai", model=resolved.embed_model, client=_gateway_client(resolved)
     )
-    return _guard_empty_embedding_inputs(embeddings)
+    return _bridge_async_embeddings(_guard_empty_embedding_inputs(embeddings))
 
 
-def build_sync_judge_llm(settings: RagSettings | None = None) -> Any:
-    """RAGAS judge LLM whose async ``agenerate`` runs on the sync Gateway client."""
+def build_sync_judge_llm(settings: RagSettings | None = None, model: str | None = None) -> Any:
+    """RAGAS judge LLM whose async agenerate runs on the sync Gateway client.
+
+    model overrides the judge model id (defaults to gen_model); the agent
+    generation eval passes a distinct id to avoid grading answers with the model
+    that produced them.
+    """
     resolved = settings or get_rag_settings()
+    # Faithfulness decomposes an answer into atomic claims; a long, thorough vet
+    # answer yields many, so the judge needs headroom or its JSON output truncates.
     judge = llm_factory(
-        resolved.gen_model,
+        model or resolved.gen_model,
         provider="openai",
         client=_gateway_client(resolved),
         mode=instructor.Mode.TOOLS,
-        max_tokens=1024,
+        max_tokens=8192,
     )
-    judge.model_args = {"max_tokens": 1024, "max_retries": 3}
+    judge.model_args = {"max_tokens": 8192, "max_retries": 3}
 
     async def agenerate_from_sync(prompt: Any, response_model: Any) -> Any:
         return await asyncio.to_thread(judge.generate, prompt=prompt, response_model=response_model)
