@@ -173,7 +173,6 @@ def test_render_markdown_has_summary_table_and_percase() -> None:
     assert "-" in markdown
 
 
-
 def test_write_generation_baseline_round_trips(tmp_path: Path) -> None:
     destination = tmp_path / "baselines.json"
     report = summarize_report("dense", [_result(scores=_scores(0.9, 0.8, 0.7, 0.1))])
