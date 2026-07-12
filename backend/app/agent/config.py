@@ -1,5 +1,4 @@
-"""Agent settings — reuses the Vercel AI Gateway credentials plus Tavily.
-"""
+"""Agent settings — reuses the Vercel AI Gateway credentials plus Tavily."""
 
 from __future__ import annotations
 
