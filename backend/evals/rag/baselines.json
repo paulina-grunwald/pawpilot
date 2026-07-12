@@ -8,9 +8,9 @@
       "recall@20": 0.9474
     },
     "context": {
-      "context_recall": 0.7361,
-      "context_entity_recall": 0.4265,
-      "cases": 12
+      "context_recall": 0.4713,
+      "context_entity_recall": 0.1758,
+      "cases": 18
     }
   },
   "generation": {
@@ -22,10 +22,10 @@
       "errors": 0,
       "emergency": 2,
       "means": {
-        "faithfulness": 0.6339,
-        "answer_accuracy": 0.6528,
-        "answer_relevancy": 0.817,
-        "noise_sensitivity": 0.2335
+        "faithfulness": 0.5744,
+        "answer_accuracy": 0.6111,
+        "answer_relevancy": 0.8229,
+        "noise_sensitivity": 0.2313
       }
     }
   }

@@ -1,9 +1,4 @@
 """Pydantic contracts for the RAG backbone.
-
-`RetrievedChunk` is the load-bearing citation contract: every retrieval result
-carries enough metadata for specs 010/011 to render a citation like
-*"WSAVA Vaccination Guidelines 2024, §Core vaccines, p. 12"* without a second
-lookup.
 """
 
 from __future__ import annotations
@@ -12,8 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# Authority order for advice surfaces: guideline > consensus > primary_research.
-# `breed` and `food` are domain-specific lanes, not an authority ranking.
+
 SourceTier = Literal["guideline", "consensus", "primary_research", "breed", "food"]
 
 SizeCategory = Literal["toy", "small", "medium", "large", "giant"]
@@ -41,6 +35,11 @@ class RetrievedChunk(BaseModel):
     page_end: int
     source_tier: SourceTier
     license_note: str | None = None
+    # Set only in rerank mode (spec 009d): the cross-encoder relevance score and
+    # the chunk's 0-based position in the pre-rerank dense candidate list, kept so
+    # the eval report can show how far the reranker moved each passage.
+    rerank_score: float | None = None
+    pre_rerank_rank: int | None = None
 
 
 class RagSearchRequest(BaseModel):

@@ -11,6 +11,8 @@ from functools import lru_cache
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.rag.schemas import RetrievalMode
+
 
 class RagSettings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -58,12 +60,22 @@ class RagSettings(BaseSettings):
     default_top_k: int = Field(default=8, ge=1, le=20, validation_alias="RAG_DEFAULT_TOP_K")
     fused_candidates: int = Field(default=25, validation_alias="RAG_FUSED_CANDIDATES")
 
+    default_mode: RetrievalMode = Field(default="dense", validation_alias="RAG_DEFAULT_MODE")
+    rerank_model: str = Field(default="cohere/rerank-v3.5", validation_alias="RAG_RERANK_MODEL")
+    rerank_candidates: int = Field(
+        default=25, ge=1, le=200, validation_alias="RAG_RERANK_CANDIDATES"
+    )
+
     @model_validator(mode="after")
     def _validate(self) -> RagSettings:
         if not self.gateway_api_key:
             raise ValueError("A Vercel AI Gateway key is required")
 
-        models = [("embed_model", self.embed_model), ("gen_model", self.gen_model)]
+        models = [
+            ("embed_model", self.embed_model),
+            ("gen_model", self.gen_model),
+            ("rerank_model", self.rerank_model),
+        ]
         if self.agent_eval_judge_model is not None:
             models.append(("agent_eval_judge_model", self.agent_eval_judge_model))
         for role, model_id in models:
@@ -72,6 +84,12 @@ class RagSettings(BaseSettings):
                     f"{role} must be a provider-qualified AI Gateway id (e.g. 'openai/...'); "
                     f"got {model_id!r}."
                 )
+        if self.rerank_candidates < self.default_top_k:
+            raise ValueError(
+                f"rerank_candidates ({self.rerank_candidates}) must be >= default_top_k "
+                f"({self.default_top_k}): the reranker cannot return more results than it "
+                "over-retrieves."
+            )
         return self
 
 

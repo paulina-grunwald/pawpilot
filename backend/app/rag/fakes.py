@@ -1,9 +1,4 @@
-"""Deterministic, network-free test doubles for the RAG embedding backends.
-
-`FakeEmbedder` implements the `Embedder` Protocol without any network calls, so
-tests, local dev, and eval runs can exercise the ingest/retrieve pipeline with no
-API key and no flakiness. Identical text always maps to the same unit vector, so a
-query for a chunk's exact text ranks that chunk first.
+"""Deterministic, network-free test doubles for the RAG embedding and rerank backends.
 """
 
 from __future__ import annotations
@@ -11,6 +6,8 @@ from __future__ import annotations
 import hashlib
 import math
 import random
+
+from app.rag.reranking import RerankResult
 
 
 class FakeEmbedder:
@@ -35,3 +32,28 @@ class FakeEmbedder:
         values = [rng.uniform(-1.0, 1.0) for _ in range(self._dimensions)]
         norm = math.sqrt(sum(value * value for value in values)) or 1.0
         return [value / norm for value in values]
+
+
+class FakeReranker:
+    """Deterministic reranker for hermetic tests.
+
+    Scores each document by lexical overlap with the query (the fraction of query
+    tokens it contains), so a test can assert a specific reorder without a network
+    call. Ties break by original index to stay stable.
+    """
+
+    def rerank(self, query: str, documents: list[str], *, top_n: int) -> list[RerankResult]:
+        query_tokens = set(query.lower().split())
+        scored = [
+            RerankResult(
+                index=index,
+                relevance_score=(
+                    len(query_tokens & set(document.lower().split())) / len(query_tokens)
+                    if query_tokens
+                    else 0.0
+                ),
+            )
+            for index, document in enumerate(documents)
+        ]
+        scored.sort(key=lambda result: (-result.relevance_score, result.index))
+        return scored[:top_n]

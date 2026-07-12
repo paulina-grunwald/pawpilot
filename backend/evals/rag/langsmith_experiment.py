@@ -1,15 +1,5 @@
 """Push the RAGAS evals to LangSmith as Datasets and Experiments.
 
-Opt-in companion to the local run_agent_eval / run_retrieval evals: instead of
-writing local reports, this syncs each golden set to a versioned LangSmith
-Dataset and records the run as an Experiment, so every case shows its per-metric
-scores with run-to-run comparison (the LangSmith Datasets and Experiments view).
-
-It requires live credentials (LANGSMITH_TRACING=true, LANGSMITH_API_KEY, the
-Gateway key, and an ingested Qdrant corpus) and never runs under make check; the
-pure adapters below (example builders, targets, evaluators) are unit-tested with
-fakes and no network.
-
 Run:
 - make langsmith-experiments
 - make langsmith-experiments ARGS="--kind generation --limit 5"
@@ -62,11 +52,7 @@ def require_langsmith() -> None:
         )
 
 
-# --------------------------------------------------------------------------- #
-# Dataset example builders (pure)
-# --------------------------------------------------------------------------- #
-
-
+# Dataset example builders
 def generation_examples(cases: list[GenerationCase]) -> list[dict[str, Any]]:
     """Map reviewed generation cases to LangSmith example dicts."""
     return [
@@ -166,11 +152,8 @@ async def run_generation_experiment(*, mode: str = "dense", limit: int | None = 
     )
 
 
-# --------------------------------------------------------------------------- #
+
 # Retrieval experiment
-# --------------------------------------------------------------------------- #
-
-
 def recall_at_k_by_ids(
     expected_source_ids: list[str], retrieved_source_ids: list[str], k: int
 ) -> float:
@@ -225,11 +208,7 @@ async def run_retrieval_experiment(*, mode: str = "dense", limit: int | None = N
         client=client,
     )
 
-
-# --------------------------------------------------------------------------- #
 # Dataset sync + entrypoint
-# --------------------------------------------------------------------------- #
-
 
 def sync_dataset(client: Any, name: str, examples: list[dict[str, Any]], description: str) -> None:
     """Create the dataset with these examples if it does not exist yet (idempotent).
@@ -246,7 +225,9 @@ def sync_dataset(client: Any, name: str, examples: list[dict[str, Any]], descrip
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the RAGAS evals as LangSmith experiments.")
     parser.add_argument("--kind", choices=["generation", "retrieval", "both"], default="both")
-    parser.add_argument("--mode", default="dense", help="retriever mode label")
+    parser.add_argument(
+        "--mode", default="dense", choices=["dense", "rerank"], help="retriever mode"
+    )
     parser.add_argument("--limit", type=int, default=None, help="only the first N cases")
     args = parser.parse_args()
 
