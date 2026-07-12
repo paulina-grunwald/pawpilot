@@ -25,6 +25,7 @@ from tests.agent.conftest import (
     build_test_agent,
     make_agent_settings,
     make_chunk,
+    make_pet_food_product,
     make_web_result,
     tool_call_message,
 )
@@ -132,6 +133,21 @@ async def test_arun_resolves_web_citation() -> None:
     assert answer.tool_calls == ["web_search"]
     assert [citation.ref for citation in answer.citations] == ["W1"]
     assert answer.citations[0].kind == "web"
+
+
+def test_run_resolves_pet_food_citation() -> None:
+    agent = build_test_agent(
+        responses=[
+            tool_call_message("lookup_pet_food", "orijen six fish"),
+            AIMessage(content=f"It is 40% crude protein [F1]. {VET_DISCLAIMER}"),
+        ],
+        pet_food_products=[make_pet_food_product()],
+    )
+    answer = agent.run("What are the macros in Orijen Six Fish?")
+    assert answer.tool_calls == ["lookup_pet_food"]
+    assert [citation.ref for citation in answer.citations] == ["F1"]
+    assert answer.citations[0].kind == "food"
+    assert answer.citations[0].title == "Orijen Six Fish"
 
 
 # --------------------------------------------------------------------------- #

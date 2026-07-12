@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from app.agent.citations import CitationRegistry, extract_referenced_ids
 from app.agent.schemas import Citation
-from tests.agent.conftest import make_chunk, make_web_result
+from tests.agent.conftest import make_chunk, make_pet_food_product, make_web_result
 
 # --------------------------------------------------------------------------- #
 # extract_referenced_ids
@@ -33,9 +33,13 @@ def test_extract_finds_single_web_id() -> None:
     assert extract_referenced_ids("There was a recall [W1].") == ["W1"]
 
 
+def test_extract_finds_single_food_id() -> None:
+    assert extract_referenced_ids("That food is 40% protein [F1].") == ["F1"]
+
+
 def test_extract_preserves_first_seen_order() -> None:
-    text = "See [S2] and [S1], then also [W1]."
-    assert extract_referenced_ids(text) == ["S2", "S1", "W1"]
+    text = "See [S2] and [S1], then also [W1] and [F1]."
+    assert extract_referenced_ids(text) == ["S2", "S1", "W1", "F1"]
 
 
 def test_extract_dedupes_repeated_ids_keeping_first_position() -> None:
@@ -225,6 +229,57 @@ def test_register_web_results_builds_citation_with_title_and_url_only() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# CitationRegistry.register_food_products
+# --------------------------------------------------------------------------- #
+
+
+def test_register_food_products_returns_empty_string_for_no_products() -> None:
+    registry = CitationRegistry()
+    assert registry.register_food_products([]) == ""
+
+
+def test_register_food_products_formats_single_passage() -> None:
+    registry = CitationRegistry()
+    passages = registry.register_food_products([make_pet_food_product()])
+    assert passages.startswith(
+        "[F1] Orijen Six Fish (https://world.openpetfoodfacts.org/product/0064992281182)\n"
+    )
+    assert "- Crude protein: 40%" in passages
+    assert "Ingredients: Whole sardine, whole hake, whole mackerel." in passages
+
+
+def test_register_food_products_numbers_sequentially_within_one_call() -> None:
+    registry = CitationRegistry()
+    passages = registry.register_food_products(
+        [make_pet_food_product(), make_pet_food_product(code="2", name="Regional Red")]
+    )
+    assert "[F1] Orijen Six Fish" in passages
+    assert "[F2] Orijen Regional Red" in passages
+    assert passages.count("\n\n") == 1
+
+
+def test_register_food_products_continues_ids_across_calls() -> None:
+    registry = CitationRegistry()
+    registry.register_food_products([make_pet_food_product()])
+    second = registry.register_food_products([make_pet_food_product(name="Later Food")])
+    assert second.startswith("[F2] Orijen Later Food")
+
+
+def test_register_food_products_builds_citation_with_title_and_url_only() -> None:
+    registry = CitationRegistry()
+    registry.register_food_products([make_pet_food_product()])
+    citation = registry.resolve(["F1"])[0]
+    assert citation == Citation(
+        ref="F1",
+        kind="food",
+        title="Orijen Six Fish",
+        url="https://world.openpetfoodfacts.org/product/0064992281182",
+    )
+    assert citation.source_id is None
+    assert citation.page_start is None
+
+
+# --------------------------------------------------------------------------- #
 # CitationRegistry.resolve
 # --------------------------------------------------------------------------- #
 
@@ -287,3 +342,14 @@ def test_mixed_run_resolves_ids_in_answer_order() -> None:
     resolved = registry.resolve(referenced)
     assert [citation.ref for citation in resolved] == ["W1", "S1"]
     assert [citation.title for citation in resolved] == ["Web Source", "Corpus Source"]
+
+
+def test_corpus_web_and_food_counters_are_independent() -> None:
+    registry = CitationRegistry()
+    registry.register_corpus_chunks([make_chunk()])
+    registry.register_web_results([make_web_result()])
+    registry.register_food_products([make_pet_food_product()])
+
+    resolved = registry.resolve(["S1", "W1", "F1"])
+    assert [citation.ref for citation in resolved] == ["S1", "W1", "F1"]
+    assert [citation.kind for citation in resolved] == ["corpus", "web", "food"]

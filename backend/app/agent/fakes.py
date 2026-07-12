@@ -18,6 +18,7 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import Runnable
 from pydantic import PrivateAttr
 
+from app.agent.pet_food import PetFoodProduct
 from app.agent.web_search import WebSearchResult
 
 
@@ -75,3 +76,13 @@ class FakeWebSearch:
 
     def search(self, query: str) -> list[WebSearchResult]:
         return list(self._results)
+
+
+class FakePetFood:
+    """Returns a fixed list of pet-food products, ignoring the query."""
+
+    def __init__(self, products: list[PetFoodProduct] | None = None) -> None:
+        self._products = products if products is not None else []
+
+    def lookup(self, query: str) -> list[PetFoodProduct]:
+        return list(self._products)

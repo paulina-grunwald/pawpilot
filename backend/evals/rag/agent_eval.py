@@ -14,7 +14,7 @@ scripted agent.
 from __future__ import annotations
 
 from app.agent.config import AgentSettings, get_agent_settings
-from app.agent.fakes import FakeWebSearch
+from app.agent.fakes import FakePetFood, FakeWebSearch
 from app.agent.graph import build_chat_model
 from app.agent.runner import PawPilotAgent
 from app.agent.schemas import AgentAnswer
@@ -63,6 +63,7 @@ def build_eval_agent(
         model=build_chat_model(resolved),
         retriever=build_retriever(),
         web_search=FakeWebSearch([]),
+        pet_food=FakePetFood([]),
         settings=resolved,
         checkpointer=None,
         memory_store=None,
