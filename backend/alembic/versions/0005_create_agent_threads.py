@@ -4,10 +4,7 @@ Revision ID: 0005_create_agent_threads
 Revises: 0004_create_journal_entries
 Create Date: 2026-07-12
 
-Tracks each Ask PawPilot conversation: its owner, the dog it is about, and a
-title, so the frontend can list a user's past conversations. The messages
-themselves live in the LangGraph checkpoint tables (created by the checkpointer's
-own setup), keyed by ``thread_id``. This table previously existed only in the
+Tracks each Ask PawPilot conversation: its owner, the dog it is about, and atitle, so the frontend can list a user's past conversations. The messages themselves live in the LangGraph checkpoint tables (created by the checkpointer's own setup), keyed by ``thread_id``. This table previously existed only in the
 test schema (``create_all``); this migration brings it to real deployments.
 
 """

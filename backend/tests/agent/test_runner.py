@@ -78,11 +78,6 @@ def test_message_text_from_string_blocks() -> None:
     assert _message_text(message) == "ab"
 
 
-# --------------------------------------------------------------------------- #
-# run / arun — happy paths
-# --------------------------------------------------------------------------- #
-
-
 def test_run_answers_without_tools() -> None:
     agent = build_test_agent(responses=[AIMessage(content=f"Feed twice daily. {VET_DISCLAIMER}")])
     answer = agent.run("How often should I feed my dog?")
@@ -134,10 +129,7 @@ async def test_arun_resolves_web_citation() -> None:
     assert answer.citations[0].kind == "web"
 
 
-# --------------------------------------------------------------------------- #
 # Emergency banner
-# --------------------------------------------------------------------------- #
-
 
 def test_run_prepends_emergency_banner_for_red_flag() -> None:
     agent = build_test_agent(responses=[AIMessage(content="Please see guidance below.")])
@@ -262,10 +254,8 @@ def test_memory_context_inactive_without_store() -> None:
     assert block == ""
 
 
-# --------------------------------------------------------------------------- #
-# Streaming
-# --------------------------------------------------------------------------- #
 
+# Streaming
 
 async def test_astream_run_yields_tokens_then_final() -> None:
     agent = build_test_agent(
