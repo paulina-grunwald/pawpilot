@@ -287,3 +287,48 @@ def test_mixed_run_resolves_ids_in_answer_order() -> None:
     resolved = registry.resolve(referenced)
     assert [citation.ref for citation in resolved] == ["W1", "S1"]
     assert [citation.title for citation in resolved] == ["Web Source", "Corpus Source"]
+
+
+# citations
+
+
+def test_retrieved_contexts_empty_for_fresh_registry() -> None:
+    assert CitationRegistry().retrieved_contexts == []
+
+
+def test_retrieved_contexts_captures_corpus_chunk_text() -> None:
+    registry = CitationRegistry()
+    registry.register_corpus_chunks([make_chunk(text="Boost every three years.")])
+    assert registry.retrieved_contexts == ["Boost every three years."]
+
+
+def test_retrieved_contexts_captures_web_result_content() -> None:
+    registry = CitationRegistry()
+    registry.register_web_results([make_web_result(content="A recall happened.")])
+    assert registry.retrieved_contexts == ["A recall happened."]
+
+
+def test_retrieved_contexts_accumulates_corpus_and_web_in_order() -> None:
+    registry = CitationRegistry()
+    registry.register_corpus_chunks(
+        [make_chunk(text="First passage."), make_chunk(chunk_id="chunk-2", text="Second passage.")]
+    )
+    registry.register_web_results([make_web_result(content="Web passage.")])
+    assert registry.retrieved_contexts == ["First passage.", "Second passage.", "Web passage."]
+
+
+def test_retrieved_contexts_includes_uncited_passages() -> None:
+    # Faithfulness must see every passage the model was shown, not only the ones
+    # it happened to cite — so accumulation is independent of `resolve`.
+    registry = CitationRegistry()
+    registry.register_corpus_chunks([make_chunk(text="Shown but never cited.")])
+    assert registry.resolve([]) == []
+    assert registry.retrieved_contexts == ["Shown but never cited."]
+
+
+def test_retrieved_contexts_returns_a_defensive_copy() -> None:
+    registry = CitationRegistry()
+    registry.register_corpus_chunks([make_chunk(text="Original.")])
+    contexts = registry.retrieved_contexts
+    contexts.append("mutation")
+    assert registry.retrieved_contexts == ["Original."]

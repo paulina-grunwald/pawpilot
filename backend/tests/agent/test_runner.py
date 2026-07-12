@@ -135,6 +135,62 @@ async def test_arun_resolves_web_citation() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Retrieved-context capture (RAGAS generation prerequisite)
+# --------------------------------------------------------------------------- #
+
+
+def test_run_captures_retrieved_corpus_contexts() -> None:
+    agent = build_test_agent(
+        responses=[
+            tool_call_message("retrieve_vet_corpus", "vaccine booster"),
+            AIMessage(content=f"Boost every three years [S1]. {VET_DISCLAIMER}"),
+        ],
+        chunks=[
+            make_chunk(text="Adult dogs need a core booster every three years."),
+            make_chunk(chunk_id="chunk-2", text="Puppies follow a separate primary series."),
+        ],
+    )
+    answer = agent.run("How often are boosters needed?")
+    assert answer.contexts == [
+        "Adult dogs need a core booster every three years.",
+        "Puppies follow a separate primary series.",
+    ]
+
+
+def test_run_without_retrieval_has_empty_contexts() -> None:
+    agent = build_test_agent(responses=[AIMessage(content=f"Feed twice daily. {VET_DISCLAIMER}")])
+    answer = agent.run("How often should I feed my dog?")
+    assert answer.contexts == []
+
+
+def test_run_captures_contexts_even_when_uncited() -> None:
+    # The model retrieves but cites nothing; the passages it saw must still be
+    # captured so faithfulness can be scored against them.
+    agent = build_test_agent(
+        responses=[
+            tool_call_message("retrieve_vet_corpus", "diet"),
+            AIMessage(content=f"A general answer with no citation ids. {VET_DISCLAIMER}"),
+        ],
+        chunks=[make_chunk(text="Feed to body condition.")],
+    )
+    answer = agent.run("What should my dog eat?")
+    assert answer.citations == []
+    assert answer.contexts == ["Feed to body condition."]
+
+
+async def test_arun_captures_web_contexts() -> None:
+    agent = build_test_agent(
+        responses=[
+            tool_call_message("web_search", "brand x recall"),
+            AIMessage(content=f"There was a recall [W1]. {VET_DISCLAIMER}"),
+        ],
+        web_results=[make_web_result(content="The manufacturer recalled several lots.")],
+    )
+    answer = await agent.arun("Any recalls for brand X?")
+    assert answer.contexts == ["The manufacturer recalled several lots."]
+
+
+# --------------------------------------------------------------------------- #
 # Emergency banner
 # --------------------------------------------------------------------------- #
 
