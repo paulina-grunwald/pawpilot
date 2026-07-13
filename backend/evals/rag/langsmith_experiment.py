@@ -16,6 +16,7 @@ from typing import Any
 from app.agent.runner import _BUDGET_EXHAUSTED_MESSAGE as BUDGET_EXHAUSTED_MESSAGE
 from app.rag.observability import configure_langsmith, tracing_enabled
 from app.rag.retriever import VetCorpusRetriever, build_retriever
+from app.rag.schemas import RetrievalMode
 from evals.rag.agent_eval import EvalAgent, build_eval_agent
 from evals.rag.generation import GenerationCase, load_generation_cases
 from evals.rag.generation_metrics import (
@@ -117,7 +118,9 @@ def make_generation_evaluator(scorer: GenerationScorer) -> Evaluator:
     return evaluate
 
 
-async def run_generation_experiment(*, mode: str = "dense", limit: int | None = None) -> Any:
+async def run_generation_experiment(
+    *, mode: RetrievalMode = "dense", limit: int | None = None
+) -> Any:
     """Sync the generation dataset and run the agent as a LangSmith experiment."""
     require_langsmith()
     from langsmith import Client, aevaluate
@@ -179,7 +182,9 @@ def recall_evaluator(run: Any, example: Any) -> dict[str, Any]:
     }
 
 
-async def run_retrieval_experiment(*, mode: str = "dense", limit: int | None = None) -> Any:
+async def run_retrieval_experiment(
+    *, mode: RetrievalMode = "dense", limit: int | None = None
+) -> Any:
     """Sync the retrieval dataset and run the retriever as a LangSmith experiment."""
     require_langsmith()
     from langsmith import Client, aevaluate
@@ -194,7 +199,7 @@ async def run_retrieval_experiment(*, mode: str = "dense", limit: int | None = N
         retrieval_examples(golden),
         "PawPilot retrieval golden set: queries and their expected source ids.",
     )
-    retriever = build_retriever()
+    retriever = build_retriever(mode=mode)
 
     async def target(inputs: dict[str, Any]) -> dict[str, Any]:
         return retrieval_target(retriever, inputs)
