@@ -43,8 +43,6 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
 
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRollups(null);
     fetchTractiveRollups(activePet.id, rangeDays)
       .then((response) => {
         if (!cancelled) setRollups(response.daily);
