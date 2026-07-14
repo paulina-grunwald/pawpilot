@@ -263,7 +263,9 @@ def test_unknown_mode_raises_value_error() -> None:
     with pytest.raises(ValueError, match="unknown retrieval mode"):
         retriever.retrieve("anything", mode="sparse")
 
+
 # build_retriever wiring
+
 
 def _fake_settings(default_mode: RetrievalMode = "dense") -> RagSettings:
     return RagSettings(
