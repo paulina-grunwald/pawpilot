@@ -11,6 +11,7 @@ surfacing the guaranteed-analysis macros and ingredient list the agent reasons o
 from __future__ import annotations
 
 from typing import Protocol
+from urllib.parse import quote
 
 import httpx
 from pydantic import BaseModel
@@ -22,12 +23,16 @@ _PRODUCT_PATH_TEMPLATE = "/api/v2/product/{barcode}.json"
 _REQUESTED_FIELDS = "code,product_name,brands,quantity,ingredients_text,nutriments"
 _MIN_BARCODE_DIGITS = 6
 
-_GUARANTEED_ANALYSIS_LABELS: tuple[tuple[str, str], ...] = (
-    ("crude-protein", "Crude protein"),
-    ("crude-fat", "Crude fat"),
-    ("crude-fibre", "Crude fibre"),
-    ("crude-ash", "Crude ash"),
-    ("moisture", "Moisture"),
+# Open Pet Food Facts stores the same guaranteed-analysis macro under two key
+# styles: pet-food "crude-*" keys and generic Open Food Facts keys (proteins/
+# fat/fiber). We read the crude key first and fall back to the generic one, so a
+# product entered either way still surfaces its macros rather than looking empty.
+_GUARANTEED_ANALYSIS_NUTRIENTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Crude protein", ("crude-protein", "proteins")),
+    ("Crude fat", ("crude-fat", "fat")),
+    ("Crude fibre", ("crude-fibre", "fiber", "fibre")),
+    ("Crude ash", ("crude-ash", "ash")),
+    ("Moisture", ("moisture",)),
 )
 
 
@@ -51,6 +56,15 @@ def _coerce_number(raw: object) -> float | None:
     return None
 
 
+def _first_number(nutriments: dict[object, object], keys: tuple[str, ...]) -> float | None:
+    """The first candidate key present as a numeric value; earlier keys win."""
+    for key in keys:
+        value = _coerce_number(nutriments.get(key))
+        if value is not None:
+            return value
+    return None
+
+
 def _format_number(value: float) -> str:
     """Render a nutrient value without a trailing ``.0`` (40.0 -> "40", 3.5 -> "3.5")."""
     return str(int(value)) if value == int(value) else str(value)
@@ -60,7 +74,7 @@ def product_page_url(base_url: str, code: str) -> str:
     """The public Open Pet Food Facts product page for a barcode, or blank if none."""
     if not code:
         return ""
-    return f"{base_url.rstrip('/')}/product/{code}"
+    return f"{base_url.rstrip('/')}/product/{quote(code, safe='')}"
 
 
 class PetFoodNutrient(BaseModel):
@@ -111,8 +125,8 @@ def extract_nutrients(nutriments: object) -> list[PetFoodNutrient]:
     if not isinstance(nutriments, dict):
         return []
     nutrients: list[PetFoodNutrient] = []
-    for key, label in _GUARANTEED_ANALYSIS_LABELS:
-        value = _coerce_number(nutriments.get(key))
+    for label, keys in _GUARANTEED_ANALYSIS_NUTRIENTS:
+        value = _first_number(nutriments, keys)
         if value is not None:
             nutrients.append(PetFoodNutrient(label=label, value=value))
     return nutrients

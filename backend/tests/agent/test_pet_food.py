@@ -72,6 +72,12 @@ def test_product_page_url_blank_when_code_missing() -> None:
     assert product_page_url(_BASE_URL, "") == ""
 
 
+def test_product_page_url_encodes_unsafe_characters_in_code() -> None:
+    assert product_page_url(_BASE_URL, "ab/cd 12") == (
+        "https://world.openpetfoodfacts.org/product/ab%2Fcd%2012"
+    )
+
+
 # --------------------------------------------------------------------------- #
 # extract_nutrients
 # --------------------------------------------------------------------------- #
@@ -94,6 +100,26 @@ def test_extract_nutrients_pulls_guaranteed_analysis_in_order() -> None:
         ("Moisture", 10.0),
     ]
     assert all(nutrient.unit == "%" for nutrient in nutrients)
+
+
+def test_extract_nutrients_reads_generic_off_keys_as_fallback() -> None:
+    # A product entered with the generic Open Food Facts keys (grams per 100g,
+    # i.e. percent by mass) rather than the pet-food "crude-*" keys.
+    nutrients = extract_nutrients({"proteins": 17, "fat": 14.5, "moisture": 20})
+    assert [(nutrient.label, nutrient.value) for nutrient in nutrients] == [
+        ("Crude protein", 17.0),
+        ("Crude fat", 14.5),
+        ("Moisture", 20.0),
+    ]
+
+
+def test_extract_nutrients_reads_american_fiber_spelling() -> None:
+    assert extract_nutrients({"fiber": 5.2}) == [PetFoodNutrient(label="Crude fibre", value=5.2)]
+
+
+def test_extract_nutrients_prefers_crude_key_over_generic_when_both_present() -> None:
+    nutrients = extract_nutrients({"crude-protein": 40, "proteins": 17})
+    assert nutrients == [PetFoodNutrient(label="Crude protein", value=40.0)]
 
 
 def test_extract_nutrients_coerces_numeric_strings() -> None:
