@@ -162,6 +162,53 @@ describe("DashboardWithPet", () => {
     await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 30));
   });
 
+  it("keeps the loaded banner visible while a range switch is refetching", async () => {
+    const user = userEvent.setup();
+    const loadedRollup = {
+      date: "2024-05-15",
+      minutes_active: 90,
+      minutes_low_intensity: 10,
+      minutes_moderate: 5,
+      minutes_night_sleep: 420,
+      minutes_day_sleep: 60,
+      minutes_no_signal: 30,
+      hourly_minutes_by_category: {},
+      heart_rate_mean: 62,
+      respiratory_rate_mean: 17,
+      gps_distance_km: 3.0,
+    };
+    fetchRollupsMock.mockResolvedValueOnce({ daily: [loadedRollup] });
+    // Leave the range-switch fetch pending so we observe the in-flight state.
+    let resolvePending: (value: { daily: typeof loadedRollup[] }) => void = () => {};
+    fetchRollupsMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolvePending = resolve;
+      }),
+    );
+
+    render(
+      <DashboardWithPet
+        pets={[makePet()]}
+        activePetId="pet-1"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
+    await waitFor(() => expect(screen.getAllByText(/1h 30m/i).length).toBeGreaterThan(0));
+
+    await user.click(screen.getByRole("button", { name: "30d" }));
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 30));
+
+    // The banner must not flash back to its "not connected" placeholder while
+    // the new range is still loading.
+    expect(
+      screen.queryByRole("heading", { name: /connect tractive to see/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/1h 30m/i).length).toBeGreaterThan(0);
+
+    resolvePending({ daily: [loadedRollup] });
+  });
+
   it("renders activity ring numbers once rollups arrive", async () => {
     fetchRollupsMock.mockResolvedValue({
       daily: [

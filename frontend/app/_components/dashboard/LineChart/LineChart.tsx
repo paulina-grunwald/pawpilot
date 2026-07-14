@@ -1,6 +1,13 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import styles from "./LineChart.module.css";
 
 const DEFAULT_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
@@ -108,6 +115,8 @@ export function LineChart({
   accessibleLabel,
 }: LineChartProps) {
   const [containerRef, fullWidth] = useMeasuredWidth();
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const reactId = useId().replace(/[^a-z0-9]/gi, "");
   const fillId = `line-${reactId}-fill`;
   const hatchPatternId = `line-${reactId}-hatch`;
@@ -147,23 +156,61 @@ export function LineChart({
     .map((value, index) => `${index === 0 ? "M" : "L"}${xAt(index)},${yAt(value)}`)
     .join(" ");
   const todayIndex = values.length - 1;
-  const todayY = yAt(values[todayIndex]);
   const todayX = xAt(todayIndex);
-  const calloutAbove = todayY - paddingTop > 22;
-  const calloutY = calloutAbove ? todayY - 22 : todayY + 6;
 
   const ariaLabel =
     accessibleLabel ?? `Line chart: latest value ${yFormat(values[todayIndex])}${unit}`;
+
+  // Thin the x-axis labels so long ranges (30d / 90d) don't collapse into an
+  // unreadable smear. Counting the step back from today keeps the latest point
+  // labelled and the visible labels evenly spaced.
+  const maxLabelCount = Math.max(2, Math.floor(innerWidth / 46));
+  const labelStep = Math.max(1, Math.ceil(values.length / maxLabelCount));
+  const showXLabelAt = (index: number) =>
+    index === todayIndex || (todayIndex - index) % labelStep === 0;
+
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const bounds = svg.getBoundingClientRect();
+    const scale = bounds.width === 0 ? 1 : chartWidth / bounds.width;
+    const localX = (event.clientX - bounds.left) * scale;
+    const ratio = (localX - paddingLeft) / innerWidth;
+    const nearestIndex = Math.round(ratio * (values.length - 1));
+    setHoverIndex(Math.max(0, Math.min(values.length - 1, nearestIndex)));
+  };
+
+  const activeIndex = hoverIndex ?? todayIndex;
+  const hoverValueText = `${yFormat(values[activeIndex])}${unit}`;
+  const hoverDateText = dates
+    ? String(dates[activeIndex])
+    : (days[activeIndex] ?? String(activeIndex + 1));
+  const tooltipWidth = Math.max(
+    52,
+    hoverValueText.length * 7 + 16,
+    hoverDateText.length * 5.5 + 16,
+  );
+  const tooltipHeight = dates ? 32 : 20;
+  const tooltipX = Math.max(
+    paddingLeft,
+    Math.min(xAt(activeIndex) - tooltipWidth / 2, chartWidth - paddingRight - tooltipWidth),
+  );
+  const preferredTooltipY = yAt(values[activeIndex]) - tooltipHeight - 10;
+  const tooltipY =
+    preferredTooltipY < paddingTop ? yAt(values[activeIndex]) + 10 : preferredTooltipY;
 
   return (
     <div ref={containerRef} className={styles.container}>
       {chartWidth > 0 && (
         <svg
+          ref={svgRef}
           width={chartWidth}
           height={height}
           className={styles.svg}
           role="img"
           aria-label={ariaLabel}
+          onPointerMove={handlePointerMove}
+          onPointerLeave={() => setHoverIndex(null)}
         >
           <title>{ariaLabel}</title>
           <defs>
@@ -314,46 +361,73 @@ export function LineChart({
             strokeOpacity="0.45"
           />
 
+          {hoverIndex !== null && hoverIndex !== todayIndex && (
+            <line
+              aria-hidden
+              x1={xAt(hoverIndex)}
+              x2={xAt(hoverIndex)}
+              y1={paddingTop}
+              y2={paddingTop + innerHeight}
+              stroke={color}
+              strokeWidth="0.75"
+              strokeDasharray="2 3"
+              strokeOpacity="0.45"
+            />
+          )}
+
           {values.map((value, index) => (
             <g key={`datapoint-${index}`} aria-hidden>
-              {index === todayIndex && (
+              {index === activeIndex && (
                 <circle cx={xAt(index)} cy={yAt(value)} r="9" fill={color} fillOpacity="0.16" />
               )}
               <circle
                 cx={xAt(index)}
                 cy={yAt(value)}
-                r={index === todayIndex ? 4 : 2.5}
+                r={index === activeIndex ? 4 : 2.5}
                 fill="var(--card)"
                 stroke={color}
-                strokeWidth={index === todayIndex ? 2 : 1.5}
+                strokeWidth={index === activeIndex ? 2 : 1.5}
               />
             </g>
           ))}
 
           <g aria-hidden>
             <rect
-              x={Math.min(todayX + 8, chartWidth - paddingRight - 46)}
-              y={calloutY - 12}
+              x={tooltipX}
+              y={tooltipY}
               rx="3"
               ry="3"
-              width={50}
-              height={20}
+              width={tooltipWidth}
+              height={tooltipHeight}
               fill="var(--card)"
               stroke="var(--hairline-strong)"
               strokeWidth="0.75"
             />
             <text
-              x={Math.min(todayX + 8, chartWidth - paddingRight - 46) + 7}
-              y={calloutY + 2}
+              x={tooltipX + tooltipWidth / 2}
+              y={tooltipY + 14}
+              textAnchor="middle"
               fontFamily="var(--font-fraunces), Georgia, serif"
               fontSize="12"
               fontWeight="500"
               fill="var(--ink-deep)"
               letterSpacing="-0.01em"
             >
-              {yFormat(values[todayIndex])}
-              {unit}
+              {hoverValueText}
             </text>
+            {dates && (
+              <text
+                x={tooltipX + tooltipWidth / 2}
+                y={tooltipY + 26}
+                textAnchor="middle"
+                fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
+                fontSize="9"
+                fill="var(--muted-2)"
+                letterSpacing="0.04em"
+              >
+                {hoverDateText}
+              </text>
+            )}
           </g>
 
           <line
@@ -365,48 +439,51 @@ export function LineChart({
             stroke="var(--hairline-strong)"
             strokeWidth="0.75"
           />
-          {values.map((_, index) => (
-            <g key={`xtick-${index}`} aria-hidden>
-              <line
-                x1={xAt(index)}
-                x2={xAt(index)}
-                y1={paddingTop + innerHeight + 2}
-                y2={paddingTop + innerHeight + 5}
-                stroke="var(--hairline-strong)"
-                strokeWidth="0.75"
-              />
-              <text
-                x={xAt(index)}
-                y={paddingTop + innerHeight + 15}
-                textAnchor="middle"
-                fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
-                fontSize="10"
-                fontWeight={index === todayIndex ? 600 : 400}
-                fill={
-                  index === todayIndex
-                    ? "var(--ink-deep)"
-                    : index >= 5
-                      ? "var(--ochre)"
-                      : "var(--muted-2)"
-                }
-                letterSpacing="0.04em"
-              >
-                {days[index] ?? String(index + 1)}
-              </text>
-              {dates && (
+          {values.map((_, index) => {
+            if (!showXLabelAt(index)) return null;
+            return (
+              <g key={`xtick-${index}`} aria-hidden>
+                <line
+                  x1={xAt(index)}
+                  x2={xAt(index)}
+                  y1={paddingTop + innerHeight + 2}
+                  y2={paddingTop + innerHeight + 5}
+                  stroke="var(--hairline-strong)"
+                  strokeWidth="0.75"
+                />
                 <text
                   x={xAt(index)}
-                  y={paddingTop + innerHeight + 26}
+                  y={paddingTop + innerHeight + 15}
                   textAnchor="middle"
                   fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
-                  fontSize="9"
-                  fill="var(--muted-2)"
+                  fontSize="10"
+                  fontWeight={index === todayIndex ? 600 : 400}
+                  fill={
+                    index === todayIndex
+                      ? "var(--ink-deep)"
+                      : index >= 5
+                        ? "var(--ochre)"
+                        : "var(--muted-2)"
+                  }
+                  letterSpacing="0.04em"
                 >
-                  {dates[index]}
+                  {days[index] ?? String(index + 1)}
                 </text>
-              )}
-            </g>
-          ))}
+                {dates && (
+                  <text
+                    x={xAt(index)}
+                    y={paddingTop + innerHeight + 26}
+                    textAnchor="middle"
+                    fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
+                    fontSize="9"
+                    fill="var(--muted-2)"
+                  >
+                    {dates[index]}
+                  </text>
+                )}
+              </g>
+            );
+          })}
         </svg>
       )}
 
