@@ -1,15 +1,5 @@
 """Push the RAGAS evals to LangSmith as Datasets and Experiments.
 
-Opt-in companion to the local run_agent_eval / run_retrieval evals: instead of
-writing local reports, this syncs each golden set to a versioned LangSmith
-Dataset and records the run as an Experiment, so every case shows its per-metric
-scores with run-to-run comparison (the LangSmith Datasets and Experiments view).
-
-It requires live credentials (LANGSMITH_TRACING=true, LANGSMITH_API_KEY, the
-Gateway key, and an ingested Qdrant corpus) and never runs under make check; the
-pure adapters below (example builders, targets, evaluators) are unit-tested with
-fakes and no network.
-
 Run:
 - make langsmith-experiments
 - make langsmith-experiments ARGS="--kind generation --limit 5"
@@ -26,6 +16,7 @@ from typing import Any
 from app.agent.runner import _BUDGET_EXHAUSTED_MESSAGE as BUDGET_EXHAUSTED_MESSAGE
 from app.rag.observability import configure_langsmith, tracing_enabled
 from app.rag.retriever import VetCorpusRetriever, build_retriever
+from app.rag.schemas import RetrievalMode
 from evals.rag.agent_eval import EvalAgent, build_eval_agent
 from evals.rag.generation import GenerationCase, load_generation_cases
 from evals.rag.generation_metrics import (
@@ -62,11 +53,7 @@ def require_langsmith() -> None:
         )
 
 
-# --------------------------------------------------------------------------- #
-# Dataset example builders (pure)
-# --------------------------------------------------------------------------- #
-
-
+# Dataset example builders
 def generation_examples(cases: list[GenerationCase]) -> list[dict[str, Any]]:
     """Map reviewed generation cases to LangSmith example dicts."""
     return [
@@ -131,7 +118,9 @@ def make_generation_evaluator(scorer: GenerationScorer) -> Evaluator:
     return evaluate
 
 
-async def run_generation_experiment(*, mode: str = "dense", limit: int | None = None) -> Any:
+async def run_generation_experiment(
+    *, mode: RetrievalMode = "dense", limit: int | None = None
+) -> Any:
     """Sync the generation dataset and run the agent as a LangSmith experiment."""
     require_langsmith()
     from langsmith import Client, aevaluate
@@ -166,11 +155,7 @@ async def run_generation_experiment(*, mode: str = "dense", limit: int | None = 
     )
 
 
-# --------------------------------------------------------------------------- #
 # Retrieval experiment
-# --------------------------------------------------------------------------- #
-
-
 def recall_at_k_by_ids(
     expected_source_ids: list[str], retrieved_source_ids: list[str], k: int
 ) -> float:
@@ -197,7 +182,9 @@ def recall_evaluator(run: Any, example: Any) -> dict[str, Any]:
     }
 
 
-async def run_retrieval_experiment(*, mode: str = "dense", limit: int | None = None) -> Any:
+async def run_retrieval_experiment(
+    *, mode: RetrievalMode = "dense", limit: int | None = None
+) -> Any:
     """Sync the retrieval dataset and run the retriever as a LangSmith experiment."""
     require_langsmith()
     from langsmith import Client, aevaluate
@@ -212,7 +199,7 @@ async def run_retrieval_experiment(*, mode: str = "dense", limit: int | None = N
         retrieval_examples(golden),
         "PawPilot retrieval golden set: queries and their expected source ids.",
     )
-    retriever = build_retriever()
+    retriever = build_retriever(mode=mode)
 
     async def target(inputs: dict[str, Any]) -> dict[str, Any]:
         return retrieval_target(retriever, inputs)
@@ -226,9 +213,7 @@ async def run_retrieval_experiment(*, mode: str = "dense", limit: int | None = N
     )
 
 
-# --------------------------------------------------------------------------- #
 # Dataset sync + entrypoint
-# --------------------------------------------------------------------------- #
 
 
 def sync_dataset(client: Any, name: str, examples: list[dict[str, Any]], description: str) -> None:
@@ -246,7 +231,9 @@ def sync_dataset(client: Any, name: str, examples: list[dict[str, Any]], descrip
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the RAGAS evals as LangSmith experiments.")
     parser.add_argument("--kind", choices=["generation", "retrieval", "both"], default="both")
-    parser.add_argument("--mode", default="dense", help="retriever mode label")
+    parser.add_argument(
+        "--mode", default="dense", choices=["dense", "rerank"], help="retriever mode"
+    )
     parser.add_argument("--limit", type=int, default=None, help="only the first N cases")
     args = parser.parse_args()
 

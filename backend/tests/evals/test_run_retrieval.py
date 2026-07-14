@@ -30,3 +30,21 @@ def test_write_baseline_persists_when_context_present(tmp_path: Path) -> None:
     written = json.loads(destination.read_text())
     assert written["retrieval"]["context"]["context_recall"] == 0.8
     assert written["retrieval"]["mode"] == "dense"
+
+
+def test_write_baseline_preserves_generation_section(tmp_path: Path) -> None:
+    destination = tmp_path / "baselines.json"
+    destination.write_text(
+        json.dumps(
+            {
+                "retrieval": {"mode": "dense", "golden": {"recall@5": 0.1}, "context": {}},
+                "generation": {"dense": {"means": {"faithfulness": 0.6}}},
+            }
+        )
+    )
+
+    write_baseline(_report({"context_recall": 0.8, "cases": 3}), destination)
+
+    written = json.loads(destination.read_text())
+    assert written["retrieval"]["context"]["context_recall"] == 0.8
+    assert written["generation"]["dense"]["means"]["faithfulness"] == 0.6

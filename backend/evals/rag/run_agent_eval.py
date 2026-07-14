@@ -236,7 +236,12 @@ def write_generation_baseline(report: GenerationReport, path: Path = BASELINES_P
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Full RAGAS generation eval over the agent.")
-    parser.add_argument("--mode", default="dense", help="retriever mode label (Task 5: dense)")
+    parser.add_argument(
+        "--mode",
+        default="dense",
+        choices=["dense", "rerank"],
+        help="retriever mode: dense (baseline) or rerank (Task 6)",
+    )
     parser.add_argument("--limit", type=int, default=None, help="score only the first N cases")
     parser.add_argument(
         "--concurrency",
