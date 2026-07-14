@@ -8,9 +8,9 @@
       "recall@20": 0.9474
     },
     "context": {
-      "context_recall": 0.7361,
-      "context_entity_recall": 0.4265,
-      "cases": 12
+      "context_recall": 0.4713,
+      "context_entity_recall": 0.1758,
+      "cases": 18
     }
   },
   "generation": {
@@ -22,11 +22,27 @@
       "errors": 0,
       "emergency": 2,
       "means": {
-        "faithfulness": 0.6339,
-        "answer_accuracy": 0.6528,
-        "answer_relevancy": 0.817,
-        "noise_sensitivity": 0.2335
-      }
+        "faithfulness": 0.606,
+        "answer_accuracy": 0.6389,
+        "answer_relevancy": 0.8183,
+        "noise_sensitivity": 0.2352
+      },
+      "source": "langsmith:pawpilot-generation-dense-015dd5d3"
+    },
+    "rerank": {
+      "mode": "rerank",
+      "total_cases": 18,
+      "scored_cases": 18,
+      "budget_exhausted": 0,
+      "errors": 0,
+      "emergency": 2,
+      "means": {
+        "faithfulness": 0.6357,
+        "answer_accuracy": 0.6111,
+        "answer_relevancy": 0.7967,
+        "noise_sensitivity": 0.2275
+      },
+      "source": "langsmith:pawpilot-generation-rerank-bd18b635"
     }
   }
 }

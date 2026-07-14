@@ -65,3 +65,78 @@ def test_rejects_bare_gen_model_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     monkeypatch.setenv("RAG_GEN_MODEL", "gpt-5.4-mini")
     with pytest.raises(ValidationError):
         RagSettings()
+
+
+def _clear_rerank_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("RAG_DEFAULT_MODE", "RAG_RERANK_MODEL", "RAG_RERANK_CANDIDATES"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def test_rerank_settings_default_to_dense_baseline(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    _clear_rerank_env(monkeypatch)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    settings = RagSettings()
+    assert settings.default_mode == "dense"
+    assert settings.rerank_model == "cohere/rerank-v3.5"
+    assert settings.rerank_candidates == 25
+
+
+def test_reads_rerank_settings_from_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    _clear_rerank_env(monkeypatch)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    monkeypatch.setenv("RAG_DEFAULT_MODE", "rerank")
+    monkeypatch.setenv("RAG_RERANK_MODEL", "cohere/rerank-v4-fast")
+    monkeypatch.setenv("RAG_RERANK_CANDIDATES", "40")
+    settings = RagSettings()
+    assert settings.default_mode == "rerank"
+    assert settings.rerank_model == "cohere/rerank-v4-fast"
+    assert settings.rerank_candidates == 40
+
+
+def test_rejects_bare_rerank_model_id(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    _clear_rerank_env(monkeypatch)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    monkeypatch.setenv("RAG_RERANK_MODEL", "rerank-v3.5")
+    with pytest.raises(ValidationError):
+        RagSettings()
+
+
+def test_rejects_invalid_default_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    _clear_rerank_env(monkeypatch)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    monkeypatch.setenv("RAG_DEFAULT_MODE", "sparse")  # not a RetrievalMode
+    with pytest.raises(ValidationError):
+        RagSettings()
+
+
+@pytest.mark.parametrize("value", ["0", "201"])
+def test_rejects_out_of_bounds_rerank_candidates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, value: str
+) -> None:
+    _isolated_env(monkeypatch, tmp_path)
+    _clear_rerank_env(monkeypatch)
+    monkeypatch.delenv("RAG_DEFAULT_TOP_K", raising=False)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    monkeypatch.setenv("RAG_RERANK_CANDIDATES", value)
+    with pytest.raises(ValidationError):
+        RagSettings()
+
+
+def test_rejects_rerank_candidates_below_top_k(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The reranker cannot return more than it over-retrieves, so candidates < top_k
+    # is a misconfiguration the settings must reject.
+    _isolated_env(monkeypatch, tmp_path)
+    _clear_rerank_env(monkeypatch)
+    monkeypatch.delenv("RAG_DEFAULT_TOP_K", raising=False)
+    monkeypatch.setenv("VERCEL_AI_GATEWAY", "key")
+    monkeypatch.setenv("RAG_RERANK_CANDIDATES", "5")  # below the default top_k of 8
+    with pytest.raises(ValidationError, match="must be >= default_top_k"):
+        RagSettings()

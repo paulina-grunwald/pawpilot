@@ -1,15 +1,4 @@
-"""Deterministic PawPilot agent for RAGAS generation evals.
-
-Builds a PawPilotAgent with the real Qdrant retriever but web search stubbed
-(FakeWebSearch([])), no checkpointer or memory store, and temperature pinned to
-0. Removing web and memory variance means answer quality is attributable to the
-corpus retrieval and the model alone - so the mode-to-mode deltas Task 6 compares
-are not confounded by live web results or remembered facts.
-
-build_eval_agent wires live services (gateway + Qdrant), so it is exercised by
-the opt-in live smoke test; the wrapper's own logic is unit-tested with a
-scripted agent.
-"""
+"""Deterministic PawPilot agent for RAGAS generation evals."""
 
 from __future__ import annotations
 
@@ -32,9 +21,9 @@ class EvalAgent:
     """A deterministic agent wrapper exposing a single answer coroutine.
 
     mode names the retriever configuration under evaluation; it labels the
-    baseline and report (agent_ragas_<mode>.md). Task 5 supports only dense -
-    Task 6 threads non-dense modes into the corpus tool and relaxes the guard in
-    build_eval_agent.
+    baseline and report (agent_ragas_<mode>.md) and is threaded into
+    build_retriever so the agent answers over that retriever (Task 6 compares
+    dense vs rerank this way).
     """
 
     def __init__(self, agent: PawPilotAgent, *, mode: RetrievalMode = "dense") -> None:
@@ -53,15 +42,15 @@ class EvalAgent:
 def build_eval_agent(
     *, settings: AgentSettings | None = None, mode: RetrievalMode = "dense"
 ) -> EvalAgent:
-    """Assemble the deterministic eval agent (real retriever, faked web + memory)."""
-    if mode != "dense":
-        raise NotImplementedError(
-            f"eval retrieval mode {mode!r} is not wired until Task 6; only 'dense' is supported."
-        )
+    """Assemble the deterministic eval agent (real retriever, faked web + memory).
+
+    mode selects the retriever configuration (dense or rerank) so the same
+    harness scores either; hybrid stays unwired and the retriever rejects it.
+    """
     resolved = build_eval_settings(settings)
     agent = PawPilotAgent(
         model=build_chat_model(resolved),
-        retriever=build_retriever(),
+        retriever=build_retriever(mode=mode),
         web_search=FakeWebSearch([]),
         pet_food=FakePetFood([]),
         settings=resolved,

@@ -1,10 +1,12 @@
-"""RAGAS dense-baseline retrieval eval
+"""Golden-set retrieval eval (dense baseline or rerank).
 
 Computes golden-set recall@k (deterministic) + RAGAS ContextRecall /
 ContextEntityRecall over the reviewed generation golden set, prints a report,
-and optionally writes baselines.json. Phases 009b/009c re-run this and compare.
+and optionally writes baselines.json. Pass --mode rerank to score the advanced
+retriever and compare its recall against the dense baseline (Task 6).
 
-Run:  make rag-eval                    (installs the evals group, then runs this)
+Run:  make rag-eval                          (dense; installs the evals group)
+      make rag-eval ARGS="--mode rerank"     (advanced retriever)
       make rag-eval ARGS=--write-baseline
 """
 
@@ -94,6 +96,8 @@ def write_baseline(report: dict[str, Any], path: Path = BASELINES_PATH) -> None:
 
     A report with empty context metrics (no reviewed generation cases) would
     overwrite the committed RAGAS numbers later phases compare against, so refuse.
+    Merges into any existing baselines.json so the generation section (and any other
+    keys) survive, rather than replacing the whole file with only the retrieval block.
     """
     if not report["context"]:
         raise SystemExit(
@@ -101,17 +105,25 @@ def write_baseline(report: dict[str, Any], path: Path = BASELINES_PATH) -> None:
             "reviewed generation cases. Curate and review generation_golden.jsonl first "
             "(uv run python -m evals.rag.curate)."
         )
-    path.write_text(json.dumps({"retrieval": report}, indent=2) + "\n", encoding="utf-8")
-    print(f"\nWrote dense baseline to {path}")
+    existing = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    existing["retrieval"] = report
+    path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
+    print(f"\nWrote {report['mode']} retrieval baseline to {path}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="RAGAS dense-baseline retrieval eval.")
+    parser = argparse.ArgumentParser(description="Golden-set retrieval eval (dense or rerank).")
+    parser.add_argument(
+        "--mode",
+        default="dense",
+        choices=["dense", "rerank"],
+        help="retriever mode: dense (baseline) or rerank (Task 6)",
+    )
     parser.add_argument("--write-baseline", action="store_true", help="persist to baselines.json")
     args = parser.parse_args()
 
     configure_langsmith()
-    retriever = build_retriever()
+    retriever = build_retriever(mode=args.mode)
 
     golden = evaluate_golden(retriever)
     print("Golden set recall:")
@@ -136,7 +148,7 @@ def main() -> None:
             "(uv run python -m evals.rag.curate)."
         )
 
-    report = {"mode": "dense", "golden": golden, "context": context}
+    report = {"mode": args.mode, "golden": golden, "context": context}
     print("\n" + json.dumps(report, indent=2))
     if args.write_baseline:
         write_baseline(report)
