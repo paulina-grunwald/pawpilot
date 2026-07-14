@@ -6,18 +6,13 @@ PawPilot is like Oura for dogs. It pulls together your dog's tracker data, your 
 
 ## Task 1: Defining Problem, Audience, and Scope
 
-Problem description: Dog owners who treat their pet like family and just want to know whether something's worth worrying about, without googling for an hour or paying $100 for vet to hear it's nothing.
+Problem description: Dog owners who treat their pet like family and just want to know whether something's worth worrying about, without googling for an hour or paying $100 for a vet to hear it's nothing.
 
-Think about the people who treat their dog like a member of the family. They watch their dog closely, and they want to catch health problems early, while those problems are still small. So when something seems off, they're stuck on one question: is this a big deal, or am I overreacting? Maybe the dog is limping a little, or eating less, or just seems low-energy. Do I need to do something, or wait and see?
+Think about the people who treat their dog like a member of the family. They watch their dog closely, and they want to catch health problems early, while those problems are still small. When something seems off, they're stuck on one question: is this a big deal, or am I overreacting? Maybe the dog is limping a little, or eating less, or just seems low-energy. Do I need to do something, or wait and see?
 
 Right now they have three options, and all of them fall short. They can search online, but Google and the Facebook groups give them ten different answers and mostly just make them more anxious. They can go to the vet, but that's $50 to $250, plus the wait for an appointment, often to be told it was nothing, so they hold off and sometimes wait too long. They can ask ChatGPT, which sounds confident but doesn't know their dog at all and can't point to a real source. Nothing they have gives them a trustworthy answer using aggregated information from various sources about their dog and that actually accounts for their specific dog. So they end up second-guessing themselves, spending money they didn't need to, missing early signs that would've been easier to treat, and the worry sits in the back of their mind.
 
 ### Today's workflow — how owners handle it now
-
-![Today's workflow — how a devoted dog owner handles a health concern today](assets/today-workflow.png)
-
-<details>
-<summary>Mermaid source (renders natively on GitHub)</summary>
 
 ```mermaid
 flowchart TD
@@ -42,14 +37,14 @@ flowchart TD
     Stuck --> Bad["😟 Wasted money, missed early signs,<br/>and worry in the back of your mind"]
 ```
 
-</details>
-
 ### Representative user questions / input-output pairs (target scope)
 
-This is the Task 1 deliverable: a list of input-output pairs that define what PawPilot should handle. Each pair names the data source(s) it exercises so we can check the agent both retrieves from the right place and personalizes to this dog. These set the product's target scope across all four sources; the knowledge-base subset that the vet corpus can ground today is what the Task 5 eval harness actually measures (see Task 5).
+This is the Task 1 deliverable: a list of input-output pairs that define what PawPilot should handle. Each pair names the data source(s) it exercises so we can check the agent both retrieves from the right place and personalizes to this dog.
+
+These set the product's target scope across all four sources: the knowledge-base subset that the vet corpus can ground today is what the Task 5 eval harness actually measures (see Task 5).
 
 > ❗NOTE:
-> **Scope for this mid-term challenge.** The table below reflects PawPilot's _target_ design. Not every data path is fully wired for this submission — in particular, giving the agent access to the _complete_ set of Tractive metrics and letting it query the application database directly (long-range activity/vitals history, free-form journal look-ups) is planned for a later iteration. The rows that depend on live tracker/DB access (2, 3, 5, 10, 13) are kept in to represent the intended product; for now they're evaluated against a representative data snapshot, and will be re-run once that tooling ships.
+> **Scope for this mid-term challenge.** The table below reflects PawPilot's target design. Not every data path is fully wired for this submission (in particular, giving the agent access to the complete set of Tractive metrics and letting it query the application database directly (long-range activity/vitals history, free-form journal look-ups) is planned for a later iteration). The rows that depend on live tracker/DB access (2, 3, 4, 5, 10, 13) are kept in to represent the intended product. For now they're evaluated against a representative data snapshot, and will be re-run once that tooling ships.
 
 Sources:
 
@@ -195,7 +190,7 @@ flowchart TD
         Reason{"Reason: need evidence,<br/>or ready to answer?"}
         Reason -->|health claim| RAG["🔎 retrieve_vet_corpus"]
         Reason -->|recall / news / local vet| Web["🌐 web_search (Tavily)"]
-        Reason -->|owner states a durable fact| Save["💾 save / list / delete_dog_memory"]
+        Reason -->|owner states a durable fact| Save["💾 save_dog_memory / list_dog_memories / delete_dog_memory"]
         Reason -->|pet-food product / nutrition| Food["🍖 lookup_pet_food (Open Pet Food Facts)"]
         RAG --> Embed["embed query (Gateway) →<br/>Qdrant dense cosine search →<br/>passages [S1], [S2] …"]
         Web --> Snip["web snippets [W1], [W2] …"]
@@ -207,7 +202,7 @@ flowchart TD
     end
 
     Reason -. tool-call budget exhausted .-> Budget["⏳ Stop with a safe fallback message"]
-    Answer --> Assemble["📎 Resolve cited ids to real citations<br/>prepend ⚠️ emergency banner if flagged<br/>append vet disclaimer"]
+    Answer --> Assemble["📎 Resolve cited ids to real citations<br/>prepend ⚠️ emergency banner if flagged<br/>(vet disclaimer comes from the model)"]
     Budget --> Assemble
     Assemble --> Persist["🧵 Checkpoint the thread (Postgres)<br/>short-term memory for follow-ups"]
     Persist --> Out["✅ Grounded answer + citations<br/>+ emergency flag returned to owner"]
@@ -215,15 +210,15 @@ flowchart TD
     Reason -. every step traced .-> LS["📊 LangSmith (EU)"]
 ```
 
-When an owner asks a question in the chat UI, the request hits POST /agent/ask (only auth users) loads the selected pet as an owner-scoped dog_id, and namespaces the conversation thread by user id so no one can resume another user's chat. Before the model runs, PawPilot loads that dog's remembered facts from the long-term Postgres store into the system prompt and runs a fast, deterministic red-flag keyword scan over the question. The question then enters a ReAct tool-calling loop driven by gpt-5.4-mini (reached through the Vercel AI Gateway at low temperature). At each step the model reasons about whether it needs evidence and picks a tool: retrieve_vet_corpus for any health claim, which embeds the query through the Gateway and runs a dense cosine search over the Qdrant vet corpus and returns passages, web_search via Tavily for recalls, lookup_pet_food for a pet-food product's nutrition via Open Pet Food Facts, or the dog-memory tools to save a durable fact the owner just stated. It keeps looping (reason, call a tool, read the result, reason again) until it can answer or it hits its tool-call budget, in which case it returns a safe fallback message.
+When an owner asks a question in the chat UI, the request hits POST /agent/ask (auth users only), which loads the selected pet as an owner-scoped dog_id and namespaces the conversation thread by user id so no one can resume another user's chat. Before the model runs, PawPilot loads that dog's remembered facts from the long-term Postgres store into the system prompt and runs a fast, deterministic red-flag keyword scan over the question. The question then enters a ReAct tool-calling loop driven by gpt-5.4-mini (reached through the Vercel AI Gateway at low temperature). At each step the model reasons about whether it needs evidence and picks a tool: retrieve_vet_corpus for any health claim, which embeds the query through the Gateway and runs a dense cosine search over the Qdrant vet corpus and returns passages, web_search via Tavily for recalls, lookup_pet_food for a pet-food product's nutrition via Open Pet Food Facts, or the dog-memory tools to save a durable fact the owner just stated. It keeps looping (reason, call a tool, read the result, reason again) until it can answer or it hits its tool-call budget, in which case it returns a safe fallback message.
 
-To build the final output, PawPilot maps each inline citation marker the model used back to the real source it came from (its title, link, and passage snippet), prepends an emergency banner if the red-flag check fired, and appends a fixed veterinary disclaimer; the conversation is then checkpointed to Postgres so the next question keeps its context. The owner receives a grounded, cited answer along with an emergency flag and the list of tools that ran. There is no human-in-the-loop approval step by design, because PawPilot is a triage second opinion rather than a diagnosis. Every run is traced end to end in LangSmith so behavior can be audited and evaluated offline.
+To build the final output, PawPilot maps each inline citation marker the model used back to the real source it came from (its title, link, and passage snippet), prepends an emergency banner if the red-flag check fired (the veterinary disclaimer itself is produced by the model, which a fixed system-prompt rule instructs to end every health answer with, rather than appended by this step); the conversation is then checkpointed to Postgres so the next question keeps its context. The owner receives a grounded, cited answer along with an emergency flag and the list of tools that ran. There is no human-in-the-loop approval step by design, because PawPilot is a triage second opinion rather than a diagnosis. Every run is traced end to end in LangSmith so behavior can be audited and evaluated offline.
 
 ## Task 3: Dealing with the Data
 
 #### 1. Describe the default chunking strategy that you will use for your data. Why did you make this decision?
 
-PawPilot chunks the veterinary-literature (publicly available studies, research papers) PDFs with a RecursiveCharacterTextSplitter at 1000 characters per chunk with 200 characters (20%) of overlap, applied page by page. Each PDF is first extracted to per-page text. Empty pages are skipped. Every page is split on its own so a chunk never crosses a page boundary. Each chunk carries its page number, a section label (the page's first heading line), its character start_index, and a running chunk_index. Chunks are then embedded with OpenAI text-embedding-3-small (1536-d) through the Vercel AI Gateway and upserted into the Qdrant vet_corpus collection.
+PawPilot chunks the veterinary-literature (publicly available studies, research papers) PDFs with a RecursiveCharacterTextSplitter at 1000 characters per chunk with 200 characters (20%) of overlap, applied page by page. Each PDF is first extracted to per-page text. Empty pages are skipped. Every page is split on its own so a chunk never crosses a page boundary. Each chunk carries its page number, a section label (the page's first non-empty line, used as a crude heading), its character start_index, and a running chunk_index. Chunks are then embedded with OpenAI text-embedding-3-small (1536-d) through the Vercel AI Gateway and upserted into the Qdrant vet_corpus collection.
 
 Why I chose this strategy:
 
@@ -234,7 +229,7 @@ Why I chose this strategy:
 
 #### 2. Describe your data source and the external API you plan to use, as well as what role they will play in your solution. Discuss how they interact during usage.
 
-PawPilot draws on three kinds of personal / uploaded data plus one external API.
+PawPilot draws on three kinds of personal / uploaded data plus two external APIs.
 
 Data sources (my own data):
 
@@ -245,7 +240,7 @@ Data sources (my own data):
 External APIs (the agentic search tool):
 
 - Tavily web search: Its role is to fetch live information the static corpus cannot hold, such as current product recalls, news, and finding an emergency vet. It is the agent's recency and fallback layer.
-- Open Pet Food Facts API (world.openpetfoodfacts.org, the pet sibling of Open Food Facts)
+- Open Pet Food Facts API (world.openpetfoodfacts.org, the pet sibling of Open Food Facts): its role is to answer questions about a specific commercial pet-food product's nutrition (guaranteed analysis, ingredients) by product name or barcode, reached via the lookup_pet_food tool. It supplements the vet corpus when the owner asks about a particular food.
 
 How they interact during usage: a single ReAct agent decides, per question, which source to reach for. For a health question it goes corpus-first and falls back to or supplements with Tavily (web_search) for recalls, news, or anything the corpus covers weakly. The agent cites both inline, and the final answer resolves those tags back to real sources.
 
@@ -264,18 +259,12 @@ The application is publicly deployed and demonstrated live in the Loom video; th
 
 ## Task 5: Evals
 
-<!-- **✅ Deliverables**
-
-1. Prepare a test data set (either by generating synthetic data or by assembling an existing dataset).
-2. Create an evaluation harness that's relevant to your problem space (you can use prompted LLM-as-a-Judge, RAG-specific tools like RAGAS, Agent-specific evaluations like [Tau2-infinity](https://vibrantlabs.com/research/tau2-infinity), etc.).
-3. What conclusions can you draw about the performance and effectiveness of your pipeline with this information? -->
-
-### Test data set (Deliverable 1)
+### Test data set
 
 The harness runs against two curated golden datasets, both assembled by hand from the ingested vet corpus rather than synthetically generated. An earlier synthetic set was discarded after it sampled PDF front matter instead of substantive content, so the current sets are hand-reviewed.
 
-- Retrieval golden ([backend/evals/rag/datasets/retrieval_golden.json](backend/evals/rag/datasets/retrieval_golden.json)): 19 owner-voice questions, each labeled with the expected_source_ids (the corpus documents a correct answer should retrieve from). Drives source-level recall@k.
-- Generation golden ([backend/evals/rag/datasets/generation_golden.jsonl](backend/evals/rag/datasets/generation_golden.jsonl)): 18 input-output pairs, each with a curated reference answer, the reference_contexts it is grounded in, expected_source_ids, and a grounding label (fully_grounded or partially_grounded) plus a reviewer note. Drives faithfulness and answer correctness.
+- Retrieval golden ([backend/evals/rag/datasets/retrieval_golden.json](backend/evals/rag/datasets/retrieval_golden.json)): 19 questions, each labeled with the expected_source_ids (the corpus documents a correct answer should retrieve from). Drives source-level recall@k.
+- Generation golden ([backend/evals/rag/datasets/generation_golden.jsonl](backend/evals/rag/datasets/generation_golden.jsonl)): 18 input-output pairs, each with a curated reference answer, the reference_contexts it is grounded in, expected_source_ids, and a grounding label (fully_grounded or partially_grounded) plus a reviewer note. Drives faithfulness and answer accuracy.
 
 Both are pinned to topics the corpus actually covers: vaccination, pain management, weight and nutrition, breed and MDR1, epilepsy, senior care, CPR, heartworm, dermatitis, hip dysplasia, and GI upset or lethargy. They operationalize the knowledge-base subset of the Task 1 question list: the Task 1 questions define scope, and these measure the KB retrieval and faithfulness capability those rows depend on.
 
@@ -283,10 +272,15 @@ Both are pinned to topics the corpus actually covers: vaccination, pain manageme
 
 The harness scores two layers of the pipeline, and runs are recorded to LangSmith (EU region) as Datasets + Experiments so each case is inspectable and runs compare side by side.
 
-- **Retrieval eval (deterministic + judged):** source-level `recall@k` (k = 5, 8, 10, 20) computed from the retrieved source ids against each query's expected sources, plus RAGAS `ContextRecall` and `ContextEntityRecall` over the reviewed set. `recall@k` uses no LLM, so it is exactly reproducible. The `recall@k` runs are recorded to LangSmith; the two context metrics are computed locally.
-- **Generation eval (RAGAS, LLM-as-judge):** each golden question is answered by the full agent, then scored on four RAGAS metrics: **faithfulness** (are the claims supported by the retrieved passages), **answer_accuracy** (does it reach the reference outcome), **answer_relevancy** (does it address the question), and **noise_sensitivity** (how much irrelevant passages distort the answer, lower is better). The fixed emergency banner and vet disclaimer are stripped before scoring. All four metrics are recorded per case to LangSmith.
+- **Retrieval eval (deterministic + judged):** source-level recall@k (k = 5, 8, 10, 20) computed from the retrieved source ids against each query's expected sources, plus RAGAS ContextRecall and ContextEntityRecall over the reviewed set. recall@k uses no LLM, so it is exactly reproducible. The recall@k runs are recorded to LangSmith, the two context metrics are computed locally.
+- **Generation eval (RAGAS, LLM-as-judge):** each golden question is answered by the full agent, then scored on four RAGAS metrics:
+- faithfulness (are the claims supported by the retrieved passages), - answer_accuracy (does it reach the reference outcome), - answer_relevancy (does it address the question),
+- noise_sensitivity (how much irrelevant passages distort the answer, lower is better).
+
+The fixed emergency banner and vet disclaimer are stripped before scoring. All four metrics are recorded per case to LangSmith.
+
 - **Models:** the judge and all embedding, generation, and rerank calls run on OpenAI and Cohere models through the Vercel AI Gateway on a single key.
-- **Reproducibility:** `make rag-eval` (retrieval), `make agent-eval` (generation), and `make langsmith-experiments` (push both to LangSmith).
+- **Reproducibility:** make rag-eval (retrieval), make agent-eval (generation), and make langsmith-experiments (push both to LangSmith).
 
 LangSmith experiments (EU):
 
@@ -306,19 +300,13 @@ The dense baseline (18 generation / 19 retrieval reviewed cases) shows a clear, 
 | Generation | answer_relevancy                       | 0.82                      |
 | Generation | noise_sensitivity (lower better)       | 0.24                      |
 
-The headline finding is that this is a **ranking problem, not a coverage problem**: recall@20 = 0.95 means the correct source is almost always retrieved, but recall@5 = 0.74 means it is ranked outside the top 5 about a quarter of the time. That top-of-list gap caps generation: answer_relevancy is high (0.82, the agent stays on topic), but faithfulness and answer_accuracy sit around 0.6 because imperfect top passages make the model fill gaps. Low noise_sensitivity (0.24) is reassuring: irrelevant passages do not distort answers much. The clear next lever is therefore **reranking the top candidates** to close the recall@5 gap, which is exactly what Task 6 does. (Caveats: the golden sets are small, so read metrics as bands, and the RAGAS generation judge is non-deterministic with roughly +/-0.03 run-to-run variance.)
+The headline finding is that this is a ranking problem, not a coverage problem**: recall@20 = 0.95 means the correct source is almost always retrieved, but recall@5 = 0.74 means it is ranked outside the top 5 about a quarter of the time. That top-of-list gap caps generation: answer_relevancy is high (0.82, the agent stays on topic), but faithfulness and answer_accuracy sit around 0.6 because imperfect top passages make the model fill gaps. Low noise_sensitivity (0.24) is reassuring: irrelevant passages do not distort answers much. The clear next lever is therefore **reranking the top candidates to close the recall@5 gap, which is exactly what Task 6 does. (Caveats: the golden sets are small, so read metrics as bands, and the RAGAS generation judge is non-deterministic with roughly +/-0.03 run-to-run variance.)
 
 ## Task 6: Improving Your Prototype (Install an advanced retriever)
 
-<!-- **✅ Deliverables**
-
-1. Choose and implement an advanced retrieval technique that you believe will improve your application's ability to retrieve the most appropriate context. Write 1-2 sentences on why you believe it will be useful for your use case.
-2. How does the performance compare to your original RAG application? Provide results in a table.
-3. Identify and implement a change to at least one other piece of the solution. Using the evaluation harness as hard evidence, demonstrate a meaningfully improved response. -->
-
 ### Advanced retrieval technique (Deliverable 1)
 
-I added a **cross-encoder reranking** stage: the retriever over-retrieves the top 25 dense candidates, a cross-encoder (Cohere Rerank v3.5, called through the Vercel AI Gateway on the same key) re-scores each (query, passage) pair, and the top-k are returned in the new order.
+I added a cross-encoder reranking stage: the retriever over-retrieves the top 25 dense candidates, a cross-encoder (Cohere Rerank v3.5, called through the Vercel AI Gateway on the same key) re-scores each (query, passage) pair, and the top-k are returned in the new order.
 
 Why I expect it to help: the baseline showed the gold passage is almost always retrieved (recall@20 = 0.95) but often ranked outside the top 5 (recall@5 = 0.74), so this is a ranking problem, and a cross-encoder that scores the query against each passage jointly is designed to fix exactly that top-of-list ordering.
 
@@ -328,7 +316,7 @@ Why I expect it to help: the baseline showed the gold passage is almost always r
 
 | Metric                               | Dense (baseline) | Rerank | Δ          |
 | ------------------------------------ | ---------------- | ------ | ---------- |
-| recall@5                             | 0.737            | 0.789  | **+0.053** |
+| recall@5                             | 0.737            | 0.789  | **+0.052** |
 | recall@8                             | 0.842            | 0.895  | **+0.053** |
 | recall@10                            | 0.895            | 0.895  | 0.000      |
 | recall@20                            | 0.947            | 0.947  | 0.000      |
@@ -350,13 +338,27 @@ Read: on generation the effect is small and mostly within the RAGAS judge's run-
 
 ### One additional change (Deliverable 3)
 
-_In progress._ The planned change is tightening the agent's generation prompt for citation discipline (assert only what a cited [S#] passage supports), targeting the faithfulness ceiling identified in Task 5, then re-running the generation eval to show the before/after on the harness. Numbers to be inserted once the run completes.
+**Change: a grounding / citation-discipline prompt.**
+A per-case error analysis of the rerank generation run (from the LangSmith traces) split the 18 cases by why faithfulness was lost: in 15 of 18 the gold source was retrieved but the model still drifted past it (it asserted things its passages did not fully support), and only 3 were true retrieval misses. So the faithfulness ceiling is a generation-discipline problem, not a ranking one. The change tightens the system prompt (backend/app/agent/prompt.py, version 010b-grounding-1): the model must assert only what a retrieved passage states, must not add facts from its own knowledge or generalize beyond the passage, and must say "the sources don't address X" rather than fill the gap. Retrieval is held fixed at rerank, so this isolates the prompt's effect.
+
+Evidence (generation RAGAS, rerank retriever held fixed, like-for-like over the 14 cases both runs scored; the after-run was budget-limited, so 14 of 18). Before = baseline prompt; after = grounding prompt. [dense vs rerank-baseline vs grounding in LangSmith](https://eu.smith.langchain.com/o/fd4e4d03-aa8a-45ef-b33f-b83f61f694fc/datasets/8cc10856-d857-47fe-9abd-4e5f3047b85c/compare?selectedSessions=cc903e11-9471-4c26-a510-32a95cda09fa&selectedSessions=db46d8d3-68fe-4373-8453-15789d2413c7):
+
+| Metric                           | Baseline prompt | Grounding prompt | Δ          |
+| -------------------------------- | --------------- | ---------------- | ---------- |
+| faithfulness                     | 0.603           | 0.762            | **+0.159** |
+| answer_accuracy                  | 0.607           | 0.607            | +0.000     |
+| answer_relevancy                 | 0.797           | 0.815            | +0.019     |
+| noise_sensitivity (lower better) | 0.207           | 0.308            | +0.101     |
+
+NOTE: the grounding prompt did exactly what it targeted. Faithfulness rose +0.159, far beyond the judge's ~±0.03 run-to-run noise, with answer_accuracy unchanged and answer_relevancy slightly up.
+
+The one tradeoff is noise_sensitivity, which got worse (+0.101). That points straight at the next lever, deduplicating the retrieved context, and is a clean example of the harness catching a real tradeoff rather than just a headline win.
 
 ## Task 7: Reflections and next steps
 
 1. Reflecting on what you've built so far, what parts of your current implementation do you plan to keep for Demo Day, and what parts would you change or improve? Explain your reasoning.
 
-**Keep for Demo Day:**
+#### Keep for Demo Day:
 
 - **The agentic RAG spine:** corpus-first retrieval with inline citations that resolve to real sources. This is the product's core promise (a trustworthy, sourced second opinion), and the evals show retrieval is solid.
 - **The safety layer:** the deterministic red-flag emergency pre-check plus the dog-only topical guardrail. For a health product these matter more than any metric.
@@ -366,12 +368,13 @@ _In progress._ The planned change is tightening the agent's generation prompt fo
 
 **Change or improve:**
 
-- **Wire live tool access to the full Tractive history and the journal database.** This is the biggest gap: personalization currently flows through remembered facts, not live queries, so "has Rex been less active this week?" is not yet fully data-backed. Structured, owner-scoped query tools are the top priority.
-- **Address the generation accuracy ceiling:** reranking lifted faithfulness but dipped answer_accuracy, so I would add the grounding-prompt discipline (above) and re-tune retrieval depth, measured on the harness.
+- **Wire live tool access to the full Tractive history and the journal database.**
+  This is the biggest gap: personalization currently flows through remembered facts, not live queries, so "has Rex been less active this week?" is not yet fully data-backed. Structured, owner-scoped query tools are the top priority.
+- **Agent predicting potenial health issues looking at past trends** -
+- **Deduplicate the retrieved context (the clear next lever)** The grounding prompt already lifted faithfulness sharply (+0.16), but it raised noise_sensitivity because the model now faithfully repeats the near-duplicate passages that crowd the top-k. A per-source dedup / MMR pass on the reranked results should reclaim that, and it is measurable on the free deterministic recall eval. After that, a second averaged generation run (n=18, several repeats) to confirm the faithfulness gain and settle the smaller deltas.
 - **Make the evals more robust:** the golden sets are small (18-19 cases) and the RAGAS judge varies run to run, so I would grow the sets and average 3+ runs before trusting small deltas.
-- **Measure and reduce latency:** the reranker adds a Gateway round-trip per query, and I have not yet captured p50/p95, which matters for a phone-first experience.
 
-Reasoning: keep what the evidence shows is working and what carries the product's trust promise (sourced retrieval, safety, memory); change what the evals exposed as weak (generation accuracy, eval robustness) and what the product vision needs but the current build still fakes (live personal-data access).
+Reasoning: keep what the evidence shows is working and what carries the product's trust promise (sourced retrieval, safety, memory). I would like to change what the evals exposed as weak (generation accuracy, eval robustness) and what the product vision needs but the current build still fakes (live personal-data access).
 
 ## Your Final Submission
 
