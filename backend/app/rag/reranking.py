@@ -22,6 +22,14 @@ class RerankResult(BaseModel):
     relevance_score: float
 
 
+class RerankResponse(BaseModel):
+    """The gateway rerank envelope: the scored results, ordered best-first."""
+
+    model_config = ConfigDict(frozen=True)
+
+    results: list[RerankResult]
+
+
 class Reranker(Protocol):
     """Re-scores (query, document) pairs and returns them ordered best-first."""
 
@@ -64,8 +72,4 @@ class CohereGatewayReranker:
             },
         )
         response.raise_for_status()
-        payload = response.json()
-        return [
-            RerankResult(index=item["index"], relevance_score=item["relevance_score"])
-            for item in payload["results"]
-        ]
+        return RerankResponse.model_validate(response.json()).results
