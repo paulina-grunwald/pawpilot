@@ -96,6 +96,8 @@ def write_baseline(report: dict[str, Any], path: Path = BASELINES_PATH) -> None:
 
     A report with empty context metrics (no reviewed generation cases) would
     overwrite the committed RAGAS numbers later phases compare against, so refuse.
+    Merges into any existing baselines.json so the generation section (and any other
+    keys) survive, rather than replacing the whole file with only the retrieval block.
     """
     if not report["context"]:
         raise SystemExit(
@@ -103,7 +105,9 @@ def write_baseline(report: dict[str, Any], path: Path = BASELINES_PATH) -> None:
             "reviewed generation cases. Curate and review generation_golden.jsonl first "
             "(uv run python -m evals.rag.curate)."
         )
-    path.write_text(json.dumps({"retrieval": report}, indent=2) + "\n", encoding="utf-8")
+    existing = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    existing["retrieval"] = report
+    path.write_text(json.dumps(existing, indent=2) + "\n", encoding="utf-8")
     print(f"\nWrote {report['mode']} retrieval baseline to {path}")
 
 

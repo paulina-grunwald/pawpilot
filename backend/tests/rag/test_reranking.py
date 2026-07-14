@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from app.rag.config import RagSettings
 from app.rag.fakes import FakeReranker
@@ -152,6 +153,17 @@ def test_cohere_reranker_raises_on_http_error() -> None:
 
     reranker = CohereGatewayReranker(_settings(), client=_mock_client(handler))
     with pytest.raises(httpx.HTTPStatusError):
+        reranker.rerank("q", ["a"], top_n=1)
+
+
+def test_cohere_reranker_rejects_malformed_envelope() -> None:
+    # A 200 response missing the "results" key is validated by RerankResponse, so it
+    # surfaces a clean ValidationError rather than a bare KeyError from dict indexing.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"unexpected": []})
+
+    reranker = CohereGatewayReranker(_settings(), client=_mock_client(handler))
+    with pytest.raises(ValidationError):
         reranker.rerank("q", ["a"], top_n=1)
 
 
