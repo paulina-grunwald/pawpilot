@@ -341,13 +341,13 @@ Read: on generation the effect is small and mostly within the RAGAS judge's run-
 **Change: a grounding / citation-discipline prompt.**
 A per-case error analysis of the rerank generation run (from the LangSmith traces) split the 18 cases by why faithfulness was lost: in 15 of 18 the gold source was retrieved but the model still drifted past it (it asserted things its passages did not fully support), and only 3 were true retrieval misses. So the faithfulness ceiling is a generation-discipline problem, not a ranking one. The change tightens the system prompt (backend/app/agent/prompt.py, version 010b-grounding-1): the model must assert only what a retrieved passage states, must not add facts from its own knowledge or generalize beyond the passage, and must say "the sources don't address X" rather than fill the gap. Retrieval is held fixed at rerank, so this isolates the prompt's effect.
 
-Evidence (generation RAGAS, rerank retriever held fixed, like-for-like over the 14 cases both runs scored; the after-run was budget-limited, so 14 of 18). Before = baseline prompt; after = grounding prompt. [dense vs rerank-baseline vs grounding in LangSmith](https://eu.smith.langchain.com/o/fd4e4d03-aa8a-45ef-b33f-b83f61f694fc/datasets/8cc10856-d857-47fe-9abd-4e5f3047b85c/compare?selectedSessions=cc903e11-9471-4c26-a510-32a95cda09fa&selectedSessions=db46d8d3-68fe-4373-8453-15789d2413c7):
+Evidence (generation RAGAS, rerank retriever held fixed, like-for-like over the 14 cases both runs scored; the after-run was budget-limited, so 14 of 18). Before = baseline prompt; after = grounding prompt. [rerank-baseline vs grounding in LangSmith](https://eu.smith.langchain.com/o/fd4e4d03-aa8a-45ef-b33f-b83f61f694fc/datasets/8cc10856-d857-47fe-9abd-4e5f3047b85c/compare?selectedSessions=cc903e11-9471-4c26-a510-32a95cda09fa&selectedSessions=db46d8d3-68fe-4373-8453-15789d2413c7):
 
 | Metric                           | Baseline prompt | Grounding prompt | Δ          |
 | -------------------------------- | --------------- | ---------------- | ---------- |
 | faithfulness                     | 0.603           | 0.762            | **+0.159** |
 | answer_accuracy                  | 0.607           | 0.607            | +0.000     |
-| answer_relevancy                 | 0.797           | 0.815            | +0.019     |
+| answer_relevancy                 | 0.797           | 0.815            | +0.018     |
 | noise_sensitivity (lower better) | 0.207           | 0.308            | +0.101     |
 
 NOTE: the grounding prompt did exactly what it targeted. Faithfulness rose +0.159, far beyond the judge's ~±0.03 run-to-run noise, with answer_accuracy unchanged and answer_relevancy slightly up.
@@ -370,7 +370,8 @@ The one tradeoff is noise_sensitivity, which got worse (+0.101). That points str
 
 - **Wire live tool access to the full Tractive history and the journal database.**
   This is the biggest gap: personalization currently flows through remembered facts, not live queries, so "has Rex been less active this week?" is not yet fully data-backed. Structured, owner-scoped query tools are the top priority.
-- **Agent predicting potenial health issues looking at past trends** -
+- **Predict potential health issues from past trends.**
+  With live Tractive and journal access in place, the agent could surface early warning signs from longitudinal data (for example, a resting heart rate creeping up over several weeks) instead of only answering point-in-time questions, moving PawPilot from reactive Q&A toward proactive monitoring.
 - **Deduplicate the retrieved context (the clear next lever)** The grounding prompt already lifted faithfulness sharply (+0.16), but it raised noise_sensitivity because the model now faithfully repeats the near-duplicate passages that crowd the top-k. A per-source dedup / MMR pass on the reranked results should reclaim that, and it is measurable on the free deterministic recall eval. After that, a second averaged generation run (n=18, several repeats) to confirm the faithfulness gain and settle the smaller deltas.
 - **Make the evals more robust:** the golden sets are small (18-19 cases) and the RAGAS judge varies run to run, so I would grow the sets and average 3+ runs before trusting small deltas.
 
