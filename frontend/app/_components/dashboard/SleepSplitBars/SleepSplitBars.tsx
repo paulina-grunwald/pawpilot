@@ -7,6 +7,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { placeTooltip, pointerToIndex } from "../chartGeometry";
 import styles from "./SleepSplitBars.module.css";
 
 export type SleepSplitBar = {
@@ -87,10 +88,18 @@ export function SleepSplitBars({ bars, height = 200, accessibleLabel }: SleepSpl
     const svg = svgRef.current;
     if (!svg) return;
     const bounds = svg.getBoundingClientRect();
-    const scale = bounds.width === 0 ? 1 : chartWidth / bounds.width;
-    const localX = (event.clientX - bounds.left) * scale;
-    const nearestIndex = Math.floor((localX - paddingLeft) / slotWidth);
-    setHoverIndex(Math.max(0, Math.min(bars.length - 1, nearestIndex)));
+    setHoverIndex(
+      pointerToIndex({
+        clientX: event.clientX,
+        boundsLeft: bounds.left,
+        boundsWidth: bounds.width,
+        chartWidth,
+        paddingLeft,
+        innerWidth,
+        count: bars.length,
+        snap: "floor",
+      }),
+    );
   };
 
   const hoveredBar = hoverIndex !== null ? bars[hoverIndex] : null;
@@ -109,18 +118,21 @@ export function SleepSplitBars({ bars, height = 200, accessibleLabel }: SleepSpl
     ...tooltipLines.map((line) => line.text.length * 6.2 + 18),
   );
   const tooltipHeight = 50;
-  const hoveredSlotCenter =
-    hoverIndex !== null ? paddingLeft + hoverIndex * slotWidth + slotWidth / 2 : 0;
-  const tooltipX = Math.max(
-    paddingLeft,
-    Math.min(hoveredSlotCenter - tooltipWidth / 2, chartWidth - paddingRight - tooltipWidth),
-  );
-  const hoveredTotalTop =
-    hoveredBar !== null ? yAt(hoveredBar.nightMinutes + hoveredBar.dayMinutes) : 0;
-  const tooltipY =
-    hoveredTotalTop - tooltipHeight - 8 < paddingTop
-      ? paddingTop
-      : hoveredTotalTop - tooltipHeight - 8;
+  const { x: tooltipX, y: tooltipY } =
+    hoveredBar !== null && hoverIndex !== null
+      ? placeTooltip({
+          pointX: paddingLeft + hoverIndex * slotWidth + slotWidth / 2,
+          pointY: yAt(hoveredBar.nightMinutes + hoveredBar.dayMinutes),
+          width: tooltipWidth,
+          height: tooltipHeight,
+          chartWidth,
+          paddingLeft,
+          paddingRight,
+          paddingTop,
+          offset: 8,
+          overflow: "clamp",
+        })
+      : { x: 0, y: 0 };
 
   return (
     <div ref={containerRef} className={styles.container}>

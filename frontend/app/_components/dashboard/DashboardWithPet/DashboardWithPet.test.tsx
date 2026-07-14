@@ -5,9 +5,10 @@ import { activePetStorageKey } from "@/lib/activePet";
 import type { PetRead } from "@/lib/pets";
 import { DashboardWithPet } from "./DashboardWithPet";
 
-const { pushMock, fetchRollupsMock } = vi.hoisted(() => ({
+const { pushMock, fetchRollupsMock, fetchWeightMock } = vi.hoisted(() => ({
   pushMock: vi.fn<(href: string) => void>(),
   fetchRollupsMock: vi.fn(),
+  fetchWeightMock: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -21,6 +22,15 @@ vi.mock("@/lib/tractive", async () => {
     ...actual,
     fetchTractiveRollups: (...args: Parameters<typeof actual.fetchTractiveRollups>) =>
       fetchRollupsMock(...args),
+  };
+});
+
+vi.mock("@/lib/weight", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/weight")>("@/lib/weight");
+  return {
+    ...actual,
+    fetchPetWeightSeries: (...args: Parameters<typeof actual.fetchPetWeightSeries>) =>
+      fetchWeightMock(...args),
   };
 });
 
@@ -59,6 +69,8 @@ beforeEach(() => {
   pushMock.mockReset();
   fetchRollupsMock.mockReset();
   fetchRollupsMock.mockResolvedValue({ daily: [] });
+  fetchWeightMock.mockReset();
+  fetchWeightMock.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -207,6 +219,28 @@ describe("DashboardWithPet", () => {
     expect(screen.getAllByText(/1h 30m/i).length).toBeGreaterThan(0);
 
     resolvePending({ daily: [loadedRollup] });
+  });
+
+  it("fetches and re-fetches the weight series for the active range", async () => {
+    const user = userEvent.setup();
+    fetchWeightMock.mockResolvedValue([
+      { date: "2024-05-20", label: "May 20", weightGrams: 27400 },
+      { date: "2024-05-23", label: "May 23", weightGrams: 27600 },
+    ]);
+    render(
+      <DashboardWithPet
+        pets={[makePet()]}
+        activePetId="pet-1"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
+    await waitFor(() => expect(fetchWeightMock).toHaveBeenCalledWith("pet-1", 7));
+    // The weight card renders its latest reading (headline + chart callout).
+    expect((await screen.findAllByText("27.6 kg")).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "90d" }));
+    await waitFor(() => expect(fetchWeightMock).toHaveBeenCalledWith("pet-1", 90));
   });
 
   it("renders activity ring numbers once rollups arrive", async () => {

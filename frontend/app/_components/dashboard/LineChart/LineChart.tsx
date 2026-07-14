@@ -8,6 +8,13 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import {
+  computeYBounds,
+  isLabelVisibleFromEnd,
+  labelStep,
+  placeTooltip,
+  pointerToIndex,
+} from "../chartGeometry";
 import styles from "./LineChart.module.css";
 
 const DEFAULT_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
@@ -26,6 +33,8 @@ type LineChartProps = {
   unit?: string;
   compact?: boolean;
   accessibleLabel?: string;
+  seriesLabel?: string;
+  meanLabel?: string;
 };
 
 function useMeasuredWidth() {
@@ -113,6 +122,8 @@ export function LineChart({
   unit = "",
   compact = false,
   accessibleLabel,
+  seriesLabel = "this week",
+  meanLabel = "30-day mean",
 }: LineChartProps) {
   const [containerRef, fullWidth] = useMeasuredWidth();
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -133,16 +144,11 @@ export function LineChart({
   const innerWidth = chartWidth - paddingLeft - paddingRight;
   const innerHeight = height - paddingTop - paddingBottom;
 
-  const allValues: number[] = [...values];
-  if (baseline) allValues.push(baseline.low, baseline.high);
-  if (goal != null) allValues.push(goal);
-  if (mean != null) allValues.push(mean);
-
-  const minOfValues = allValues.reduce((acc, value) => (value < acc ? value : acc), Infinity);
-  const maxOfValues = allValues.reduce((acc, value) => (value > acc ? value : acc), -Infinity);
-  const span = maxOfValues - minOfValues || 1;
-  const yMin = Math.max(0, minOfValues - span * 0.18);
-  const yMax = maxOfValues + span * 0.18;
+  const extraBounds: number[] = [];
+  if (baseline) extraBounds.push(baseline.low, baseline.high);
+  if (goal != null) extraBounds.push(goal);
+  if (mean != null) extraBounds.push(mean);
+  const { yMin, yMax } = computeYBounds(values, extraBounds);
 
   const xAt = (index: number) => paddingLeft + (index / (values.length - 1)) * innerWidth;
   const yAt = (value: number) =>
@@ -161,23 +167,25 @@ export function LineChart({
   const ariaLabel =
     accessibleLabel ?? `Line chart: latest value ${yFormat(values[todayIndex])}${unit}`;
 
-  // Thin the x-axis labels so long ranges (30d / 90d) don't collapse into an
-  // unreadable smear. Counting the step back from today keeps the latest point
-  // labelled and the visible labels evenly spaced.
-  const maxLabelCount = Math.max(2, Math.floor(innerWidth / 46));
-  const labelStep = Math.max(1, Math.ceil(values.length / maxLabelCount));
+  const xLabelStep = labelStep(values.length, innerWidth);
   const showXLabelAt = (index: number) =>
-    index === todayIndex || (todayIndex - index) % labelStep === 0;
+    isLabelVisibleFromEnd(index, values.length, xLabelStep);
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
     if (!svg) return;
     const bounds = svg.getBoundingClientRect();
-    const scale = bounds.width === 0 ? 1 : chartWidth / bounds.width;
-    const localX = (event.clientX - bounds.left) * scale;
-    const ratio = (localX - paddingLeft) / innerWidth;
-    const nearestIndex = Math.round(ratio * (values.length - 1));
-    setHoverIndex(Math.max(0, Math.min(values.length - 1, nearestIndex)));
+    setHoverIndex(
+      pointerToIndex({
+        clientX: event.clientX,
+        boundsLeft: bounds.left,
+        boundsWidth: bounds.width,
+        chartWidth,
+        paddingLeft,
+        innerWidth,
+        count: values.length,
+      }),
+    );
   };
 
   const activeIndex = hoverIndex ?? todayIndex;
@@ -191,13 +199,17 @@ export function LineChart({
     hoverDateText.length * 5.5 + 16,
   );
   const tooltipHeight = dates ? 32 : 20;
-  const tooltipX = Math.max(
+  const { x: tooltipX, y: tooltipY } = placeTooltip({
+    pointX: xAt(activeIndex),
+    pointY: yAt(values[activeIndex]),
+    width: tooltipWidth,
+    height: tooltipHeight,
+    chartWidth,
     paddingLeft,
-    Math.min(xAt(activeIndex) - tooltipWidth / 2, chartWidth - paddingRight - tooltipWidth),
-  );
-  const preferredTooltipY = yAt(values[activeIndex]) - tooltipHeight - 10;
-  const tooltipY =
-    preferredTooltipY < paddingTop ? yAt(values[activeIndex]) + 10 : preferredTooltipY;
+    paddingRight,
+    paddingTop,
+    overflow: "flip",
+  });
 
   return (
     <div ref={containerRef} className={styles.container}>
@@ -490,11 +502,11 @@ export function LineChart({
       {!compact && (
         <div className={`${styles.legend} mono`} style={{ paddingLeft }}>
           <LegendSwatch type="solid" color={color}>
-            this week
+            {seriesLabel}
           </LegendSwatch>
           {mean != null && (
             <LegendSwatch type="dash" color="var(--muted)">
-              30-day mean
+              {meanLabel}
             </LegendSwatch>
           )}
           {baseline && <LegendSwatch type="hatch">baseline range</LegendSwatch>}
