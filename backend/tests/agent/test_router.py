@@ -9,17 +9,35 @@ the validation / failure status codes without any model keys.
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import Callable
+from datetime import date
 
 from httpx import AsyncClient
 from langchain_core.messages import AIMessage
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.fakes import ScriptedChatModel
 from app.agent.models import AgentThread
-from app.agent.prompt import VET_DISCLAIMER
+from app.agent.prompt import DATA_TOOL_RULE, VET_DISCLAIMER
 from app.agent.runner import PawPilotAgent
+from app.integrations.tractive.models import TractiveDayRollup
 from tests.agent.conftest import RaisingChatModel, build_test_agent, make_chunk, tool_call_message
+
+
+def _sleep_tool_call() -> AIMessage:
+    return AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "get_dog_sleep_summary",
+                "args": {"days": 7},
+                "id": "call-1",
+                "type": "tool_call",
+            }
+        ],
+    )
 
 
 async def _create_pet(
@@ -130,6 +148,62 @@ async def test_ask_resolves_owned_pet(
     body = response.json()
     assert body["tool_calls"] == ["retrieve_vet_corpus"]
     assert [citation["ref"] for citation in body["citations"]] == ["S1"]
+
+
+async def test_ask_with_pet_reads_sleep_data_end_to_end(
+    authenticated_client: AsyncClient,
+    install_agent: Callable[[PawPilotAgent], None],
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    db_session.add(
+        TractiveDayRollup(
+            pet_id=uuid.UUID(pet_id),
+            date=date(2024, 5, 16),
+            minutes_night_sleep=480.0,
+            minutes_day_sleep=0.0,
+            source="gdpr_export",
+        )
+    )
+    await db_session.commit()
+
+    agent = build_test_agent(
+        responses=[
+            _sleep_tool_call(),
+            AIMessage(content=f"Your dog slept about 8 hours a night. {VET_DISCLAIMER}"),
+        ],
+        with_memory=True,
+        with_thread=True,
+    )
+    install_agent(agent)
+
+    response = await authenticated_client.post(
+        "/agent/ask", json={"query": "How much did my dog sleep?", "pet_id": pet_id}
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["tool_calls"] == ["get_dog_sleep_summary"]
+    assert "8 hours" in body["text"]
+
+
+async def test_ask_without_pet_omits_sleep_tool_rule(
+    authenticated_client: AsyncClient,
+    install_agent: Callable[[PawPilotAgent], None],
+) -> None:
+    model = ScriptedChatModel(responses=[AIMessage(content=f"Sure. {VET_DISCLAIMER}")])
+    install_agent(build_test_agent(model=model))
+
+    response = await authenticated_client.post("/agent/ask", json={"query": "General question"})
+    assert response.status_code == 200, response.text
+
+    system_messages = [
+        str(message.content)
+        for batch in model.received_batches
+        for message in batch
+        if message.type == "system"
+    ]
+    assert all(DATA_TOOL_RULE not in content for content in system_messages)
 
 
 async def test_ask_rejects_unowned_pet(

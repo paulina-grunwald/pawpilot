@@ -19,6 +19,7 @@ from langchain_core.runnables import Runnable
 from pydantic import PrivateAttr
 
 from app.agent.web_search import WebSearchResult
+from app.integrations.tractive.read_service import SleepSummary
 
 
 class ScriptedChatModel(BaseChatModel):
@@ -75,3 +76,19 @@ class FakeWebSearch:
 
     def search(self, query: str) -> list[WebSearchResult]:
         return list(self._results)
+
+
+class FakeSleepReader:
+    """Returns a preset `SleepSummary`, recording the day windows it was asked for.
+
+    A network-free stand-in for `TractiveSleepReader` so the sleep tool can be
+    exercised without a database.
+    """
+
+    def __init__(self, summary: SleepSummary) -> None:
+        self._summary = summary
+        self.requested_days: list[int] = []
+
+    async def summarize_sleep(self, days: int) -> SleepSummary:
+        self.requested_days.append(days)
+        return self._summary

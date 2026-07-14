@@ -56,12 +56,27 @@ MEMORY_WRITE_RULE = (
     "details, guesses, or health advice."
 )
 
+DATA_TOOL_RULE = (
+    "This dog's own data: when the owner asks about their dog's measured sleep, "
+    "rest, or activity, for example 'how many hours did my dog sleep this week?', "
+    "call get_dog_sleep_summary to read the dog's tracker data instead of "
+    "estimating from the corpus. Report the figures it returns, and if it says some "
+    "days had no data, mention how many days were actually covered."
+)
 
-def compose_system_prompt(*, memory_block: str = "", include_memory_rule: bool = False) -> str:
-    """Assemble the run's system prompt: base + optional memory rule + known facts."""
+
+def compose_system_prompt(
+    *,
+    memory_block: str = "",
+    include_memory_rule: bool = False,
+    include_data_rule: bool = False,
+) -> str:
+    """Assemble the run's system prompt: base + optional rules + known facts."""
     sections = [SYSTEM_PROMPT]
     if include_memory_rule:
         sections.append(MEMORY_WRITE_RULE)
+    if include_data_rule:
+        sections.append(DATA_TOOL_RULE)
     if memory_block:
         sections.append(memory_block)
     return "\n\n".join(sections)
