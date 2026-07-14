@@ -59,7 +59,7 @@ def test_valid_construction_exposes_expected_defaults() -> None:
     assert settings.agent_model == "openai/gpt-5.4-mini"
     assert settings.agent_temperature == pytest.approx(0.1)
     assert settings.agent_max_tool_calls == 6
-    assert settings.memory_backend == "memory"
+    assert settings.memory_backend == "postgres"
     assert settings.max_dog_memories == 20
     assert settings.memory_pool_max_size == 20
     assert settings.web_search_max_results == 5
