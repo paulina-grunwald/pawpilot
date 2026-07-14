@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   deleteJournalEntry,
   listJournalEntries,
@@ -15,6 +15,8 @@ import type {
   MedicationPayload,
 } from "@/lib/journal.schemas";
 import { EntryCard } from "../EntryCard";
+import { EntryTypeIcon, SearchIcon } from "../EntryTypeIcon";
+import { FilterChips } from "../FilterChips";
 import {
   DEFAULT_FILTERS,
   FilterSheet,
@@ -22,6 +24,7 @@ import {
   dateRangeToOccurredFrom,
   type JournalFilters,
 } from "../FilterSheet";
+import { JournalStats } from "../JournalStats";
 import { QuickAddModal, type QuickAddSavedMode } from "../QuickAddModal";
 import styles from "./JournalTimeline.module.css";
 
@@ -165,6 +168,11 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     setModal({ kind: "edit", entry });
   }, []);
 
+  function clearFilters() {
+    setSearch("");
+    setFilters(DEFAULT_FILTERS);
+  }
+
   async function handleLoadMore() {
     if (!nextCursor) return;
     const requestId = listRequestSeq.current;
@@ -226,26 +234,44 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
             {totalMatching === 1 ? "1 entry" : `${totalMatching} entries`}
           </p>
         </div>
+        {!showEmptyState && (
+          <button
+            type="button"
+            className={styles.addButton}
+            onClick={() => setModal({ kind: "create", initialType: null })}
+          >
+            + Add entry
+          </button>
+        )}
       </header>
 
       {!showEmptyState && (
-        <div className={styles.toolbar}>
-          <input
-            type="search"
-            className={styles.searchInput}
-            placeholder="Search notes & tags…"
-            aria-label="Search notes and tags"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <button
-            type="button"
-            className={`${styles.filterButton} ${activeFilterCount > 0 ? styles.filterButtonActive : ""}`}
-            onClick={() => setFilterSheetOpen(true)}
-          >
-            {activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : "Filter"}
-          </button>
-        </div>
+        <>
+          <JournalStats entries={entries} />
+          <div className={styles.toolbar}>
+            <div className={styles.searchField}>
+              <span className={styles.searchIcon}>
+                <SearchIcon size={18} />
+              </span>
+              <input
+                type="search"
+                className={styles.searchInput}
+                placeholder="Search notes & tags…"
+                aria-label="Search notes and tags"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className={`${styles.filterButton} ${activeFilterCount > 0 ? styles.filterButtonActive : ""}`}
+              onClick={() => setFilterSheetOpen(true)}
+            >
+              {activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : "Filter"}
+            </button>
+          </div>
+          <FilterChips filters={filters} onChange={setFilters} />
+        </>
       )}
 
       {listError && (
@@ -260,29 +286,57 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
           onStart={(entryType) => setModal({ kind: "create", initialType: entryType })}
         />
       ) : (
-        <div className={styles.feed} aria-busy={loading}>
+        <div className={styles.timeline} aria-busy={loading}>
+          <span className={styles.spine} aria-hidden="true" />
           {dayGroups.map((group) => (
             <section key={group.dayKey} aria-label={group.label}>
               <div className={styles.dayRow}>
-                <h2 className={`${styles.dayLabel} display`}>{group.label}</h2>
-                <span className={styles.dayCount}>
-                  {group.entries.length === 1 ? "1 entry" : `${group.entries.length} entries`}
+                <span className={styles.gutter}>
+                  <span className={styles.dayDot} aria-hidden="true" />
                 </span>
+                <div className={styles.dayHead}>
+                  <h2 className={`${styles.dayLabel} display`}>{group.label}</h2>
+                  <span className={styles.dayCount}>
+                    {group.entries.length === 1 ? "1 entry" : `${group.entries.length} entries`}
+                  </span>
+                </div>
               </div>
               <div className={styles.dayEntries}>
-                {group.entries.map((entry) => (
-                  <EntryCard
-                    key={entry.id}
-                    entry={entry}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                  />
-                ))}
+                {group.entries.map((entry) => {
+                  const entryType = entry.payload.entry_type as EntryType;
+                  return (
+                    <div
+                      key={entry.id}
+                      className={styles.entryRow}
+                      style={
+                        {
+                          "--entry-accent": `var(${ENTRY_TYPE_META[entryType].accentVar})`,
+                        } as CSSProperties
+                      }
+                    >
+                      <span className={styles.gutter}>
+                        <span className={styles.bubble}>
+                          <EntryTypeIcon type={entryType} size={15} />
+                        </span>
+                      </span>
+                      <EntryCard entry={entry} onEdit={handleEdit} onDelete={handleDelete} />
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ))}
           {entries.length === 0 && hasActiveQuery && !loading && (
-            <p className={styles.noMatches}>No entries match — try widening the filters.</p>
+            <div className={styles.noMatch}>
+              <span className={styles.noMatchIcon}>
+                <SearchIcon size={24} />
+              </span>
+              <p className={`${styles.noMatchTitle} display`}>No entries match</p>
+              <p className={styles.noMatchBody}>Try a different search, or clear your filters.</p>
+              <button type="button" className={styles.clearButton} onClick={clearFilters}>
+                Clear filters
+              </button>
+            </div>
           )}
           {nextCursor && (
             <button
