@@ -27,6 +27,7 @@ from app.agent.graph import (
 )
 from app.agent.memory import DogMemoryStore
 from app.agent.memory_tools import build_memory_tools
+from app.agent.pet_food import OpenPetFoodFactsClient, PetFoodLookup
 from app.agent.prompt import PROMPT_VERSION, compose_system_prompt
 from app.agent.red_flags import EMERGENCY_BANNER, has_red_flag
 from app.agent.schemas import AgentAnswer, AgentStreamChunk, AgentStreamFinal
@@ -104,6 +105,7 @@ class PawPilotAgent:
         model: BaseChatModel,
         retriever: VetCorpusRetriever,
         web_search: WebSearch,
+        pet_food: PetFoodLookup,
         settings: AgentSettings,
         checkpointer: BaseCheckpointSaver[Any] | None = None,
         memory_store: DogMemoryStore | None = None,
@@ -111,6 +113,7 @@ class PawPilotAgent:
         self._model = model
         self._retriever = retriever
         self._web_search = web_search
+        self._pet_food = pet_food
         self._settings = settings
         self._checkpointer = checkpointer
         self._memory_store = memory_store
@@ -143,7 +146,12 @@ class PawPilotAgent:
         registry = CitationRegistry()
         invoked_tools: list[str] = []
         tools = build_agent_tools(
-            self._retriever, self._web_search, registry, invoked_tools, top_k=top_k
+            self._retriever,
+            self._web_search,
+            self._pet_food,
+            registry,
+            invoked_tools,
+            top_k=top_k,
         )
 
         if memory_active and self._memory_store is not None and dog_id is not None:
@@ -306,6 +314,7 @@ def build_agent(
         model=build_chat_model(settings),
         retriever=build_retriever(),
         web_search=TavilyWebSearch(settings),
+        pet_food=OpenPetFoodFactsClient(settings),
         settings=settings,
         checkpointer=checkpointer,
         memory_store=memory_store,

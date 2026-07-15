@@ -1,10 +1,11 @@
-"""Tests for the agent's two tools built by `build_agent_tools`.
+"""Tests for the agent's tools built by `build_agent_tools`.
 
 Each tool is exercised through its public ``invoke`` surface: the corpus tool
 registers ``[S#]`` passages in the shared `CitationRegistry` and records its name
-in ``invoked_tools``; the web tool does the same with ``[W#]`` snippets. Empty
-backends return the fixed no-result sentinels, and ``top_k`` is threaded through
-to the retriever. Everything here is pure logic — no DB, no network, no keys.
+in ``invoked_tools``; the web tool does the same with ``[W#]`` snippets, and the
+pet-food tool with ``[F#]`` passages. Empty backends return the fixed no-result
+sentinels, and ``top_k`` is threaded through to the retriever. Everything here is
+pure logic — no DB, no network, no keys.
 """
 
 from __future__ import annotations
@@ -14,12 +15,23 @@ from typing import cast
 from langchain_core.tools import BaseTool
 
 from app.agent.citations import CitationRegistry
-from app.agent.fakes import FakeWebSearch
-from app.agent.tools import _NO_CORPUS_RESULTS, _NO_WEB_RESULTS, build_agent_tools
+from app.agent.fakes import FakePetFood, FakeWebSearch
+from app.agent.pet_food import PetFoodProduct
+from app.agent.tools import (
+    _NO_CORPUS_RESULTS,
+    _NO_PET_FOOD_RESULTS,
+    _NO_WEB_RESULTS,
+    build_agent_tools,
+)
 from app.agent.web_search import WebSearchResult
 from app.rag.retriever import VetCorpusRetriever
 from app.rag.schemas import RetrievalMode, RetrievedChunk, SourceTier
-from tests.agent.conftest import StubRetriever, make_chunk, make_web_result
+from tests.agent.conftest import (
+    StubRetriever,
+    make_chunk,
+    make_pet_food_product,
+    make_web_result,
+)
 
 # --------------------------------------------------------------------------- #
 # Local helpers
@@ -57,16 +69,19 @@ def build_tools(
     *,
     chunks: list[RetrievedChunk] | None = None,
     web_results: list[WebSearchResult] | None = None,
+    pet_food_products: list[PetFoodProduct] | None = None,
     top_k: int = 5,
 ) -> tuple[list[BaseTool], CitationRegistry, list[str]]:
-    """Wire a fresh registry, `StubRetriever`, and `FakeWebSearch` into the tools."""
+    """Wire a fresh registry and the network-free backends into the tools."""
     registry = CitationRegistry()
     retriever = cast(VetCorpusRetriever, StubRetriever(chunks if chunks is not None else []))
     web_search_backend = FakeWebSearch(web_results if web_results is not None else [])
+    pet_food_backend = FakePetFood(pet_food_products if pet_food_products is not None else [])
     invoked_tools: list[str] = []
     tools = build_agent_tools(
         retriever,
         web_search_backend,
+        pet_food_backend,
         registry,
         invoked_tools,
         top_k=top_k,
@@ -75,13 +90,18 @@ def build_tools(
 
 
 def get_corpus_tool(tools: list[BaseTool]) -> BaseTool:
-    """The ``retrieve_vet_corpus`` tool from a built pair."""
+    """The ``retrieve_vet_corpus`` tool from a built set."""
     return next(tool for tool in tools if tool.name == "retrieve_vet_corpus")
 
 
 def get_web_tool(tools: list[BaseTool]) -> BaseTool:
-    """The ``web_search`` tool from a built pair."""
+    """The ``web_search`` tool from a built set."""
     return next(tool for tool in tools if tool.name == "web_search")
+
+
+def get_pet_food_tool(tools: list[BaseTool]) -> BaseTool:
+    """The ``lookup_pet_food`` tool from a built set."""
+    return next(tool for tool in tools if tool.name == "lookup_pet_food")
 
 
 def invoke_tool(tool: BaseTool, query: str) -> str:
@@ -96,15 +116,19 @@ def invoke_tool(tool: BaseTool, query: str) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def test_build_agent_tools_returns_two_tools() -> None:
+def test_build_agent_tools_returns_three_tools() -> None:
     tools, _registry, _invoked_tools = build_tools()
-    assert len(tools) == 2
+    assert len(tools) == 3
     assert all(isinstance(tool, BaseTool) for tool in tools)
 
 
 def test_build_agent_tools_returns_expected_tool_names() -> None:
     tools, _registry, _invoked_tools = build_tools()
-    assert [tool.name for tool in tools] == ["retrieve_vet_corpus", "web_search"]
+    assert [tool.name for tool in tools] == [
+        "retrieve_vet_corpus",
+        "web_search",
+        "lookup_pet_food",
+    ]
 
 
 def test_build_agent_tools_tools_have_descriptions() -> None:
@@ -214,10 +238,12 @@ def test_retrieve_vet_corpus_passes_top_k_to_retriever() -> None:
     registry = CitationRegistry()
     recording_retriever = RecordingRetriever([make_chunk(), make_chunk(chunk_id="chunk-2")])
     web_search_backend = FakeWebSearch([])
+    pet_food_backend = FakePetFood([])
     invoked_tools: list[str] = []
     tools = build_agent_tools(
         cast(VetCorpusRetriever, recording_retriever),
         web_search_backend,
+        pet_food_backend,
         registry,
         invoked_tools,
         top_k=3,
@@ -294,26 +320,101 @@ def test_web_search_registers_nothing_when_empty() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Both tools sharing one run's registry and invoked_tools list
+# lookup_pet_food — with results
 # --------------------------------------------------------------------------- #
 
 
-def test_both_tools_share_invoked_tools_in_call_order() -> None:
+def test_lookup_pet_food_returns_numbered_passage() -> None:
+    tools, _registry, _invoked_tools = build_tools(pet_food_products=[make_pet_food_product()])
+    result = invoke_tool(get_pet_food_tool(tools), "orijen six fish")
+    assert "[F1]" in result
+    assert "Orijen Six Fish" in result
+    assert "Crude protein: 40%" in result
+    assert "Whole sardine, whole hake, whole mackerel." in result
+
+
+def test_lookup_pet_food_appends_invoked_tool_name() -> None:
+    tools, _registry, invoked_tools = build_tools(pet_food_products=[make_pet_food_product()])
+    invoke_tool(get_pet_food_tool(tools), "orijen six fish")
+    assert invoked_tools == ["lookup_pet_food"]
+
+
+def test_lookup_pet_food_registers_food_citation() -> None:
+    tools, registry, _invoked_tools = build_tools(pet_food_products=[make_pet_food_product()])
+    invoke_tool(get_pet_food_tool(tools), "orijen six fish")
+    citations = registry.resolve(["F1"])
+    assert len(citations) == 1
+    citation = citations[0]
+    assert citation.ref == "F1"
+    assert citation.kind == "food"
+    assert citation.title == "Orijen Six Fish"
+    assert citation.url == "https://world.openpetfoodfacts.org/product/0064992281182"
+
+
+def test_lookup_pet_food_numbers_multiple_products() -> None:
+    tools, registry, _invoked_tools = build_tools(
+        pet_food_products=[
+            make_pet_food_product(),
+            make_pet_food_product(code="0064992184124", name="Regional Red"),
+        ]
+    )
+    result = invoke_tool(get_pet_food_tool(tools), "orijen")
+    assert "[F1]" in result
+    assert "[F2]" in result
+    assert [citation.ref for citation in registry.resolve(["F1", "F2"])] == ["F1", "F2"]
+
+
+# --------------------------------------------------------------------------- #
+# lookup_pet_food — empty
+# --------------------------------------------------------------------------- #
+
+
+def test_lookup_pet_food_returns_sentinel_when_empty() -> None:
+    tools, _registry, _invoked_tools = build_tools(pet_food_products=[])
+    result = invoke_tool(get_pet_food_tool(tools), "unknown food")
+    assert result == _NO_PET_FOOD_RESULTS
+
+
+def test_lookup_pet_food_still_records_name_when_empty() -> None:
+    tools, _registry, invoked_tools = build_tools(pet_food_products=[])
+    invoke_tool(get_pet_food_tool(tools), "unknown food")
+    assert invoked_tools == ["lookup_pet_food"]
+
+
+def test_lookup_pet_food_registers_nothing_when_empty() -> None:
+    tools, registry, _invoked_tools = build_tools(pet_food_products=[])
+    invoke_tool(get_pet_food_tool(tools), "unknown food")
+    assert registry.resolve(["F1"]) == []
+
+
+# --------------------------------------------------------------------------- #
+# All tools sharing one run's registry and invoked_tools list
+# --------------------------------------------------------------------------- #
+
+
+def test_all_tools_share_invoked_tools_in_call_order() -> None:
     tools, _registry, invoked_tools = build_tools(
-        chunks=[make_chunk()], web_results=[make_web_result()]
+        chunks=[make_chunk()],
+        web_results=[make_web_result()],
+        pet_food_products=[make_pet_food_product()],
     )
     invoke_tool(get_corpus_tool(tools), "vaccine")
     invoke_tool(get_web_tool(tools), "recall")
-    assert invoked_tools == ["retrieve_vet_corpus", "web_search"]
+    invoke_tool(get_pet_food_tool(tools), "orijen")
+    assert invoked_tools == ["retrieve_vet_corpus", "web_search", "lookup_pet_food"]
 
 
-def test_both_tools_register_independent_id_series() -> None:
+def test_all_tools_register_independent_id_series() -> None:
     tools, registry, _invoked_tools = build_tools(
-        chunks=[make_chunk()], web_results=[make_web_result()]
+        chunks=[make_chunk()],
+        web_results=[make_web_result()],
+        pet_food_products=[make_pet_food_product()],
     )
     corpus_result = invoke_tool(get_corpus_tool(tools), "vaccine")
     web_result = invoke_tool(get_web_tool(tools), "recall")
+    food_result = invoke_tool(get_pet_food_tool(tools), "orijen")
     assert "[S1]" in corpus_result
     assert "[W1]" in web_result
-    resolved = registry.resolve(["S1", "W1"])
-    assert [citation.kind for citation in resolved] == ["corpus", "web"]
+    assert "[F1]" in food_result
+    resolved = registry.resolve(["S1", "W1", "F1"])
+    assert [citation.kind for citation in resolved] == ["corpus", "web", "food"]
