@@ -1,0 +1,1 @@
+export { WeightTrend } from "./WeightTrend";

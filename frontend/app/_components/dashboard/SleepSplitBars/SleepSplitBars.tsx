@@ -1,6 +1,13 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { placeTooltip, pointerToIndex } from "../chartGeometry";
 import styles from "./SleepSplitBars.module.css";
 
 export type SleepSplitBar = {
@@ -38,8 +45,12 @@ function formatHoursMinutes(totalMinutes: number): string {
   return `${hours}h ${String(remainder).padStart(2, "0")}m`;
 }
 
+const DAY_NAP_FILL = "color-mix(in srgb, var(--blue-midnight) 35%, var(--paper))";
+
 export function SleepSplitBars({ bars, height = 200, accessibleLabel }: SleepSplitBarsProps) {
   const [containerRef, fullWidth] = useMeasuredWidth();
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const reactId = useId().replace(/[^a-z0-9]/gi, "");
 
   if (bars.length === 0) {
@@ -73,15 +84,68 @@ export function SleepSplitBars({ bars, height = 200, accessibleLabel }: SleepSpl
   const ariaLabel =
     accessibleLabel ?? `Sleep split bars, ${bars.length} days (night vs day)`;
 
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const bounds = svg.getBoundingClientRect();
+    setHoverIndex(
+      pointerToIndex({
+        clientX: event.clientX,
+        boundsLeft: bounds.left,
+        boundsWidth: bounds.width,
+        chartWidth,
+        paddingLeft,
+        innerWidth,
+        count: bars.length,
+        snap: "floor",
+      }),
+    );
+  };
+
+  const hoveredBar = hoverIndex !== null ? bars[hoverIndex] : null;
+  const tooltipLines = hoveredBar
+    ? [
+        {
+          text: `${hoveredBar.dayLabel} · ${formatHoursMinutes(hoveredBar.nightMinutes + hoveredBar.dayMinutes)}`,
+          color: "var(--ink-deep)",
+        },
+        { text: `night ${formatHoursMinutes(hoveredBar.nightMinutes)}`, color: "var(--blue-midnight)" },
+        { text: `day naps ${formatHoursMinutes(hoveredBar.dayMinutes)}`, color: "var(--muted)" },
+      ]
+    : [];
+  const tooltipWidth = Math.max(
+    88,
+    ...tooltipLines.map((line) => line.text.length * 6.2 + 18),
+  );
+  const tooltipHeight = 50;
+  const { x: tooltipX, y: tooltipY } =
+    hoveredBar !== null && hoverIndex !== null
+      ? placeTooltip({
+          pointX: paddingLeft + hoverIndex * slotWidth + slotWidth / 2,
+          pointY: yAt(hoveredBar.nightMinutes + hoveredBar.dayMinutes),
+          width: tooltipWidth,
+          height: tooltipHeight,
+          chartWidth,
+          paddingLeft,
+          paddingRight,
+          paddingTop,
+          offset: 8,
+          overflow: "clamp",
+        })
+      : { x: 0, y: 0 };
+
   return (
     <div ref={containerRef} className={styles.container}>
       {chartWidth > 0 && (
         <svg
+          ref={svgRef}
           width={chartWidth}
           height={height}
           className={styles.svg}
           role="img"
           aria-label={ariaLabel}
+          onPointerMove={handlePointerMove}
+          onPointerLeave={() => setHoverIndex(null)}
         >
           <title>{ariaLabel}</title>
 
@@ -119,8 +183,9 @@ export function SleepSplitBars({ bars, height = 200, accessibleLabel }: SleepSpl
             const total = bar.nightMinutes + bar.dayMinutes;
             const tooltip = `${bar.dayLabel} — ${formatHoursMinutes(total)} total · ${formatHoursMinutes(bar.nightMinutes)} night · ${formatHoursMinutes(bar.dayMinutes)} day`;
             const showLabel = index % labelStride === 0 || index === bars.length - 1;
+            const isDimmed = hoverIndex !== null && hoverIndex !== index;
             return (
-              <g key={`bar-${bar.date}-${reactId}`}>
+              <g key={`bar-${bar.date}-${reactId}`} opacity={isDimmed ? 0.45 : 1}>
                 <title>{tooltip}</title>
                 {nightHeight > 0 && (
                   <rect
@@ -138,7 +203,7 @@ export function SleepSplitBars({ bars, height = 200, accessibleLabel }: SleepSpl
                     y={dayTop}
                     width={barWidth}
                     height={dayHeight}
-                    fill="color-mix(in srgb, var(--blue-midnight) 35%, var(--paper))"
+                    fill={DAY_NAP_FILL}
                     rx="2"
                   />
                 )}
@@ -157,6 +222,40 @@ export function SleepSplitBars({ bars, height = 200, accessibleLabel }: SleepSpl
               </g>
             );
           })}
+
+          {hoveredBar && (
+            <g aria-hidden>
+              <rect
+                x={tooltipX}
+                y={tooltipY}
+                rx="4"
+                ry="4"
+                width={tooltipWidth}
+                height={tooltipHeight}
+                fill="var(--card)"
+                stroke="var(--hairline-strong)"
+                strokeWidth="0.75"
+              />
+              {tooltipLines.map((line, lineIndex) => (
+                <text
+                  key={`tooltip-line-${lineIndex}`}
+                  x={tooltipX + 10}
+                  y={tooltipY + 15 + lineIndex * 13}
+                  fontFamily={
+                    lineIndex === 0
+                      ? "var(--font-fraunces), Georgia, serif"
+                      : "var(--font-jetbrains-mono), ui-monospace, monospace"
+                  }
+                  fontSize={lineIndex === 0 ? "11" : "10"}
+                  fontWeight={lineIndex === 0 ? "500" : "400"}
+                  fill={line.color}
+                  letterSpacing="0.02em"
+                >
+                  {line.text}
+                </text>
+              ))}
+            </g>
+          )}
         </svg>
       )}
 

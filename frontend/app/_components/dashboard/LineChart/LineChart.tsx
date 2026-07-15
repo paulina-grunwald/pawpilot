@@ -1,6 +1,20 @@
 "use client";
 
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
+import {
+  computeYBounds,
+  isLabelVisibleFromEnd,
+  labelStep,
+  placeTooltip,
+  pointerToIndex,
+} from "../chartGeometry";
 import styles from "./LineChart.module.css";
 
 const DEFAULT_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
@@ -19,6 +33,8 @@ type LineChartProps = {
   unit?: string;
   compact?: boolean;
   accessibleLabel?: string;
+  seriesLabel?: string;
+  meanLabel?: string;
 };
 
 function useMeasuredWidth() {
@@ -106,8 +122,12 @@ export function LineChart({
   unit = "",
   compact = false,
   accessibleLabel,
+  seriesLabel = "this week",
+  meanLabel = "30-day mean",
 }: LineChartProps) {
   const [containerRef, fullWidth] = useMeasuredWidth();
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const reactId = useId().replace(/[^a-z0-9]/gi, "");
   const fillId = `line-${reactId}-fill`;
   const hatchPatternId = `line-${reactId}-hatch`;
@@ -124,16 +144,11 @@ export function LineChart({
   const innerWidth = chartWidth - paddingLeft - paddingRight;
   const innerHeight = height - paddingTop - paddingBottom;
 
-  const allValues: number[] = [...values];
-  if (baseline) allValues.push(baseline.low, baseline.high);
-  if (goal != null) allValues.push(goal);
-  if (mean != null) allValues.push(mean);
-
-  const minOfValues = allValues.reduce((acc, value) => (value < acc ? value : acc), Infinity);
-  const maxOfValues = allValues.reduce((acc, value) => (value > acc ? value : acc), -Infinity);
-  const span = maxOfValues - minOfValues || 1;
-  const yMin = Math.max(0, minOfValues - span * 0.18);
-  const yMax = maxOfValues + span * 0.18;
+  const extraBounds: number[] = [];
+  if (baseline) extraBounds.push(baseline.low, baseline.high);
+  if (goal != null) extraBounds.push(goal);
+  if (mean != null) extraBounds.push(mean);
+  const { yMin, yMax } = computeYBounds(values, extraBounds);
 
   const xAt = (index: number) => paddingLeft + (index / (values.length - 1)) * innerWidth;
   const yAt = (value: number) =>
@@ -147,23 +162,67 @@ export function LineChart({
     .map((value, index) => `${index === 0 ? "M" : "L"}${xAt(index)},${yAt(value)}`)
     .join(" ");
   const todayIndex = values.length - 1;
-  const todayY = yAt(values[todayIndex]);
   const todayX = xAt(todayIndex);
-  const calloutAbove = todayY - paddingTop > 22;
-  const calloutY = calloutAbove ? todayY - 22 : todayY + 6;
 
   const ariaLabel =
     accessibleLabel ?? `Line chart: latest value ${yFormat(values[todayIndex])}${unit}`;
+
+  const xLabelStep = labelStep(values.length, innerWidth);
+  const showXLabelAt = (index: number) =>
+    isLabelVisibleFromEnd(index, values.length, xLabelStep);
+
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const bounds = svg.getBoundingClientRect();
+    setHoverIndex(
+      pointerToIndex({
+        clientX: event.clientX,
+        boundsLeft: bounds.left,
+        boundsWidth: bounds.width,
+        chartWidth,
+        paddingLeft,
+        innerWidth,
+        count: values.length,
+      }),
+    );
+  };
+
+  const activeIndex = hoverIndex ?? todayIndex;
+  const hoverValueText = `${yFormat(values[activeIndex])}${unit}`;
+  const hoverDateText = dates
+    ? String(dates[activeIndex])
+    : (days[activeIndex] ?? String(activeIndex + 1));
+  const tooltipWidth = Math.max(
+    52,
+    hoverValueText.length * 7 + 16,
+    hoverDateText.length * 5.5 + 16,
+  );
+  const tooltipHeight = dates ? 32 : 20;
+  const { x: tooltipX, y: tooltipY } = placeTooltip({
+    pointX: xAt(activeIndex),
+    pointY: yAt(values[activeIndex]),
+    width: tooltipWidth,
+    height: tooltipHeight,
+    chartWidth,
+    paddingLeft,
+    paddingRight,
+    paddingTop,
+    overflow: "flip",
+  });
 
   return (
     <div ref={containerRef} className={styles.container}>
       {chartWidth > 0 && (
         <svg
+          ref={svgRef}
           width={chartWidth}
           height={height}
           className={styles.svg}
           role="img"
           aria-label={ariaLabel}
+          onPointerMove={handlePointerMove}
+          onPointerLeave={() => setHoverIndex(null)}
         >
           <title>{ariaLabel}</title>
           <defs>
@@ -314,46 +373,73 @@ export function LineChart({
             strokeOpacity="0.45"
           />
 
+          {hoverIndex !== null && hoverIndex !== todayIndex && (
+            <line
+              aria-hidden
+              x1={xAt(hoverIndex)}
+              x2={xAt(hoverIndex)}
+              y1={paddingTop}
+              y2={paddingTop + innerHeight}
+              stroke={color}
+              strokeWidth="0.75"
+              strokeDasharray="2 3"
+              strokeOpacity="0.45"
+            />
+          )}
+
           {values.map((value, index) => (
             <g key={`datapoint-${index}`} aria-hidden>
-              {index === todayIndex && (
+              {index === activeIndex && (
                 <circle cx={xAt(index)} cy={yAt(value)} r="9" fill={color} fillOpacity="0.16" />
               )}
               <circle
                 cx={xAt(index)}
                 cy={yAt(value)}
-                r={index === todayIndex ? 4 : 2.5}
+                r={index === activeIndex ? 4 : 2.5}
                 fill="var(--card)"
                 stroke={color}
-                strokeWidth={index === todayIndex ? 2 : 1.5}
+                strokeWidth={index === activeIndex ? 2 : 1.5}
               />
             </g>
           ))}
 
           <g aria-hidden>
             <rect
-              x={Math.min(todayX + 8, chartWidth - paddingRight - 46)}
-              y={calloutY - 12}
+              x={tooltipX}
+              y={tooltipY}
               rx="3"
               ry="3"
-              width={50}
-              height={20}
+              width={tooltipWidth}
+              height={tooltipHeight}
               fill="var(--card)"
               stroke="var(--hairline-strong)"
               strokeWidth="0.75"
             />
             <text
-              x={Math.min(todayX + 8, chartWidth - paddingRight - 46) + 7}
-              y={calloutY + 2}
+              x={tooltipX + tooltipWidth / 2}
+              y={tooltipY + 14}
+              textAnchor="middle"
               fontFamily="var(--font-fraunces), Georgia, serif"
               fontSize="12"
               fontWeight="500"
               fill="var(--ink-deep)"
               letterSpacing="-0.01em"
             >
-              {yFormat(values[todayIndex])}
-              {unit}
+              {hoverValueText}
             </text>
+            {dates && (
+              <text
+                x={tooltipX + tooltipWidth / 2}
+                y={tooltipY + 26}
+                textAnchor="middle"
+                fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
+                fontSize="9"
+                fill="var(--muted-2)"
+                letterSpacing="0.04em"
+              >
+                {hoverDateText}
+              </text>
+            )}
           </g>
 
           <line
@@ -365,59 +451,62 @@ export function LineChart({
             stroke="var(--hairline-strong)"
             strokeWidth="0.75"
           />
-          {values.map((_, index) => (
-            <g key={`xtick-${index}`} aria-hidden>
-              <line
-                x1={xAt(index)}
-                x2={xAt(index)}
-                y1={paddingTop + innerHeight + 2}
-                y2={paddingTop + innerHeight + 5}
-                stroke="var(--hairline-strong)"
-                strokeWidth="0.75"
-              />
-              <text
-                x={xAt(index)}
-                y={paddingTop + innerHeight + 15}
-                textAnchor="middle"
-                fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
-                fontSize="10"
-                fontWeight={index === todayIndex ? 600 : 400}
-                fill={
-                  index === todayIndex
-                    ? "var(--ink-deep)"
-                    : index >= 5
-                      ? "var(--ochre)"
-                      : "var(--muted-2)"
-                }
-                letterSpacing="0.04em"
-              >
-                {days[index] ?? String(index + 1)}
-              </text>
-              {dates && (
+          {values.map((_, index) => {
+            if (!showXLabelAt(index)) return null;
+            return (
+              <g key={`xtick-${index}`} aria-hidden>
+                <line
+                  x1={xAt(index)}
+                  x2={xAt(index)}
+                  y1={paddingTop + innerHeight + 2}
+                  y2={paddingTop + innerHeight + 5}
+                  stroke="var(--hairline-strong)"
+                  strokeWidth="0.75"
+                />
                 <text
                   x={xAt(index)}
-                  y={paddingTop + innerHeight + 26}
+                  y={paddingTop + innerHeight + 15}
                   textAnchor="middle"
                   fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
-                  fontSize="9"
-                  fill="var(--muted-2)"
+                  fontSize="10"
+                  fontWeight={index === todayIndex ? 600 : 400}
+                  fill={
+                    index === todayIndex
+                      ? "var(--ink-deep)"
+                      : index >= 5
+                        ? "var(--ochre)"
+                        : "var(--muted-2)"
+                  }
+                  letterSpacing="0.04em"
                 >
-                  {dates[index]}
+                  {days[index] ?? String(index + 1)}
                 </text>
-              )}
-            </g>
-          ))}
+                {dates && (
+                  <text
+                    x={xAt(index)}
+                    y={paddingTop + innerHeight + 26}
+                    textAnchor="middle"
+                    fontFamily="var(--font-jetbrains-mono), ui-monospace, monospace"
+                    fontSize="9"
+                    fill="var(--muted-2)"
+                  >
+                    {dates[index]}
+                  </text>
+                )}
+              </g>
+            );
+          })}
         </svg>
       )}
 
       {!compact && (
         <div className={`${styles.legend} mono`} style={{ paddingLeft }}>
           <LegendSwatch type="solid" color={color}>
-            this week
+            {seriesLabel}
           </LegendSwatch>
           {mean != null && (
             <LegendSwatch type="dash" color="var(--muted)">
-              30-day mean
+              {meanLabel}
             </LegendSwatch>
           )}
           {baseline && <LegendSwatch type="hatch">baseline range</LegendSwatch>}

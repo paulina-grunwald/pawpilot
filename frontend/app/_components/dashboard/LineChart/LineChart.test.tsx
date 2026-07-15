@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { LineChart } from "./LineChart";
 
 describe("LineChart", () => {
@@ -31,5 +31,36 @@ describe("LineChart", () => {
   it("includes goal label when a goal is provided", () => {
     render(<LineChart values={[1, 2, 3, 4]} goal={5} />);
     expect(screen.getByText(/goal 5/i)).toBeInTheDocument();
+  });
+
+  it("shows the hovered point's value in the tooltip", () => {
+    render(
+      <LineChart
+        values={[10, 20, 30, 40]}
+        yFormat={(value) => `${value} min`}
+        accessibleLabel="Activity"
+      />,
+    );
+    const svg = screen.getByRole("img", { name: /activity/i });
+    // Default (no hover) shows the latest value.
+    expect(screen.getByText(/40 min/)).toBeInTheDocument();
+    // Hover near the left edge to select the first point.
+    fireEvent.pointerMove(svg, { clientX: 0, clientY: 50 });
+    expect(screen.getByText(/10 min/)).toBeInTheDocument();
+    // Leaving the chart restores the latest-value tooltip.
+    fireEvent.pointerLeave(svg);
+    expect(screen.getByText(/40 min/)).toBeInTheDocument();
+  });
+
+  it("thins x-axis date labels for long ranges", () => {
+    const values = Array.from({ length: 90 }, (_, index) => index);
+    const dates = Array.from({ length: 90 }, (_, index) => `d${index}`);
+    render(<LineChart values={values} dates={dates} accessibleLabel="Activity" />);
+    const renderedDateLabels = dates.filter(
+      (date) => screen.queryAllByText(date).length > 0,
+    );
+    // Far fewer than all 90 labels are drawn, but the latest day is kept.
+    expect(renderedDateLabels.length).toBeLessThan(90);
+    expect(screen.queryAllByText("d89").length).toBeGreaterThan(0);
   });
 });

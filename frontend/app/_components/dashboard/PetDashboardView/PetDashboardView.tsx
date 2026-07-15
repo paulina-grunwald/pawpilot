@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import type { WeightSeriesPoint } from "@/lib/weight";
 import type { SleepSplitBar } from "../SleepSplitBars";
 import { PetCard, type PetCardData } from "../../pets/PetCard";
 import { TodayPanel, type TodayPanelData } from "../TodayPanel";
+import { WeightTrend } from "../WeightTrend";
 import styles from "./PetDashboardView.module.css";
 
 export type DashboardPet = PetCardData;
@@ -12,6 +14,7 @@ type PetDashboardViewProps = {
   todayLabel: string;
   todayData?: TodayPanelData;
   sleepSplitBars?: SleepSplitBar[];
+  weightSeries?: WeightSeriesPoint[];
   rangeLabel?: string;
 };
 
@@ -21,6 +24,7 @@ export function PetDashboardView({
   todayLabel,
   todayData,
   sleepSplitBars,
+  weightSeries,
   rangeLabel,
 }: PetDashboardViewProps) {
   return (
@@ -37,6 +41,8 @@ export function PetDashboardView({
         sleepSplitBars={sleepSplitBars}
         rangeLabel={rangeLabel}
       />
+
+      <WeightTrend series={weightSeries} rangeLabel={rangeLabel} />
     </main>
   );
 }

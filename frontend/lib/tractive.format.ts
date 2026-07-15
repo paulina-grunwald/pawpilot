@@ -1,5 +1,6 @@
 import type { SleepSplitBar } from "@/app/_components/dashboard/SleepSplitBars";
 import type { TodayPanelData } from "@/app/_components/dashboard/TodayPanel/TodayPanel";
+import { formatMonthDay } from "./date";
 import type { TractiveDailySummary } from "./tractive";
 
 // TODO: make the daily active target per-pet user-configurable. Right now this
@@ -59,17 +60,6 @@ function totalSleepMinutes(rollup: TractiveDailySummary): number {
 function roundedPercent(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
   return Math.round(value);
-}
-
-function formatMonthDay(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  if (!year || !month || !day) return isoDate;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function meanOfPreceding(
