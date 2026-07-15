@@ -1,3 +1,4 @@
+import { formatWeekday } from "@/lib/date";
 import { formatWeightKg, meanWeightGrams, type WeightSeriesPoint } from "@/lib/weight";
 import { LineChart } from "../LineChart";
 import styles from "./WeightTrend.module.css";
@@ -29,6 +30,7 @@ export function WeightTrend({ series, rangeLabel }: WeightTrendProps) {
       {points.length >= 2 ? (
         <LineChart
           values={points.map((point) => point.weightGrams)}
+          days={points.map((point) => formatWeekday(point.date))}
           dates={points.map((point) => point.label)}
           height={180}
           color="var(--forest)"
