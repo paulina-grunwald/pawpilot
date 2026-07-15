@@ -30,10 +30,6 @@ Rules:
 Fall back to `web_search` when the corpus is weak, empty, or the question is about \
 recalls/news/products. Use `lookup_pet_food` when the question is about a specific \
 commercial food's nutrition or ingredients.
-2. Cite everything: never make a health claim without citing the passage it came \
-from by its id, e.g. "Adult dogs need a booster every three years [S2]." Do not \
-invent citation ids.
-recalls/news/products.
 2. Ground every claim, and claim only what a passage supports: cite each health \
 claim by the id of the passage that backs it, e.g. "Adult dogs need a booster every \
 three years [S2]." Assert only what a retrieved passage actually states. Do not add \
@@ -65,12 +61,29 @@ MEMORY_WRITE_RULE = (
     "details, guesses, or health advice."
 )
 
+DATA_TOOL_RULE = (
+    "This dog's own data: when the owner asks about their dog's measured sleep, "
+    "rest, or activity, read the dog's tracker data instead of estimating from the "
+    "corpus. For an average over a recent window, for example 'how many hours did "
+    "my dog sleep this week?', call get_dog_sleep_summary. For one specific calendar "
+    "day, for example 'how much did my dog sleep on 22 May?', call "
+    "get_dog_sleep_on_date with that date. Report the figures the tool returns, and "
+    "if it says some days had no data, mention how many days were actually covered."
+)
 
-def compose_system_prompt(*, memory_block: str = "", include_memory_rule: bool = False) -> str:
-    """Assemble the run's system prompt: base + optional memory rule + known facts."""
+
+def compose_system_prompt(
+    *,
+    memory_block: str = "",
+    include_memory_rule: bool = False,
+    include_data_rule: bool = False,
+) -> str:
+    """Assemble the run's system prompt: base + optional rules + known facts."""
     sections = [SYSTEM_PROMPT]
     if include_memory_rule:
         sections.append(MEMORY_WRITE_RULE)
+    if include_data_rule:
+        sections.append(DATA_TOOL_RULE)
     if memory_block:
         sections.append(memory_block)
     return "\n\n".join(sections)

@@ -12,8 +12,8 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agent import runner
-from app.agent.fakes import ScriptedChatModel
-from app.agent.prompt import VET_DISCLAIMER
+from app.agent.fakes import FakeSleepReader, ScriptedChatModel
+from app.agent.prompt import DATA_TOOL_RULE, VET_DISCLAIMER
 from app.agent.red_flags import EMERGENCY_BANNER
 from app.agent.runner import (
     PawPilotAgent,
@@ -21,6 +21,7 @@ from app.agent.runner import (
     validate_query,
 )
 from app.agent.schemas import AgentAnswer, AgentStreamChunk, AgentStreamFinal
+from app.integrations.tractive.read_service import SleepSummary
 from tests.agent.conftest import (
     build_test_agent,
     make_agent_settings,
@@ -29,6 +30,35 @@ from tests.agent.conftest import (
     make_web_result,
     tool_call_message,
 )
+
+
+def _sleep_summary() -> SleepSummary:
+    """A populated `SleepSummary` for the sleep-tool wiring tests."""
+    return SleepSummary(
+        days_requested=7,
+        days_with_data=7,
+        average_total_sleep_hours=8.0,
+        average_night_sleep_hours=6.5,
+        average_day_sleep_hours=1.5,
+        start_date=None,
+        end_date=None,
+    )
+
+
+def _sleep_tool_call(days: int = 7, call_id: str = "call-1") -> AIMessage:
+    """An assistant turn that calls the sleep tool with a ``days`` argument."""
+    return AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "get_dog_sleep_summary",
+                "args": {"days": days},
+                "id": call_id,
+                "type": "tool_call",
+            }
+        ],
+    )
+
 
 # --------------------------------------------------------------------------- #
 # validate_query
@@ -276,6 +306,74 @@ def test_memory_context_inactive_without_store() -> None:
     active, block = agent._memory_context("dog-1")
     assert active is False
     assert block == ""
+
+
+# --------------------------------------------------------------------------- #
+# Sleep tool wiring (get_dog_sleep_summary)
+# --------------------------------------------------------------------------- #
+
+
+async def test_arun_invokes_sleep_tool_when_reader_supplied() -> None:
+    reader = FakeSleepReader(_sleep_summary())
+    agent = build_test_agent(
+        responses=[
+            _sleep_tool_call(days=7),
+            AIMessage(content=f"Your dog slept about 8 hours a night. {VET_DISCLAIMER}"),
+        ],
+    )
+
+    answer = await agent.arun("How much did my dog sleep this week?", sleep_reader=reader)
+
+    assert answer.tool_calls == ["get_dog_sleep_summary"]
+    assert reader.requested_days == [7]
+    assert "8 hours" in answer.text
+
+
+async def test_arun_without_reader_does_not_wire_sleep_tool() -> None:
+    model = ScriptedChatModel(responses=[AIMessage(content=f"Sure. {VET_DISCLAIMER}")])
+    agent = build_test_agent(model=model)
+
+    await agent.arun("General question")
+
+    system_messages = [
+        str(message.content)
+        for batch in model.received_batches
+        for message in batch
+        if message.type == "system"
+    ]
+    assert all(DATA_TOOL_RULE not in content for content in system_messages)
+
+
+async def test_arun_includes_data_rule_in_system_prompt_when_reader_supplied() -> None:
+    model = ScriptedChatModel(responses=[AIMessage(content=f"Sure. {VET_DISCLAIMER}")])
+    agent = build_test_agent(model=model)
+
+    await agent.arun("General question", sleep_reader=FakeSleepReader(_sleep_summary()))
+
+    system_messages = [
+        str(message.content)
+        for batch in model.received_batches
+        for message in batch
+        if message.type == "system"
+    ]
+    assert any(DATA_TOOL_RULE in content for content in system_messages)
+
+
+async def test_astream_run_invokes_sleep_tool_when_reader_supplied() -> None:
+    reader = FakeSleepReader(_sleep_summary())
+    agent = build_test_agent(
+        responses=[
+            _sleep_tool_call(days=7),
+            AIMessage(content=f"About 8 hours a night. {VET_DISCLAIMER}"),
+        ],
+    )
+
+    events = [event async for event in agent.astream_run("How much sleep?", sleep_reader=reader)]
+
+    finals = [event for event in events if isinstance(event, AgentStreamFinal)]
+    assert len(finals) == 1
+    assert finals[0].tool_calls == ["get_dog_sleep_summary"]
+    assert reader.requested_days == [7]
 
 
 # --------------------------------------------------------------------------- #

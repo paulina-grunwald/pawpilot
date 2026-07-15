@@ -8,6 +8,7 @@ no network, no DB.
 from __future__ import annotations
 
 from app.agent.prompt import (
+    DATA_TOOL_RULE,
     MEMORY_WRITE_RULE,
     PROMPT_VERSION,
     SYSTEM_PROMPT,
@@ -37,6 +38,19 @@ def test_memory_write_rule_is_non_empty_string() -> None:
 
 def test_memory_write_rule_mentions_save_dog_memory() -> None:
     assert "save_dog_memory" in MEMORY_WRITE_RULE
+
+
+def test_data_tool_rule_is_non_empty_string() -> None:
+    assert isinstance(DATA_TOOL_RULE, str)
+    assert DATA_TOOL_RULE != ""
+
+
+def test_data_tool_rule_mentions_get_dog_sleep_summary() -> None:
+    assert "get_dog_sleep_summary" in DATA_TOOL_RULE
+
+
+def test_data_tool_rule_mentions_get_dog_sleep_on_date() -> None:
+    assert "get_dog_sleep_on_date" in DATA_TOOL_RULE
 
 
 def test_system_prompt_contains_vet_disclaimer() -> None:
@@ -90,6 +104,32 @@ def test_compose_memory_rule_mentions_save_dog_memory() -> None:
 
 def test_compose_include_memory_rule_false_is_base_only() -> None:
     assert compose_system_prompt(include_memory_rule=False) == SYSTEM_PROMPT
+
+
+# --------------------------------------------------------------------------- #
+# compose_system_prompt — data-tool rule
+# --------------------------------------------------------------------------- #
+
+
+def test_compose_appends_data_tool_rule_when_requested() -> None:
+    prompt = compose_system_prompt(include_data_rule=True)
+    assert prompt == f"{SYSTEM_PROMPT}\n\n{DATA_TOOL_RULE}"
+
+
+def test_compose_include_data_rule_false_is_base_only() -> None:
+    assert compose_system_prompt(include_data_rule=False) == SYSTEM_PROMPT
+
+
+def test_compose_omits_data_tool_rule_by_default() -> None:
+    assert DATA_TOOL_RULE not in compose_system_prompt()
+
+
+def test_compose_orders_memory_rule_then_data_rule_then_block() -> None:
+    memory_block = "Known facts about Rex:\n- age: 4 years"
+    prompt = compose_system_prompt(
+        memory_block=memory_block, include_memory_rule=True, include_data_rule=True
+    )
+    assert prompt == f"{SYSTEM_PROMPT}\n\n{MEMORY_WRITE_RULE}\n\n{DATA_TOOL_RULE}\n\n{memory_block}"
 
 
 # --------------------------------------------------------------------------- #

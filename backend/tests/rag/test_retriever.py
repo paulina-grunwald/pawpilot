@@ -254,6 +254,8 @@ def test_rerank_drops_negative_reranker_index_without_wrapping() -> None:
 
 
 def test_rerank_returns_empty_when_dense_search_has_no_hits() -> None:
+    # A non-empty filter matching zero points reaches _rerank_search, whose own
+    # empty-candidates guard returns [] without ever calling the reranker.
     retriever = _make_retriever(default_mode="rerank", reranker=_RaisingReranker())
     assert retriever.retrieve("anything", sources=["does-not-exist"]) == []
 
