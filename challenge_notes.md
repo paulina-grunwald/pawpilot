@@ -44,7 +44,7 @@ This is the Task 1 deliverable: a list of input-output pairs that define what Pa
 These set the product's target scope across all four sources: the knowledge-base subset that the vet corpus can ground today is what the Task 5 eval harness actually measures (see Task 5).
 
 > ❗NOTE:
-> **Scope for this mid-term challenge.** The table below reflects PawPilot's target design. Not every data path is fully wired for this submission (in particular, giving the agent access to the complete set of Tractive metrics and letting it query the application database directly (long-range activity/vitals history, free-form journal look-ups) is planned for a later iteration). The rows that depend on live tracker/DB access (2, 3, 4, 5, 10, 13) are kept in to represent the intended product. For now they're evaluated against a representative data snapshot, and will be re-run once that tooling ships.
+> **Scope for this mid-term challenge.** The table below reflects PawPilot's target design. Not every data path is fully wired for this submission. The first live database-query tool has now shipped: the agent can read this dog's own measured sleep directly from its Tractive rollups (get_dog_sleep_summary / get_dog_sleep_on_date), so the sleep portion of rows 3 and 13 is data-backed today. The remaining Tractive metrics (activity, vitals) and free-form journal look-ups are still on the roadmap, so the rows that lean on them (2, 4, 5, 10, and the activity/journal portions of 3 and 13) are kept in to represent the intended product. For now those are evaluated against a representative data snapshot, and will be re-run once the rest of that tooling ships.
 
 Sources:
 
@@ -98,7 +98,7 @@ flowchart TB
         subgraph Agent["LangGraph agent: ReAct tool loop"]
             direction TB
             LLMnode["Chat model turn"]
-            Tools["Tools:<br/>retrieve_vet_corpus, web_search,<br/>lookup_pet_food, dog memory"]
+            Tools["Tools:<br/>retrieve_vet_corpus, web_search,<br/>lookup_pet_food, dog sleep, dog memory"]
         end
         PG[("Postgres<br/>app data, journal, Tractive snapshot, auth<br/>plus agent checkpoints and per-dog memory")]
         QD[("Qdrant<br/>vet_corpus, dense 1536-d cosine")]
@@ -108,6 +108,7 @@ flowchart TB
         API --> Media
         Agent --> PG
         Tools --> QD
+        Tools -->|read dog sleep rollups| PG
     end
 
     subgraph SaaS["Managed AI and Observability"]
@@ -147,9 +148,12 @@ flowchart TB
 - retrieve_vet_corpus (RAG over the vet corpus)
 - web_search (Tavily)
 - lookup_pet_food (pet-food nutrition via the Open Pet Food Facts API)
+- get_dog_sleep_summary / get_dog_sleep_on_date (this dog's own measured sleep from the Tractive tracker data in Postgres)
 - dog-memory read/write.
 
-Lets one agent decide per question whether to ground in the vet corpus, fetch live web info (recalls, ER vets), look up a pet-food product's nutrition, or recall this dog's history.
+Lets one agent decide per question whether to ground in the vet corpus, fetch live web info (recalls, ER vets), look up a pet-food product's nutrition, read this specific dog's measured sleep, or recall this dog's history.
+
+The two sleep tools are the first live, owner-scoped query into the dog's tracker history: they read the daily Tractive rollups from Postgres, so a question like "how many hours did my dog sleep this week?" is answered from the dog's real data rather than an estimate. Each tool is bound per request to a reader that is already scoped to the owner's pet, so the model chooses only the time window (default 7 days, at most 90) or a single date, never whose data it reads. The average is computed server-side so the model never does the arithmetic, and the tool reports how many days in the window actually had data so the answer can caveat missing days instead of pretending the window was full.
 
 4. **Embedding model** — OpenAI text-embedding-3-small. Strong retrieval quality at low cost through the same Vercel AI Gateway key (no extra provider for embeddings)
 
@@ -192,12 +196,15 @@ flowchart TD
         Reason -->|recall / news / local vet| Web["🌐 web_search (Tavily)"]
         Reason -->|owner states a durable fact| Save["💾 save_dog_memory / list_dog_memories / delete_dog_memory"]
         Reason -->|pet-food product / nutrition| Food["🍖 lookup_pet_food (Open Pet Food Facts)"]
+        Reason -->|this dog's own sleep / rest| Sleep["😴 get_dog_sleep_summary / get_dog_sleep_on_date"]
         RAG --> Embed["embed query (Gateway) →<br/>Qdrant dense cosine search →<br/>passages [S1], [S2] …"]
         Web --> Snip["web snippets [W1], [W2] …"]
+        Sleep --> SleepQuery["read this dog's Tractive rollups (Postgres) →<br/>server-side sleep averages + days covered"]
         Embed --> Reason
         Snip --> Reason
         Save --> Reason
         Food --> Reason
+        SleepQuery --> Reason
         Reason -->|ready| Answer["✍️ Draft answer:<br/>cite [S#] / [W#], or abstain"]
     end
 
@@ -210,7 +217,7 @@ flowchart TD
     Reason -. every step traced .-> LS["📊 LangSmith (EU)"]
 ```
 
-When an owner asks a question in the chat UI, the request hits POST /agent/ask (auth users only), which loads the selected pet as an owner-scoped dog_id and namespaces the conversation thread by user id so no one can resume another user's chat. Before the model runs, PawPilot loads that dog's remembered facts from the long-term Postgres store into the system prompt and runs a fast, deterministic red-flag keyword scan over the question. The question then enters a ReAct tool-calling loop driven by gpt-5.4-mini (reached through the Vercel AI Gateway at low temperature). At each step the model reasons about whether it needs evidence and picks a tool: retrieve_vet_corpus for any health claim, which embeds the query through the Gateway and runs a dense cosine search over the Qdrant vet corpus and returns passages, web_search via Tavily for recalls, lookup_pet_food for a pet-food product's nutrition via Open Pet Food Facts, or the dog-memory tools to save a durable fact the owner just stated. It keeps looping (reason, call a tool, read the result, reason again) until it can answer or it hits its tool-call budget, in which case it returns a safe fallback message.
+When an owner asks a question in the chat UI, the request hits POST /agent/ask (auth users only), which loads the selected pet as an owner-scoped dog_id and namespaces the conversation thread by user id so no one can resume another user's chat. Before the model runs, PawPilot loads that dog's remembered facts from the long-term Postgres store into the system prompt and runs a fast, deterministic red-flag keyword scan over the question. The question then enters a ReAct tool-calling loop driven by gpt-5.4-mini (reached through the Vercel AI Gateway at low temperature). At each step the model reasons about whether it needs evidence and picks a tool: retrieve_vet_corpus for any health claim, which embeds the query through the Gateway and runs a dense cosine search over the Qdrant vet corpus and returns passages, web_search via Tavily for recalls, lookup_pet_food for a pet-food product's nutrition via Open Pet Food Facts, get_dog_sleep_summary / get_dog_sleep_on_date to read this specific dog's measured sleep from its Tractive rollups in Postgres (owner-scoped, averaged server-side over a window or a single date), or the dog-memory tools to save a durable fact the owner just stated. It keeps looping (reason, call a tool, read the result, reason again) until it can answer or it hits its tool-call budget, in which case it returns a safe fallback message.
 
 To build the final output, PawPilot maps each inline citation marker the model used back to the real source it came from (its title, link, and passage snippet), prepends an emergency banner if the red-flag check fired (the veterinary disclaimer itself is produced by the model, which a fixed system-prompt rule instructs to end every health answer with, rather than appended by this step); the conversation is then checkpointed to Postgres so the next question keeps its context. The owner receives a grounded, cited answer along with an emergency flag and the list of tools that ran. There is no human-in-the-loop approval step by design, because PawPilot is a triage second opinion rather than a diagnosis. Every run is traced end to end in LangSmith so behavior can be audited and evaluated offline.
 
@@ -244,7 +251,7 @@ External APIs (the agentic search tool):
 
 How they interact during usage: a single ReAct agent decides, per question, which source to reach for. For a health question it goes corpus-first and falls back to or supplements with Tavily (web_search) for recalls, news, or anything the corpus covers weakly. The agent cites both inline, and the final answer resolves those tags back to real sources.
 
-NOTE: Scope note (current build): the vet corpus and Tavily are fully wired into the agent today. Personalization currently flows through the agent's long-term memory of owner-confirmed facts about the dog; giving the agent live query access to the full Tractive and journal history is the planned next iteration (see the scope note under Task 1).
+NOTE: Scope note (current build): the vet corpus and Tavily are fully wired into the agent today. Personalization flows through the agent's long-term memory of owner-confirmed facts about the dog, plus the first live tracker-query tool: the agent reads this dog's own sleep straight from its Tractive rollups in Postgres (owner-scoped, averaged server-side). Giving the agent live query access to the rest of the Tractive metrics and the journal history is the planned next iteration (see the scope note under Task 1).
 
 ## Task 4: Building an End-to-End Agentic RAG Prototype
 
@@ -368,8 +375,8 @@ The one tradeoff is noise_sensitivity, which got worse (+0.101). That points str
 
 **Change or improve:**
 
-- **Wire live tool access to the full Tractive history and the journal database.**
-  This is the biggest gap: personalization currently flows through remembered facts, not live queries, so "has Rex been less active this week?" is not yet fully data-backed. Structured, owner-scoped query tools are the top priority.
+- **Wire live tool access to the rest of the Tractive history and the journal database.**
+  The first live query tool has landed: the agent now reads this dog's own measured sleep directly from its Tractive rollups (owner-scoped, averaged server-side), so "how many hours did my dog sleep this week?" is fully data-backed. The remaining gap is the rest of the tracker (activity, vitals) and the journal, so "has Rex been less active this week?" is not yet data-backed. Extending the same structured, owner-scoped query pattern to those sources is the top priority.
 - **Predict potential health issues from past trends.**
   With live Tractive and journal access in place, the agent could surface early warning signs from longitudinal data (for example, a resting heart rate creeping up over several weeks) instead of only answering point-in-time questions, moving PawPilot from reactive Q&A toward proactive monitoring.
 - **Deduplicate the retrieved context (the clear next lever)** The grounding prompt already lifted faithfulness sharply (+0.16), but it raised noise_sensitivity because the model now faithfully repeats the near-duplicate passages that crowd the top-k. A per-source dedup / MMR pass on the reranked results should reclaim that, and it is measurable on the free deterministic recall eval. After that, a second averaged generation run (n=18, several repeats) to confirm the faithfulness gain and settle the smaller deltas.
