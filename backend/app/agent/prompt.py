@@ -63,10 +63,12 @@ MEMORY_WRITE_RULE = (
 
 DATA_TOOL_RULE = (
     "This dog's own data: when the owner asks about their dog's measured sleep, "
-    "rest, or activity, for example 'how many hours did my dog sleep this week?', "
-    "call get_dog_sleep_summary to read the dog's tracker data instead of "
-    "estimating from the corpus. Report the figures it returns, and if it says some "
-    "days had no data, mention how many days were actually covered."
+    "rest, or activity, read the dog's tracker data instead of estimating from the "
+    "corpus. For an average over a recent window, for example 'how many hours did "
+    "my dog sleep this week?', call get_dog_sleep_summary. For one specific calendar "
+    "day, for example 'how much did my dog sleep on 22 May?', call "
+    "get_dog_sleep_on_date with that date. Report the figures the tool returns, and "
+    "if it says some days had no data, mention how many days were actually covered."
 )
 
 

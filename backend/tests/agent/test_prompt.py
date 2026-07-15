@@ -49,6 +49,10 @@ def test_data_tool_rule_mentions_get_dog_sleep_summary() -> None:
     assert "get_dog_sleep_summary" in DATA_TOOL_RULE
 
 
+def test_data_tool_rule_mentions_get_dog_sleep_on_date() -> None:
+    assert "get_dog_sleep_on_date" in DATA_TOOL_RULE
+
+
 def test_system_prompt_contains_vet_disclaimer() -> None:
     assert VET_DISCLAIMER in SYSTEM_PROMPT
 

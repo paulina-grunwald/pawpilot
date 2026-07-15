@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.integrations.tractive.models import TractiveDayRollup
 from app.integrations.tractive.read_service import (
     TractiveSleepReader,
+    sleep_on_date,
     summarize_sleep,
 )
 
@@ -153,6 +154,77 @@ async def test_summarize_sleep_ignores_other_pets(
     assert summary.days_with_data == 0
 
 
+# sleep_on_date
+async def test_sleep_on_date_returns_that_days_hours(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(
+        db_session,
+        pet_id,
+        [
+            (date(2024, 5, 21), 360.0, 60.0),  # neighbour day, must be ignored
+            (date(2024, 5, 22), 420.0, 120.0),  # 7h night + 2h day = 9h total
+        ],
+    )
+
+    daily = await sleep_on_date(db_session, pet_id, date(2024, 5, 22))
+
+    assert daily.date == date(2024, 5, 22)
+    assert daily.has_data is True
+    assert daily.night_sleep_hours == 7.0
+    assert daily.day_sleep_hours == 2.0
+    assert daily.total_sleep_hours == 9.0
+
+
+async def test_sleep_on_date_marks_no_data_when_day_missing(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 420.0, 120.0)])
+
+    daily = await sleep_on_date(db_session, pet_id, date(2024, 5, 23))
+
+    assert daily.date == date(2024, 5, 23)
+    assert daily.has_data is False
+    assert daily.night_sleep_hours is None
+    assert daily.day_sleep_hours is None
+    assert daily.total_sleep_hours is None
+
+
+async def test_sleep_on_date_rounds_hours_to_two_decimals(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 100.0, 0.0)])
+
+    daily = await sleep_on_date(db_session, pet_id, date(2024, 5, 22))
+
+    # 100 minutes / 60 = 1.6666... -> rounded to 2dp.
+    assert daily.night_sleep_hours == 1.67
+    assert daily.total_sleep_hours == 1.67
+
+
+async def test_sleep_on_date_ignores_other_pets(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    other_pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, other_pet_id, [(date(2024, 5, 22), 480.0, 0.0)])
+
+    daily = await sleep_on_date(db_session, pet_id, date(2024, 5, 22))
+
+    assert daily.has_data is False
+
+
 # --------------------------------------------------------------------------- #
 # TractiveSleepReader
 # --------------------------------------------------------------------------- #
@@ -169,5 +241,20 @@ async def test_reader_delegates_to_summarize_sleep(
     reader = TractiveSleepReader(db_session, pet_id)
     via_reader = await reader.summarize_sleep(7)
     direct = await summarize_sleep(db_session, pet_id, days=7)
+
+    assert via_reader == direct
+
+
+async def test_reader_delegates_to_sleep_on_date(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 480.0, 0.0)])
+
+    reader = TractiveSleepReader(db_session, pet_id)
+    via_reader = await reader.sleep_on_date(date(2024, 5, 22))
+    direct = await sleep_on_date(db_session, pet_id, date(2024, 5, 22))
 
     assert via_reader == direct
