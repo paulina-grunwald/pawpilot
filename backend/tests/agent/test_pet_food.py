@@ -341,10 +341,14 @@ class _FakeHttpClient:
     def __init__(self, response: _FakeHttpResponse) -> None:
         self._response = response
         self.calls: list[tuple[str, dict[str, object] | None]] = []
+        self.closed = False
 
     def get(self, path: str, params: dict[str, object] | None = None) -> _FakeHttpResponse:
         self.calls.append((path, params))
         return self._response
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def make_client(fake_http: _FakeHttpClient, *, max_results: int = 3) -> OpenPetFoodFactsClient:
@@ -409,3 +413,10 @@ def test_lookup_returns_empty_on_non_json_body() -> None:
     fake_http = _FakeHttpClient(_FakeHttpResponse(ValueError("not json")))
     client = make_client(fake_http)
     assert client.lookup("orijen") == []
+
+
+def test_close_closes_underlying_http_client() -> None:
+    fake_http = _FakeHttpClient(_FakeHttpResponse({}))
+    client = make_client(fake_http)
+    client.close()
+    assert fake_http.closed is True
