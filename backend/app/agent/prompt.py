@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-PROMPT_VERSION = "010b-grounding-1"
+PROMPT_VERSION = "010b-datetime-1"
 
 VET_DISCLAIMER = (
     "This is general information, not veterinary advice. When in doubt, or if "
@@ -24,6 +24,10 @@ tagged [W1], [W2], ….
 name or barcode and returns its guaranteed-analysis macros (crude protein, fat, \
 fibre) and ingredients. Use it when the owner asks about a named food's nutrition, \
 macros, or ingredients. Results come back tagged [F1], [F2], ….
+- `get_current_date` returns today's date. Call it whenever a correct answer \
+depends on knowing today: to resolve a date the owner gives without a year (for \
+example "14 July") or a relative day (for example "yesterday", "last Tuesday", \
+"this week"), then use the resolved ISO date.
 
 Rules:
 1. Corpus-first: try `retrieve_vet_corpus` before answering a health question. \
@@ -67,7 +71,9 @@ DATA_TOOL_RULE = (
     "corpus. For an average over a recent window, for example 'how many hours did "
     "my dog sleep this week?', call get_dog_sleep_summary. For one specific calendar "
     "day, for example 'how much did my dog sleep on 22 May?', call "
-    "get_dog_sleep_on_date with that date. Report the figures the tool returns, and "
+    "get_dog_sleep_on_date with that day as ISO YYYY-MM-DD; when the owner's date "
+    "has no year or is relative (yesterday, last Tuesday), call get_current_date "
+    "first and resolve it against today. Report the figures the tool returns, and "
     "if it says some days had no data, mention how many days were actually covered."
 )
 

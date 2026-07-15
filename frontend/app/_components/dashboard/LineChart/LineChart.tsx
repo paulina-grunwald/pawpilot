@@ -19,6 +19,8 @@ import styles from "./LineChart.module.css";
 
 const DEFAULT_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
 
+const WEEKEND_DAYS = new Set(["Sa", "Su"]);
+
 type LineChartProps = {
   values: number[];
   height?: number;
@@ -473,7 +475,7 @@ export function LineChart({
                   fill={
                     index === todayIndex
                       ? "var(--ink-deep)"
-                      : index >= 5
+                      : WEEKEND_DAYS.has(days[index] ?? "")
                         ? "var(--ochre)"
                         : "var(--muted-2)"
                   }

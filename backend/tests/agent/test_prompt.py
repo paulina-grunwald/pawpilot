@@ -53,6 +53,10 @@ def test_data_tool_rule_mentions_get_dog_sleep_on_date() -> None:
     assert "get_dog_sleep_on_date" in DATA_TOOL_RULE
 
 
+def test_data_tool_rule_mentions_get_current_date_for_resolution() -> None:
+    assert "get_current_date" in DATA_TOOL_RULE
+
+
 def test_system_prompt_contains_vet_disclaimer() -> None:
     assert VET_DISCLAIMER in SYSTEM_PROMPT
 
@@ -60,6 +64,10 @@ def test_system_prompt_contains_vet_disclaimer() -> None:
 def test_system_prompt_mentions_both_tools() -> None:
     assert "retrieve_vet_corpus" in SYSTEM_PROMPT
     assert "web_search" in SYSTEM_PROMPT
+
+
+def test_system_prompt_mentions_the_always_on_clock_tool() -> None:
+    assert "get_current_date" in SYSTEM_PROMPT
 
 
 # --------------------------------------------------------------------------- #

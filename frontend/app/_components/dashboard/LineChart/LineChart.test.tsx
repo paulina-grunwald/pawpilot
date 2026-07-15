@@ -52,6 +52,17 @@ describe("LineChart", () => {
     expect(screen.getByText(/40 min/)).toBeInTheDocument();
   });
 
+  it("renders the provided weekday labels instead of a fixed Monday-start week", () => {
+    // Data covering Thu -> Wed (Jul 9-15, 2026): the last day is Wednesday, not Sunday.
+    const days = ["Th", "Fr", "Sa", "Su", "Mo", "Tu", "We"];
+    render(<LineChart values={[1, 2, 3, 4, 5, 6, 7]} days={days} accessibleLabel="Activity" />);
+    // The first and last labels are always drawn; they prove labels follow the
+    // real weekday (Th -> We) rather than the hardcoded Mo -> Su default, where
+    // the last point would read "Su".
+    expect(screen.getByText("Th")).toBeInTheDocument();
+    expect(screen.getByText("We")).toBeInTheDocument();
+  });
+
   it("thins x-axis date labels for long ranges", () => {
     const values = Array.from({ length: 90 }, (_, index) => index);
     const dates = Array.from({ length: 90 }, (_, index) => `d${index}`);
