@@ -21,6 +21,7 @@ from langsmith import traceable
 from app.agent.citations import CitationRegistry, extract_referenced_ids
 from app.agent.config import AgentSettings, get_agent_settings
 from app.agent.data_tools import SleepDataReader, build_pet_data_tools
+from app.agent.datetime_tools import build_datetime_tools
 from app.agent.graph import (
     build_agent_graph,
     build_chat_model,
@@ -155,6 +156,9 @@ class PawPilotAgent:
             invoked_tools,
             top_k=top_k,
         )
+        # Always-on: knowing today's date grounds every relative or year-less
+        # date the owner names, so the model never has to guess the year.
+        tools = tools + build_datetime_tools(invoked_tools)
 
         if memory_active and self._memory_store is not None and dog_id is not None:
             tools = tools + build_memory_tools(self._memory_store, dog_id, invoked_tools)

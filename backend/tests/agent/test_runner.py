@@ -60,6 +60,14 @@ def _sleep_tool_call(days: int = 7, call_id: str = "call-1") -> AIMessage:
     )
 
 
+def _current_date_tool_call(call_id: str = "call-1") -> AIMessage:
+    """An assistant turn that calls the always-on clock tool (no arguments)."""
+    return AIMessage(
+        content="",
+        tool_calls=[{"name": "get_current_date", "args": {}, "id": call_id, "type": "tool_call"}],
+    )
+
+
 # --------------------------------------------------------------------------- #
 # validate_query
 # --------------------------------------------------------------------------- #
@@ -374,6 +382,40 @@ async def test_astream_run_invokes_sleep_tool_when_reader_supplied() -> None:
     assert len(finals) == 1
     assert finals[0].tool_calls == ["get_dog_sleep_summary"]
     assert reader.requested_days == [7]
+
+
+# --------------------------------------------------------------------------- #
+# Clock tool wiring (get_current_date) — always on, no reader required
+# --------------------------------------------------------------------------- #
+
+
+def test_run_invokes_clock_tool_without_reader_or_memory() -> None:
+    agent = build_test_agent(
+        responses=[
+            _current_date_tool_call(),
+            AIMessage(content=f"Today is noted. {VET_DISCLAIMER}"),
+        ],
+    )
+
+    answer = agent.run("What is today's date?")
+
+    assert answer.tool_calls == ["get_current_date"]
+    assert "Today is noted." in answer.text
+
+
+async def test_arun_resolves_dated_sleep_via_clock_then_sleep_tool() -> None:
+    reader = FakeSleepReader(_sleep_summary())
+    agent = build_test_agent(
+        responses=[
+            _current_date_tool_call(),
+            _sleep_tool_call(days=7),
+            AIMessage(content=f"About 8 hours a night. {VET_DISCLAIMER}"),
+        ],
+    )
+
+    answer = await agent.arun("How much did my dog sleep last Tuesday?", sleep_reader=reader)
+
+    assert answer.tool_calls == ["get_current_date", "get_dog_sleep_summary"]
 
 
 # --------------------------------------------------------------------------- #
