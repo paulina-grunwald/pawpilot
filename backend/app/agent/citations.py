@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import re
 
+from app.agent.pet_food import PetFoodProduct
 from app.agent.schemas import Citation
 from app.agent.web_search import WebSearchResult
 from app.rag.schemas import RetrievedChunk
 
-_REFERENCE_PATTERN = re.compile(r"\[([SW]\d+)\]")
+_REFERENCE_PATTERN = re.compile(r"\[([SWF]\d+)\]")
 
 
 def extract_referenced_ids(text: str) -> list[str]:
@@ -33,14 +34,16 @@ class CitationRegistry:
     """Accumulates citations across a run and formats passages for the model.
 
     Ids continue across multiple tool calls in the same run (``S1``, ``S2``, …
-    for the corpus; ``W1``, ``W2``, … for the web), so every referenced id is
-    unambiguous no matter how many times a tool ran.
+    for the corpus; ``W1``, ``W2``, … for the web; ``F1``, ``F2``, … for pet
+    food), so every referenced id is unambiguous no matter how many times a tool
+    ran.
     """
 
     def __init__(self) -> None:
         self._citations: dict[str, Citation] = {}
         self._corpus_count = 0
         self._web_count = 0
+        self._food_count = 0
         self._retrieved_contexts: list[str] = []
 
     def register_corpus_chunks(self, chunks: list[RetrievedChunk]) -> str:
@@ -77,6 +80,23 @@ class CitationRegistry:
             snippets.append(f"[{ref}] {result.title} ({result.url})\n{result.content}")
             self._retrieved_contexts.append(result.content)
         return "\n\n".join(snippets)
+
+    def register_food_products(self, products: list[PetFoodProduct]) -> str:
+        """Assign ``[F#]`` ids to pet-food products and return them as passages."""
+        passages: list[str] = []
+        for product in products:
+            self._food_count += 1
+            ref = f"F{self._food_count}"
+            self._citations[ref] = Citation(
+                ref=ref,
+                kind="food",
+                title=product.display_title,
+                url=product.url,
+            )
+            body = product.describe()
+            passages.append(f"[{ref}] {product.display_title} ({product.url})\n{body}")
+            self._retrieved_contexts.append(body)
+        return "\n\n".join(passages)
 
     def resolve(self, referenced_ids: list[str]) -> list[Citation]:
         """Map referenced ids back to citations, ignoring unknown ids, in order."""

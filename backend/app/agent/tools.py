@@ -1,4 +1,4 @@
-"""The agent's two tools, bound to a single run's retriever, web search, and registry.
+"""The agent's retrieval tools, bound to a single run's backends and registry.
 
 Each tool records its passages in the shared `CitationRegistry` (so the final
 answer can resolve referenced ids) and appends its name to ``invoked_tools`` (so
@@ -10,22 +10,25 @@ from __future__ import annotations
 from langchain_core.tools import BaseTool, tool
 
 from app.agent.citations import CitationRegistry
+from app.agent.pet_food import PetFoodLookup
 from app.agent.web_search import WebSearch
 from app.rag.retriever import VetCorpusRetriever
 
 _NO_CORPUS_RESULTS = "No matching passages found in the veterinary corpus."
 _NO_WEB_RESULTS = "No web results found."
+_NO_PET_FOOD_RESULTS = "No matching pet-food product found in Open Pet Food Facts."
 
 
 def build_agent_tools(
     retriever: VetCorpusRetriever,
     web_search_backend: WebSearch,
+    pet_food_backend: PetFoodLookup,
     registry: CitationRegistry,
     invoked_tools: list[str],
     *,
     top_k: int,
 ) -> list[BaseTool]:
-    """Build the corpus and web-search tools for one agent run."""
+    """Build the corpus, web-search, and pet-food tools for one agent run."""
 
     @tool
     def retrieve_vet_corpus(query: str) -> str:
@@ -49,4 +52,17 @@ def build_agent_tools(
             return _NO_WEB_RESULTS
         return registry.register_web_results(results)
 
-    return [retrieve_vet_corpus, web_search]
+    @tool
+    def lookup_pet_food(query: str) -> str:
+        """Look up a commercial dog- or pet-food product by name (e.g. "Orijen Six
+        Fish") or barcode in the Open Pet Food Facts database. Returns its
+        guaranteed-analysis macros (crude protein, fat, fibre) and ingredient list,
+        tagged [F1], [F2], … to cite. Use it for questions about a specific food's
+        nutrition, macros, or ingredients."""
+        invoked_tools.append("lookup_pet_food")
+        products = pet_food_backend.lookup(query)
+        if not products:
+            return _NO_PET_FOOD_RESULTS
+        return registry.register_food_products(products)
+
+    return [retrieve_vet_corpus, web_search, lookup_pet_food]

@@ -18,6 +18,7 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import Runnable
 from pydantic import PrivateAttr
 
+from app.agent.pet_food import PetFoodProduct
 from app.agent.web_search import WebSearchResult
 from app.integrations.tractive.read_service import SleepSummary
 
@@ -92,3 +93,13 @@ class FakeSleepReader:
     async def summarize_sleep(self, days: int) -> SleepSummary:
         self.requested_days.append(days)
         return self._summary
+
+
+class FakePetFood:
+    """Returns a fixed list of pet-food products, ignoring the query."""
+
+    def __init__(self, products: list[PetFoodProduct] | None = None) -> None:
+        self._products = products if products is not None else []
+
+    def lookup(self, query: str) -> list[PetFoodProduct]:
+        return list(self._products)

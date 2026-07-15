@@ -3,9 +3,11 @@ from __future__ import annotations
 import pytest
 from qdrant_client import QdrantClient, models
 
+from app.rag import retriever as retriever_module
+from app.rag.config import RagSettings
 from app.rag.fakes import FakeEmbedder, FakeReranker
-from app.rag.reranking import Reranker, RerankResult
-from app.rag.retriever import VetCorpusRetriever
+from app.rag.reranking import CohereGatewayReranker, Reranker, RerankResult
+from app.rag.retriever import VetCorpusRetriever, build_retriever
 from app.rag.schemas import RetrievalMode, RetrievedChunk
 from app.rag.store import DENSE_VECTOR, chunk_point_id, ensure_collection
 
@@ -164,6 +166,16 @@ class _OutOfRangeReranker:
         ]
 
 
+class _NegativeIndexReranker:
+    """Reranker that returns a negative index alongside a valid one."""
+
+    def rerank(self, query: str, documents: list[str], *, top_n: int) -> list[RerankResult]:
+        return [
+            RerankResult(index=-1, relevance_score=0.99),
+            RerankResult(index=0, relevance_score=0.42),
+        ]
+
+
 def test_rerank_mode_reorders_and_annotates_chunks() -> None:
     retriever = _make_retriever(
         default_mode="rerank", reranker=FakeReranker(), rerank_candidates=25
@@ -234,6 +246,13 @@ def test_rerank_skips_out_of_range_reranker_indices() -> None:
     assert results[0].pre_rerank_rank == 0
 
 
+def test_rerank_drops_negative_reranker_index_without_wrapping() -> None:
+    retriever = _make_retriever(default_mode="rerank", reranker=_NegativeIndexReranker())
+    results = retriever.retrieve("anything", top_k=3)
+    assert len(results) == 1
+    assert results[0].pre_rerank_rank == 0
+
+
 def test_rerank_returns_empty_when_dense_search_has_no_hits() -> None:
     # A non-empty filter matching zero points reaches _rerank_search, whose own
     # empty-candidates guard returns [] without ever calling the reranker.
@@ -245,3 +264,59 @@ def test_unknown_mode_raises_value_error() -> None:
     retriever = _make_retriever()
     with pytest.raises(ValueError, match="unknown retrieval mode"):
         retriever.retrieve("anything", mode="sparse")
+
+
+# build_retriever wiring
+
+
+def _fake_settings(default_mode: RetrievalMode = "dense") -> RagSettings:
+    return RagSettings(
+        gateway_api_key="test-key",
+        gateway_base_url="https://ai-gateway.vercel.sh/v1",
+        rerank_model="cohere/rerank-v3.5",
+        default_mode=default_mode,
+    )
+
+
+def _stub_live_backends(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Keep build_retriever hermetic: no Qdrant connection, no Gateway embedder.
+    monkeypatch.setattr(retriever_module, "QdrantClient", lambda **kwargs: object())
+    monkeypatch.setattr(retriever_module, "GatewayEmbedder", lambda settings: object())
+
+
+def test_build_retriever_wires_reranker_only_for_rerank_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_live_backends(monkeypatch)
+    settings = _fake_settings()
+
+    rerank_retriever = build_retriever(settings, mode="rerank")
+    assert isinstance(rerank_retriever._reranker, CohereGatewayReranker)
+    assert rerank_retriever._default_mode == "rerank"
+
+    dense_retriever = build_retriever(settings, mode="dense")
+    assert dense_retriever._reranker is None
+    assert dense_retriever._default_mode == "dense"
+
+
+def test_build_retriever_mode_argument_overrides_settings_default_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_live_backends(monkeypatch)
+    # settings default is rerank, but an explicit dense mode must win (no reranker).
+    dense_over_rerank = build_retriever(_fake_settings(default_mode="rerank"), mode="dense")
+    assert dense_over_rerank._default_mode == "dense"
+    assert dense_over_rerank._reranker is None
+    # and the reverse: settings default is dense, explicit rerank wins (reranker wired).
+    rerank_over_dense = build_retriever(_fake_settings(default_mode="dense"), mode="rerank")
+    assert rerank_over_dense._default_mode == "rerank"
+    assert isinstance(rerank_over_dense._reranker, CohereGatewayReranker)
+
+
+def test_build_retriever_defaults_mode_to_settings_when_unspecified(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_live_backends(monkeypatch)
+    retriever = build_retriever(_fake_settings(default_mode="rerank"))
+    assert retriever._default_mode == "rerank"
+    assert isinstance(retriever._reranker, CohereGatewayReranker)

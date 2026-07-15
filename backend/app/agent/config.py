@@ -1,8 +1,4 @@
-"""Agent settings — reuses the Vercel AI Gateway credentials plus Tavily.
-
-The chat model runs through the same Gateway key as embeddings and generation
-(spec 009a); this adds the agent-specific knobs and the Tavily web-search key.
-"""
+"""Agent settings — reuses the Vercel AI Gateway credentials plus Tavily."""
 
 from __future__ import annotations
 
@@ -51,8 +47,23 @@ class AgentSettings(BaseSettings):
         default=5, ge=1, le=20, validation_alias="WEB_SEARCH_MAX_RESULTS"
     )
 
+    pet_food_base_url: str = Field(
+        default="https://world.openpetfoodfacts.org",
+        validation_alias="PET_FOOD_BASE_URL",
+    )
+    pet_food_max_results: int = Field(
+        default=3, ge=1, le=20, validation_alias="PET_FOOD_MAX_RESULTS"
+    )
+    pet_food_timeout_seconds: float = Field(
+        default=10.0, gt=0.0, le=60.0, validation_alias="PET_FOOD_TIMEOUT_SECONDS"
+    )
+    pet_food_user_agent: str = Field(
+        default="PawPilot/1.0 (dog-health assistant)",
+        validation_alias="PET_FOOD_USER_AGENT",
+    )
+
     memory_backend: Literal["memory", "postgres"] = Field(
-        default="memory", validation_alias="MEMORY_BACKEND"
+        default="postgres", validation_alias="MEMORY_BACKEND"
     )
     max_dog_memories: int = Field(default=20, ge=1, le=100, validation_alias="MAX_DOG_MEMORIES")
     memory_pool_max_size: int = Field(
