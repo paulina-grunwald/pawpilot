@@ -18,27 +18,23 @@ export function TrustBand() {
   return (
     <section
       id="trust"
-      className="pt-20 pb-20 bg-surface border-t border-b border-(--hairline) overflow-hidden"
+      className="bg-surface overflow-hidden border-t border-b border-(--hairline) pt-20 pb-20"
     >
       <div className="container-x">
         <div
-          className="trust-grid grid gap-16 items-center"
+          className="trust-grid grid items-center gap-16"
           style={{ gridTemplateColumns: "1.4fr 1fr" }}
         >
           <div>
-            <span className="mono text-[11px] text-muted tracking-[0.16em] uppercase mb-[18px] block">
+            <span className="mono text-muted mb-[18px] block text-[11px] tracking-[0.16em] uppercase">
               § 05 — A note on what this is
             </span>
-            <h2
-              className="display text-[clamp(30px,3.6vw,44px)] m-0 mb-5 text-ink max-w-[620px]"
-            >
+            <h2 className="display text-ink m-0 mb-5 max-w-[620px] text-[clamp(30px,3.6vw,44px)]">
               We are not your vet.
               <br />
-              <span className="display-italic text-forest">
-                We&apos;re a smarter first call.
-              </span>
+              <span className="display-italic text-forest">We&apos;re a smarter first call.</span>
             </h2>
-            <p className="text-muted text-[16px] leading-[1.6] m-0 mb-6 max-w-[540px]">
+            <p className="text-muted m-0 mb-6 max-w-[540px] text-[16px] leading-[1.6]">
               Every answer cites peer-reviewed veterinary sources. Anything urgent gets routed to
               &ldquo;go now,&rdquo; with the nearest emergency clinic and what to tell them on the
               way. Anything truly unclear we say so out loud.
@@ -47,7 +43,7 @@ export function TrustBand() {
               {pillLabels.map((label) => (
                 <span
                   key={label}
-                  className="text-[13px] text-ink px-[14px] py-[7px] rounded-full bg-(--paper) border border-(--hairline-strong)"
+                  className="text-ink rounded-full border border-(--hairline-strong) bg-(--paper) px-[14px] py-[7px] text-[13px]"
                 >
                   {label}
                 </span>
@@ -60,17 +56,14 @@ export function TrustBand() {
               className="absolute -top-6 left-0 z-[1] text-center"
               style={{
                 transform: "rotate(-6deg)",
-                filter:
-                  "drop-shadow(0 18px 30px color-mix(in srgb, var(--ink) 20%, transparent))",
+                filter: "drop-shadow(0 18px 30px color-mix(in srgb, var(--ink) 20%, transparent))",
               }}
             >
               <PawMark size={220} />
-              <div className="mono text-[11px] text-muted mt-3">
-                smart answers · healthier dogs
-              </div>
+              <div className="mono text-muted mt-3 text-[11px]">smart answers · healthier dogs</div>
             </div>
             <div
-              className="absolute top-[110px] right-0 bg-(--paper) p-[10px] pb-8 border border-(--hairline) shadow-[0_14px_30px_-10px_color-mix(in_srgb,var(--ink)_22%,transparent)] z-[2]"
+              className="absolute top-[110px] right-0 z-[2] border border-(--hairline) bg-(--paper) p-[10px] pb-8 shadow-[0_14px_30px_-10px_color-mix(in_srgb,var(--ink)_22%,transparent)]"
               style={{ transform: "rotate(-5deg)" }}
             >
               <Image
@@ -86,17 +79,13 @@ export function TrustBand() {
                   filter: "saturate(0.92)",
                 }}
               />
-              <div className="mono text-[10px] text-muted text-center mt-2 leading-[1.5]">
-                head tilt · context, please
-                <br />
-                answered in 11s · 3 sources cited
-              </div>
+              <div className="mono text-muted mt-2 text-center text-[10px] leading-[1.5]"></div>
             </div>
           </div>
         </div>
 
-        <div className="mt-14 pt-7 border-t border-(--hairline)">
-          <div className="mono text-[11px] text-muted tracking-[0.14em] uppercase mb-[14px]">
+        <div className="mt-14 border-t border-(--hairline) pt-7">
+          <div className="mono text-muted mb-[14px] text-[11px] tracking-[0.14em] uppercase">
             Knowledge corpus drawn from
           </div>
           <div
@@ -106,13 +95,13 @@ export function TrustBand() {
             }}
           >
             <div
-              className="flex gap-14 w-fit"
+              className="flex w-fit gap-14"
               style={{ animation: "scroll-x 32s linear infinite" }}
             >
               {tickerSources.map((source, index) => (
                 <span
                   key={index}
-                  className="display text-[26px] text-forest font-medium whitespace-nowrap opacity-85"
+                  className="display text-forest text-[26px] font-medium whitespace-nowrap opacity-85"
                 >
                   {source} <span className="text-blue mx-2">·</span>
                 </span>
