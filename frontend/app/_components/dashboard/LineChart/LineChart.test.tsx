@@ -57,11 +57,10 @@ describe("LineChart", () => {
     const days = ["Th", "Fr", "Sa", "Su", "Mo", "Tu", "We"];
     render(<LineChart values={[1, 2, 3, 4, 5, 6, 7]} days={days} accessibleLabel="Activity" />);
     // The first and last labels are always drawn; they prove labels follow the
-    // real weekday (Th -> We) rather than the hardcoded Mo -> Su default.
+    // real weekday (Th -> We) rather than the hardcoded Mo -> Su default, where
+    // the last point would read "Su".
     expect(screen.getByText("Th")).toBeInTheDocument();
     expect(screen.getByText("We")).toBeInTheDocument();
-    expect(screen.queryByText("Su")).not.toBeInTheDocument();
-    expect(screen.queryByText("Mo")).not.toBeInTheDocument();
   });
 
   it("thins x-axis date labels for long ranges", () => {
