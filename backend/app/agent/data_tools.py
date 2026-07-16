@@ -88,9 +88,27 @@ def _parse_iso_date(value: str) -> date_type | None:
         return None
 
 
+def _format_duration(hours: float) -> str:
+    """Render decimal hours as `Xh Ym`, matching the dashboard's sleep graph.
+
+    The graph labels every duration in hours and whole minutes, so the agent uses
+    the same shape: an owner comparing "11.16 hours" against "11h 10m" reads them as
+    two different numbers even though they are the same value.
+    """
+    minutes = max(0, round(hours * 60))
+    if minutes < 60:
+        return f"{minutes}m"
+    return f"{minutes // 60}h {minutes % 60:02d}m"
+
+
 def _render_sleep_summary(summary: SleepSummary) -> str:
     """Render a `SleepSummary` as the plain text the model reads back."""
-    if summary.days_with_data == 0:
+    if (
+        summary.days_with_data == 0
+        or summary.average_total_sleep_hours is None
+        or summary.average_night_sleep_hours is None
+        or summary.average_day_sleep_hours is None
+    ):
         return (
             "No tracker sleep data is recorded for this dog in the last "
             f"{summary.days_requested} days."
@@ -99,19 +117,24 @@ def _render_sleep_summary(summary: SleepSummary) -> str:
         f"Sleep over the last {summary.days_requested} days "
         f"(data for {summary.days_with_data} of them, {summary.start_date} to "
         f"{summary.end_date}):\n"
-        f"- Average total sleep: {summary.average_total_sleep_hours} hours/day\n"
-        f"- Average night sleep: {summary.average_night_sleep_hours} hours/day\n"
-        f"- Average daytime sleep: {summary.average_day_sleep_hours} hours/day"
+        f"- Average total sleep: {_format_duration(summary.average_total_sleep_hours)}/day\n"
+        f"- Average night sleep: {_format_duration(summary.average_night_sleep_hours)}/day\n"
+        f"- Average daytime sleep: {_format_duration(summary.average_day_sleep_hours)}/day"
     )
 
 
 def _render_daily_sleep(daily: DailySleep) -> str:
     """Render a `DailySleep` as the plain text the model reads back."""
-    if not daily.has_data:
+    if (
+        not daily.has_data
+        or daily.total_sleep_hours is None
+        or daily.night_sleep_hours is None
+        or daily.day_sleep_hours is None
+    ):
         return f"No tracker sleep data is recorded for this dog on {daily.date}."
     return (
         f"Sleep on {daily.date}:\n"
-        f"- Total sleep: {daily.total_sleep_hours} hours\n"
-        f"- Night sleep: {daily.night_sleep_hours} hours\n"
-        f"- Daytime sleep: {daily.day_sleep_hours} hours"
+        f"- Total sleep: {_format_duration(daily.total_sleep_hours)}\n"
+        f"- Night sleep: {_format_duration(daily.night_sleep_hours)}\n"
+        f"- Daytime sleep: {_format_duration(daily.day_sleep_hours)}"
     )

@@ -10,6 +10,7 @@ from __future__ import annotations
 from app.agent.prompt import (
     DATA_TOOL_RULE,
     MEMORY_WRITE_RULE,
+    OFF_TOPIC_MESSAGE,
     PROMPT_VERSION,
     SYSTEM_PROMPT,
     VET_DISCLAIMER,
@@ -68,6 +69,31 @@ def test_system_prompt_mentions_both_tools() -> None:
 
 def test_system_prompt_mentions_the_always_on_clock_tool() -> None:
     assert "get_current_date" in SYSTEM_PROMPT
+
+
+def test_off_topic_message_is_non_empty_string() -> None:
+    assert isinstance(OFF_TOPIC_MESSAGE, str)
+    assert OFF_TOPIC_MESSAGE != ""
+
+
+def test_off_topic_message_redirects_to_dog_topics() -> None:
+    assert "dog" in OFF_TOPIC_MESSAGE
+
+
+def test_system_prompt_contains_off_topic_message() -> None:
+    assert OFF_TOPIC_MESSAGE in SYSTEM_PROMPT
+
+
+def test_system_prompt_declares_dog_only_scope() -> None:
+    assert "Scope: you answer only dog-related questions." in SYSTEM_PROMPT
+
+
+def test_system_prompt_marks_non_dog_questions_out_of_scope() -> None:
+    assert "out of scope" in SYSTEM_PROMPT
+
+
+def test_system_prompt_forbids_tool_calls_for_off_topic_questions() -> None:
+    assert "do not call any tool" in SYSTEM_PROMPT
 
 
 # --------------------------------------------------------------------------- #
