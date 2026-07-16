@@ -311,7 +311,7 @@ The dense baseline (18 generation / 19 retrieval reviewed cases) shows a clear, 
 | Generation | answer_relevancy                       | 0.82                      |
 | Generation | noise_sensitivity (lower better)       | 0.24                      |
 
-The headline finding is that this is a ranking problem, not a coverage problem**: recall@20 = 0.95 means the correct source is almost always retrieved, but recall@5 = 0.74 means it is ranked outside the top 5 about a quarter of the time. That top-of-list gap caps generation: answer_relevancy is high (0.82, the agent stays on topic), but faithfulness and answer_accuracy sit around 0.6 because imperfect top passages make the model fill gaps. Low noise_sensitivity (0.24) is reassuring: irrelevant passages do not distort answers much. The clear next lever is therefore **reranking the top candidates to close the recall@5 gap, which is exactly what Task 6 does. (Caveats: the golden sets are small, so read metrics as bands, and the RAGAS generation judge is non-deterministic with roughly +/-0.03 run-to-run variance.)
+The headline finding is that **this is a ranking problem, not a coverage problem**: recall@20 = 0.95 means the correct source is almost always retrieved, but recall@5 = 0.74 means it is ranked outside the top 5 about a quarter of the time. That top-of-list gap caps generation: answer_relevancy is high (0.82, the agent stays on topic), but faithfulness and answer_accuracy sit around 0.6 because imperfect top passages make the model fill gaps. Low noise_sensitivity (0.24) is reassuring: irrelevant passages do not distort answers much. The clear next lever is therefore **reranking the top candidates to close the recall@5 gap**, which is exactly what Task 6 does. (Caveats: the golden sets are small, so read metrics as bands, and the RAGAS generation judge is non-deterministic with roughly +/-0.03 run-to-run variance.)
 
 ## Task 6: Improving Your Prototype (Install an advanced retriever)
 
@@ -392,3 +392,5 @@ Reasoning: keep what the evidence shows is working and what carries the product'
 
 Github repo: https://github.com/paulina-grunwald/pawpilot
 Link to loom:
+Part 1: https://www.loom.com/share/d83401ccf79f4a15a731a69631414f51,
+Part2: https://www.loom.com/share/bbe2dd19e22643cd867c9285e4583d86
