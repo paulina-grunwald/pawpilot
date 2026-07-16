@@ -197,15 +197,19 @@ flowchart TD
         Reason -->|owner states a durable fact| Save["💾 save_dog_memory / list_dog_memories / delete_dog_memory"]
         Reason -->|pet-food product / nutrition| Food["🍖 lookup_pet_food (Open Pet Food Facts)"]
         Reason -->|this dog's own sleep / rest| Sleep["😴 get_dog_sleep_summary / get_dog_sleep_on_date"]
+        Reason -->|relative or year-less date| Today["📅 get_current_date (always on)"]
         RAG --> Embed["embed query (Gateway) →<br/>Qdrant dense cosine search →<br/>passages [S1], [S2] …"]
         Web --> Snip["web snippets [W1], [W2] …"]
+        Food --> FoodLookup["barcode or name → Open Pet Food Facts →<br/>guaranteed analysis + ingredients [F1], [F2] …"]
         Sleep --> SleepQuery["read this dog's Tractive rollups (Postgres) →<br/>server-side sleep averages + days covered"]
+        Today --> TodayResolve["today's date → resolve 'yesterday',<br/>'14 July' to an ISO date"]
         Embed --> Reason
         Snip --> Reason
         Save --> Reason
-        Food --> Reason
+        FoodLookup --> Reason
         SleepQuery --> Reason
-        Reason -->|ready| Answer["✍️ Draft answer:<br/>cite [S#] / [W#], or abstain"]
+        TodayResolve --> Reason
+        Reason -->|ready| Answer["✍️ Draft answer:<br/>cite [S#] / [W#] / [F#], or abstain"]
     end
 
     Reason -. tool-call budget exhausted .-> Budget["⏳ Stop with a safe fallback message"]
@@ -346,7 +350,7 @@ Read: on generation the effect is small and mostly within the RAGAS judge's run-
 ### One additional change (Deliverable 3)
 
 **Change: a grounding / citation-discipline prompt.**
-A per-case error analysis of the rerank generation run (from the LangSmith traces) split the 18 cases by why faithfulness was lost: in 15 of 18 the gold source was retrieved but the model still drifted past it (it asserted things its passages did not fully support), and only 3 were true retrieval misses. So the faithfulness ceiling is a generation-discipline problem, not a ranking one. The change tightens the system prompt (backend/app/agent/prompt.py, version 010b-grounding-1): the model must assert only what a retrieved passage states, must not add facts from its own knowledge or generalize beyond the passage, and must say "the sources don't address X" rather than fill the gap. Retrieval is held fixed at rerank, so this isolates the prompt's effect.
+A per-case error analysis of the rerank generation run (from the LangSmith traces) split the 18 cases by why faithfulness was lost: in 15 of 18 the gold source was retrieved but the model still drifted past it (it asserted things its passages did not fully support), and only 3 were true retrieval misses. So the faithfulness ceiling is a generation-discipline problem, not a ranking one. The change tightens the system prompt (backend/app/agent/prompt.py, shipped as version 010b-grounding-1; the file now reads 010b-scope-1 after the later dog-only scope rules landed on top of it): the model must assert only what a retrieved passage states, must not add facts from its own knowledge or generalize beyond the passage, and must say "the sources don't address X" rather than fill the gap. Retrieval is held fixed at rerank, so this isolates the prompt's effect.
 
 Evidence (generation RAGAS, rerank retriever held fixed, like-for-like over the 14 cases both runs scored; the after-run was budget-limited, so 14 of 18). Before = baseline prompt; after = grounding prompt. [rerank-baseline vs grounding in LangSmith](https://eu.smith.langchain.com/o/fd4e4d03-aa8a-45ef-b33f-b83f61f694fc/datasets/8cc10856-d857-47fe-9abd-4e5f3047b85c/compare?selectedSessions=cc903e11-9471-4c26-a510-32a95cda09fa&selectedSessions=db46d8d3-68fe-4373-8453-15789d2413c7):
 
