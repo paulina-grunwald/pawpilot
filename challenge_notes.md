@@ -6,11 +6,13 @@ PawPilot is like Oura for dogs. It pulls together your dog's tracker data, your 
 
 ## Task 1: Defining Problem, Audience, and Scope
 
-Problem description: Dog owners who treat their pet like family and just want to know whether something's worth worrying about, without googling for an hour or paying $100 for a vet to hear it's nothing.
+Problem: When something seems off with their dog, owners have no trustworthy way to tell whether it is worth acting on, so they lose an hour to Google, pay $100 for a vet to tell them it was nothing, or wait too long on something that mattered.
+
+Audience: people who treat their dog like family and want to catch health problems early, while those problems are still small.
 
 Think about the people who treat their dog like a member of the family. They watch their dog closely, and they want to catch health problems early, while those problems are still small. When something seems off, they're stuck on one question: is this a big deal, or am I overreacting? Maybe the dog is limping a little, or eating less, or just seems low-energy. Do I need to do something, or wait and see?
 
-Right now they have three options, and all of them fall short. They can search online, but Google and the Facebook groups give them ten different answers and mostly just make them more anxious. They can go to the vet, but that's $50 to $250, plus the wait for an appointment, often to be told it was nothing, so they hold off and sometimes wait too long. They can ask ChatGPT, which sounds confident but doesn't know their dog at all and can't point to a real source. Nothing they have gives them a trustworthy answer using aggregated information from various sources about their dog and that actually accounts for their specific dog. So they end up second-guessing themselves, spending money they didn't need to, missing early signs that would've been easier to treat, and the worry sits in the back of their mind.
+Right now they have three options, and all of them fall short. They can search online, but Google and the Facebook groups give them ten different answers and mostly just make them more anxious. They can go to the vet, but that's $50 to $250, plus the wait for an appointment, often to be told it was nothing, so they hold off and sometimes wait too long. They can ask ChatGPT, which sounds confident but doesn't know their dog at all and can't point to a real source. Nothing they have pulls those sources together into a trustworthy answer that actually accounts for their specific dog. So they end up second-guessing themselves, spending money they didn't need to, missing early signs that would've been easier to treat, and the worry sits in the back of their mind.
 
 ### Today's workflow — how owners handle it now
 
@@ -41,11 +43,6 @@ flowchart TD
 
 This is the Task 1 deliverable: a list of input-output pairs that define what PawPilot should handle. Each pair names the data source(s) it exercises so we can check the agent both retrieves from the right place and personalizes to this dog.
 
-These set the product's target scope across all four sources: the knowledge-base subset that the vet corpus can ground today is what the Task 5 eval harness actually measures (see Task 5).
-
-> ❗NOTE:
-> **Scope for this mid-term challenge.** The table below reflects PawPilot's target design. Not every data path is fully wired for this submission. The first live database-query tool has now shipped: the agent can read this dog's own measured sleep directly from its Tractive rollups (get_dog_sleep_summary / get_dog_sleep_on_date), so the sleep portion of rows 3 and 13 is data-backed today. The remaining Tractive metrics (activity, vitals) and free-form journal look-ups are still on the roadmap, so the rows that lean on them (2, 4, 5, 10, and the activity/journal portions of 3 and 13) are kept in to represent the intended product. For now those are evaluated against a representative data snapshot, and will be re-run once the rest of that tooling ships.
-
 Sources:
 
 - KB = veterinary knowledge base (RAG)
@@ -71,13 +68,15 @@ Sources:
 | 14  | "What health issues should I watch for in Rex, my Labrador?"                          | KB + profile        | Lists Lab-common issues (hip/elbow dysplasia, obesity, ear infections) from KB with citations; ties them to preventive monitoring; uses his breed/age.                                                         | Breed-specific retrieval + personalization    |
 | 15  | "Just tell me what's wrong with him." / "Should I put him down?"                      | — (boundary)        | Compassionate but clear that it can't diagnose or make that call; strongly directs to a veterinarian; makes no definitive medical claim.                                                                       | Scope boundaries + safe refusal + tone        |
 
-> **How this connects to the eval harness (Task 5).** The rows above define target scope; they are not all measured mechanically. The knowledge-base rows are the capability the Task 5 golden set measures directly (source-level recall@k plus faithfulness). Those golden questions are pinned to the corpus's real coverage, so their wording differs from the illustrative questions here, but the capability under test is the same. The rows that draw on the tracker, journal, live web, or the boundary/refusal behaviour rather than pure knowledge-base retrieval exercise tools that are checked separately and are not part of the RAG golden set.
+> **Scope for this submission, and how it connects to the eval harness (Task 5).** The table is PawPilot's target design, not a claim that every path is wired. The vet corpus and web search are live, and the first tracker-query tool has shipped: the agent reads this dog's own measured sleep from its Tractive rollups, so the sleep portion of rows 3 and 13 is data-backed today. The remaining Tractive metrics (activity, vitals) and free-form journal look-ups are still on the roadmap, so rows 2, 4, 5, 10 and the activity/journal portions of 3 and 13 represent the intended product rather than today's build.
+>
+> Of these rows, the knowledge-base ones are what the Task 5 golden set measures directly (source-level recall@k plus faithfulness). Those golden questions are pinned to the corpus's real coverage, so their wording differs from the illustrative questions here, but the capability under test is the same. The rows that lean on the tracker, journal, live web, or boundary behaviour exercise tools that are checked separately and are not part of the RAG golden set.
 
 ## Task 2: Propose a Solution
 
 PawPilot is an AI companion that tells you whether something about your dog's health is worth acting on - grounded in cited vet sources and your own dog's tracker data and history.
 
-### 2. Infrastructure diagram and decision rationale
+### Infrastructure diagram and decision rationale
 
 ```mermaid
 flowchart TB
@@ -151,7 +150,7 @@ flowchart TB
 - get_dog_sleep_summary / get_dog_sleep_on_date (this dog's own measured sleep from the Tractive tracker data in Postgres)
 - dog-memory read/write.
 
-Lets one agent decide per question whether to ground in the vet corpus, fetch live web info (recalls, ER vets), look up a pet-food product's nutrition, read this specific dog's measured sleep, or recall this dog's history.
+This lets one agent decide per question whether to ground in the vet corpus, fetch live web info (recalls, ER vets), look up a pet-food product's nutrition, read this specific dog's measured sleep, or recall this dog's history.
 
 The two sleep tools are the first live, owner-scoped query into the dog's tracker history: they read the daily Tractive rollups from Postgres, so a question like "how many hours did my dog sleep this week?" is answered from the dog's real data rather than an estimate. Each tool is bound per request to a reader that is already scoped to the owner's pet, so the model chooses only the time window (default 7 days, at most 90) or a single date, never whose data it reads. The average is computed server-side so the model never does the arithmetic, and the tool reports how many days in the window actually had data so the answer can caveat missing days instead of pretending the window was full.
 
@@ -176,9 +175,7 @@ Memory: consists of two layers, both persisted to Postgres through LangGraph:
 
 The dog-memory tools read and write that long-term store, and every thread is namespaced by user id so one owner's data never leaks into another's.
 
-### 3. Agent workflow diagram
-
-#### Current agent workflow (as built)
+### Agent workflow diagram
 
 ```mermaid
 flowchart TD
@@ -255,7 +252,7 @@ External APIs (the agentic search tool):
 
 How they interact during usage: a single ReAct agent decides, per question, which source to reach for. For a health question it goes corpus-first and falls back to or supplements with Tavily (web_search) for recalls, news, or anything the corpus covers weakly. The agent cites both inline, and the final answer resolves those tags back to real sources.
 
-NOTE: Scope note (current build): the vet corpus and Tavily are fully wired into the agent today. Personalization flows through the agent's long-term memory of owner-confirmed facts about the dog, plus the first live tracker-query tool: the agent reads this dog's own sleep straight from its Tractive rollups in Postgres (owner-scoped, averaged server-side). Giving the agent live query access to the rest of the Tractive metrics and the journal history is the planned next iteration (see the scope note under Task 1).
+Scope note (current build): the vet corpus and Tavily are fully wired into the agent today. Personalization flows through the agent's long-term memory of owner-confirmed facts about the dog, plus the first live tracker-query tool: the agent reads this dog's own sleep straight from its Tractive rollups in Postgres (owner-scoped, averaged server-side). Giving the agent live query access to the rest of the Tractive metrics and the journal history is the planned next iteration (see the scope note under Task 1).
 
 ## Task 4: Building an End-to-End Agentic RAG Prototype
 
@@ -266,11 +263,11 @@ PawPilot runs as a full end-to-end agentic RAG application, reachable from any p
 - Data services (Railway): Postgres (accounts, dog profiles, journal, and the agent's long-term memory + LangGraph checkpoints) and a Qdrant instance holding the embedded vet corpus.
 - **LLM access:** every model call (embeddings, generation, the reranker, and the RAGAS judge) goes through the Vercel AI Gateway on a single key.
 
-The application is publicly deployed and demonstrated live in the Loom video; the public URL is included with the submission.
+The application is publicly deployed and demonstrated live in the Loom walkthrough linked at the end of this document.
 
 ## Task 5: Evals
 
-### Test data set
+### Test data set (Deliverable 1)
 
 The harness runs against two curated golden datasets, both assembled by hand from the ingested vet corpus rather than synthetically generated. An earlier synthetic set was discarded after it sampled PDF front matter instead of substantive content, so the current sets are hand-reviewed.
 
@@ -283,12 +280,14 @@ Both are pinned to topics the corpus actually covers: vaccination, pain manageme
 
 The harness scores two layers of the pipeline, and runs are recorded to LangSmith (EU region) as Datasets + Experiments so each case is inspectable and runs compare side by side.
 
-- **Retrieval eval (deterministic + judged):** source-level recall@k (k = 5, 8, 10, 20) computed from the retrieved source ids against each query's expected sources, plus RAGAS ContextRecall and ContextEntityRecall over the reviewed set. recall@k uses no LLM, so it is exactly reproducible. The recall@k runs are recorded to LangSmith, the two context metrics are computed locally.
+- **Retrieval eval (deterministic + judged):** source-level recall@k (k = 5, 8, 10, 20) computed from the retrieved source ids against each query's expected sources, plus RAGAS ContextRecall and ContextEntityRecall over the reviewed set. recall@k uses no LLM, so it is exactly reproducible. The recall@k runs are recorded to LangSmith; the two context metrics are computed locally.
 - **Generation eval (RAGAS, LLM-as-judge):** each golden question is answered by the full agent, then scored on four RAGAS metrics:
-- faithfulness (are the claims supported by the retrieved passages), - answer_accuracy (does it reach the reference outcome), - answer_relevancy (does it address the question),
-- noise_sensitivity (how much irrelevant passages distort the answer, lower is better).
+  - faithfulness: are the claims supported by the retrieved passages?
+  - answer_accuracy: does it reach the reference outcome?
+  - answer_relevancy: does it address the question?
+  - noise_sensitivity: how much do irrelevant passages distort the answer? Lower is better.
 
-The fixed emergency banner and vet disclaimer are stripped before scoring. All four metrics are recorded per case to LangSmith.
+  The fixed emergency banner and vet disclaimer are stripped before scoring, and all four metrics are recorded per case to LangSmith.
 
 - **Models:** the judge and all embedding, generation, and rerank calls run on OpenAI and Cohere models through the Vercel AI Gateway on a single key.
 - **Reproducibility:** make rag-eval (retrieval), make agent-eval (generation), and make langsmith-experiments (push both to LangSmith).
@@ -311,7 +310,7 @@ The dense baseline (18 generation / 19 retrieval reviewed cases) shows a clear, 
 | Generation | answer_relevancy                       | 0.82                      |
 | Generation | noise_sensitivity (lower better)       | 0.24                      |
 
-The headline finding is that **this is a ranking problem, not a coverage problem**: recall@20 = 0.95 means the correct source is almost always retrieved, but recall@5 = 0.74 means it is ranked outside the top 5 about a quarter of the time. That top-of-list gap caps generation: answer_relevancy is high (0.82, the agent stays on topic), but faithfulness and answer_accuracy sit around 0.6 because imperfect top passages make the model fill gaps. Low noise_sensitivity (0.24) is reassuring: irrelevant passages do not distort answers much. The clear next lever is therefore **reranking the top candidates to close the recall@5 gap**, which is exactly what Task 6 does. (Caveats: the golden sets are small, so read metrics as bands, and the RAGAS generation judge is non-deterministic with roughly +/-0.03 run-to-run variance.)
+The headline finding is that **this is a ranking problem, not a coverage problem**: recall@20 = 0.95 means the correct source is almost always retrieved, but recall@5 = 0.74 means it is ranked outside the top 5 about a quarter of the time. The working hypothesis at this point was that the same gap also caps generation: answer_relevancy is high (0.82, the agent stays on topic), but faithfulness and answer_accuracy sit around 0.6, which imperfect top passages would explain. (Task 6's per-case error analysis later overturned that hypothesis: the gold source was usually retrieved and the model drifted past it anyway.) Low noise_sensitivity (0.24) is reassuring: irrelevant passages do not distort answers much. The clear next lever is therefore **reranking the top candidates to close the recall@5 gap**, which is exactly what Task 6 does. (Caveats: the golden sets are small, so read metrics as bands, and the RAGAS generation judge is non-deterministic with roughly +/-0.03 run-to-run variance.)
 
 ## Task 6: Improving Your Prototype (Install an advanced retriever)
 
@@ -350,24 +349,24 @@ Read: on generation the effect is small and mostly within the RAGAS judge's run-
 ### One additional change (Deliverable 3)
 
 **Change: a grounding / citation-discipline prompt.**
-A per-case error analysis of the rerank generation run (from the LangSmith traces) split the 18 cases by why faithfulness was lost: in 15 of 18 the gold source was retrieved but the model still drifted past it (it asserted things its passages did not fully support), and only 3 were true retrieval misses. So the faithfulness ceiling is a generation-discipline problem, not a ranking one. The change tightens the system prompt (backend/app/agent/prompt.py, shipped as version 010b-grounding-1; the file now reads 010b-scope-1 after the later dog-only scope rules landed on top of it): the model must assert only what a retrieved passage states, must not add facts from its own knowledge or generalize beyond the passage, and must say "the sources don't address X" rather than fill the gap. Retrieval is held fixed at rerank, so this isolates the prompt's effect.
+A per-case error analysis of the rerank generation run (from the LangSmith traces) split the 18 cases by why faithfulness was lost: in 15 of 18 the gold source was retrieved but the model still drifted past it (it asserted things its passages did not fully support), and only 3 were true retrieval misses. This overturned the Task 5 hypothesis: the faithfulness ceiling is a generation-discipline problem, not a ranking one. The change tightens the system prompt (backend/app/agent/prompt.py): the model must assert only what a retrieved passage states, must not add facts from its own knowledge or generalize beyond the passage, and must say "the sources don't address X" rather than fill the gap. Retrieval is held fixed at rerank, so this isolates the prompt's effect.
 
 Evidence (generation RAGAS, rerank retriever held fixed, like-for-like over the 14 cases both runs scored; the after-run was budget-limited, so 14 of 18). Before = baseline prompt; after = grounding prompt. [rerank-baseline vs grounding in LangSmith](https://eu.smith.langchain.com/o/fd4e4d03-aa8a-45ef-b33f-b83f61f694fc/datasets/8cc10856-d857-47fe-9abd-4e5f3047b85c/compare?selectedSessions=cc903e11-9471-4c26-a510-32a95cda09fa&selectedSessions=db46d8d3-68fe-4373-8453-15789d2413c7):
 
-| Metric                           | Baseline prompt | Grounding prompt | Δ          |
-| -------------------------------- | --------------- | ---------------- | ---------- |
-| faithfulness                     | 0.603           | 0.762            | **+0.159** |
-| answer_accuracy                  | 0.607           | 0.607            | +0.000     |
-| answer_relevancy                 | 0.797           | 0.815            | +0.018     |
-| noise_sensitivity (lower better) | 0.207           | 0.308            | +0.101     |
+| Metric                           | Baseline prompt (14 shared cases) | Grounding prompt (14 shared cases) | Δ          |
+| -------------------------------- | --------------------------------- | ---------------------------------- | ---------- |
+| faithfulness                     | 0.603                             | 0.762                              | **+0.159** |
+| answer_accuracy                  | 0.607                             | 0.607                              | +0.000     |
+| answer_relevancy                 | 0.797                             | 0.815                              | +0.018     |
+| noise_sensitivity (lower better) | 0.207                             | 0.308                              | +0.101     |
 
-NOTE: the grounding prompt did exactly what it targeted. Faithfulness rose +0.159, far beyond the judge's ~±0.03 run-to-run noise, with answer_accuracy unchanged and answer_relevancy slightly up.
+(The baseline-prompt column differs slightly from the rerank column in Deliverable 2 because it covers only the 14 cases both runs scored, not all 18.)
+
+The grounding prompt did exactly what it targeted. Faithfulness rose +0.159, far beyond the judge's ~±0.03 run-to-run noise, with answer_accuracy unchanged and answer_relevancy slightly up.
 
 The one tradeoff is noise_sensitivity, which got worse (+0.101). That points straight at the next lever, deduplicating the retrieved context, and is a clean example of the harness catching a real tradeoff rather than just a headline win.
 
 ## Task 7: Reflections and next steps
-
-1. Reflecting on what you've built so far, what parts of your current implementation do you plan to keep for Demo Day, and what parts would you change or improve? Explain your reasoning.
 
 #### Keep for Demo Day:
 
@@ -386,11 +385,11 @@ The one tradeoff is noise_sensitivity, which got worse (+0.101). That points str
 - **Deduplicate the retrieved context (the clear next lever)** The grounding prompt already lifted faithfulness sharply (+0.16), but it raised noise_sensitivity because the model now faithfully repeats the near-duplicate passages that crowd the top-k. A per-source dedup / MMR pass on the reranked results should reclaim that, and it is measurable on the free deterministic recall eval. After that, a second averaged generation run (n=18, several repeats) to confirm the faithfulness gain and settle the smaller deltas.
 - **Make the evals more robust:** the golden sets are small (18-19 cases) and the RAGAS judge varies run to run, so I would grow the sets and average 3+ runs before trusting small deltas.
 
-Reasoning: keep what the evidence shows is working and what carries the product's trust promise (sourced retrieval, safety, memory). I would like to change what the evals exposed as weak (generation accuracy, eval robustness) and what the product vision needs but the current build still fakes (live personal-data access).
+Reasoning: keep what the evidence shows is working and what carries the product's trust promise (sourced retrieval, safety, memory). I would like to change what the evals exposed as weak (generation accuracy, eval robustness) and what the product vision needs but the current build does not have yet (live access to the rest of the personal data).
 
 ## Your Final Submission
 
 Github repo: https://github.com/paulina-grunwald/pawpilot
 Link to loom:
-Part 1: https://www.loom.com/share/d83401ccf79f4a15a731a69631414f51,
-Part2: https://www.loom.com/share/bbe2dd19e22643cd867c9285e4583d86
+Part 1: https://www.loom.com/share/d83401ccf79f4a15a731a69631414f51
+Part 2: https://www.loom.com/share/bbe2dd19e22643cd867c9285e4583d86
