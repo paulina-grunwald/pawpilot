@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
 from langchain_core.tools import BaseTool, StructuredTool
 
 from app.agent.data_tools import (
     DEFAULT_SLEEP_DAYS,
     MAX_SLEEP_DAYS,
+    _format_duration,
     build_pet_data_tools,
 )
 from app.agent.fakes import FakeSleepReader
@@ -115,6 +117,35 @@ def test_tools_are_async_only() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Duration formatting
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("hours", "expected"),
+    [
+        # The exact values from the dashboard's Jul 13 sleep-split bar: the agent
+        # must read these back as the graph labels them, not as decimal hours.
+        (11.16, "11h 10m"),
+        (6.66, "6h 40m"),
+        (17.83, "17h 50m"),
+        (8.0, "8h 00m"),
+        (6.5, "6h 30m"),
+        (0.0, "0m"),
+        (0.5, "30m"),
+        (0.99, "59m"),
+        (1.0, "1h 00m"),
+    ],
+)
+def test_format_duration_matches_graph_hours_and_minutes(hours: float, expected: str) -> None:
+    assert _format_duration(hours) == expected
+
+
+def test_format_duration_clamps_negative_hours_to_zero() -> None:
+    assert _format_duration(-1.0) == "0m"
+
+
+# --------------------------------------------------------------------------- #
 # Rendering
 # --------------------------------------------------------------------------- #
 
@@ -126,9 +157,9 @@ async def test_renders_averages_and_coverage_when_data_present() -> None:
 
     assert "data for 3 of them" in result
     assert "2024-05-14 to 2024-05-16" in result
-    assert "Average total sleep: 8.0 hours/day" in result
-    assert "Average night sleep: 6.5 hours/day" in result
-    assert "Average daytime sleep: 1.5 hours/day" in result
+    assert "Average total sleep: 8h 00m/day" in result
+    assert "Average night sleep: 6h 30m/day" in result
+    assert "Average daytime sleep: 1h 30m/day" in result
     assert invoked_tools == [_TOOL_NAME]
 
 
@@ -182,9 +213,9 @@ async def test_on_date_renders_that_days_sleep_when_data_present() -> None:
     result = await _invoke(tool, date="2024-05-22")
 
     assert "Sleep on 2024-05-22:" in result
-    assert "Total sleep: 8.0 hours" in result
-    assert "Night sleep: 6.5 hours" in result
-    assert "Daytime sleep: 1.5 hours" in result
+    assert "Total sleep: 8h 00m" in result
+    assert "Night sleep: 6h 30m" in result
+    assert "Daytime sleep: 1h 30m" in result
     assert invoked_tools == [_ON_DATE_TOOL_NAME]
 
 
