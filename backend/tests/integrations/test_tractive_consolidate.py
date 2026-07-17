@@ -117,7 +117,7 @@ def test_compute_distance_skips_pairs_with_non_positive_time_delta() -> None:
 
 def test_decode_activity_day_buckets_minutes_per_local_hour() -> None:
     day = {
-        "gmtTime": 1_715_731_200_000,  # 2024-05-15 00:00 UTC → 03:00 local at +03
+        "gmtTime": 1_715_731_200_000,  # 2024-05-15 00:00 UTC, +03 → local date 2024-05-15
         "gmtOffset": 3 * 3_600_000,
         "activityCategories": [[3600, 6], [1800, -1], [1800, None]],
     }
@@ -126,17 +126,18 @@ def test_decode_activity_day_buckets_minutes_per_local_hour() -> None:
     assert minutes.night_sleep == 60.0
     assert minutes.active == 30.0
     assert minutes.no_signal == 30.0
-    # 1h sleep starts at local hour 3, 30m active + 30m no_signal land in hour 4
-    assert hourly[3]["night_sleep"] == 60.0
-    assert hourly[4]["active"] == 30.0
-    assert hourly[4]["no_signal"] == 30.0
+    # The RLE starts at local midnight: 1h sleep in hour 0, then 30m active +
+    # 30m no_signal in hour 1.
+    assert hourly[0]["night_sleep"] == 60.0
+    assert hourly[1]["active"] == 30.0
+    assert hourly[1]["no_signal"] == 30.0
 
 
 def test_decode_activity_day_splits_sleep_by_local_hour_window() -> None:
-    # 10h of activity starting at local hour 3 lands the cursor at local hour 13
-    # by the time cat 6 begins. Tractive's "night sleep" window is 20:00-09:59,
-    # so cat 6 at hours 13 + 14 falls in the DAY window → counted as day_sleep.
-    # The cat 7 chunk at hour 15 also falls in the day window → day_sleep.
+    # 10h of activity fills local hours 0..9, so cat 6 begins at local hour 10.
+    # Tractive's "night sleep" window is 20:00-09:59, so cat 6 at hours 10 + 11
+    # falls in the DAY window → counted as day_sleep. The cat 7 chunk at hour 12
+    # also falls in the day window → day_sleep.
     day = {
         "gmtTime": 1_715_731_200_000,
         "gmtOffset": 3 * 3_600_000,
@@ -147,9 +148,9 @@ def test_decode_activity_day_splits_sleep_by_local_hour_window() -> None:
     assert minutes.night_sleep == 0.0
     # 2 chunks of cat 6 + 1 chunk of cat 7, each 1h, all in day window.
     assert minutes.day_sleep == 180.0
-    assert hourly[13]["day_sleep"] == 60.0
-    assert hourly[14]["day_sleep"] == 60.0
-    assert hourly[15]["day_sleep"] == 60.0
+    assert hourly[10]["day_sleep"] == 60.0
+    assert hourly[11]["day_sleep"] == 60.0
+    assert hourly[12]["day_sleep"] == 60.0
 
 
 def test_decode_activity_day_counts_late_evening_cat_seven_as_night_sleep() -> None:
@@ -159,8 +160,8 @@ def test_decode_activity_day_counts_late_evening_cat_seven_as_night_sleep() -> N
     day = {
         "gmtTime": 1_715_731_200_000,
         "gmtOffset": 3 * 3_600_000,
-        # 18h of active fills hours 3..20, then 1h cat 7 at hour 21.
-        "activityCategories": [[18 * 3600, -1], [3600, 7]],
+        # 21h of active fills local hours 0..20, then 1h cat 7 at hour 21.
+        "activityCategories": [[21 * 3600, -1], [3600, 7]],
     }
     _, minutes, _ = decode_activity_day(day)
     assert minutes.night_sleep == 60.0

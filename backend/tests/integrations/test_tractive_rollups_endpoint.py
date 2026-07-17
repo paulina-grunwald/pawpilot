@@ -61,8 +61,8 @@ async def test_returns_rollups_oldest_first_with_default_days(
     assert day_one["heart_rate_mean"] == 62.0
     # Hour keys come back as ints (post-coercion from JSONB string keys).
     hourly = day_one["hourly_minutes_by_category"]
-    assert "3" in hourly  # JSON keys serialize as strings over the wire
-    assert hourly["3"]["night_sleep"] == 60.0
+    assert "0" in hourly  # JSON keys serialize as strings over the wire
+    assert hourly["0"]["night_sleep"] == 60.0
 
 
 async def test_returns_empty_list_for_pet_without_rollups(

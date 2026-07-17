@@ -138,8 +138,8 @@ async def test_ingest_persists_expected_rollup_columns(
     assert day_one.n_charging_starts == 1
     assert day_one.source == TractiveSource.GDPR_EXPORT.value
     # Hourly bucket keys round-trip as strings through JSONB.
-    assert "3" in day_one.hourly_minutes_by_category
-    assert day_one.hourly_minutes_by_category["3"]["night_sleep"] == 60.0
+    assert "0" in day_one.hourly_minutes_by_category
+    assert day_one.hourly_minutes_by_category["0"]["night_sleep"] == 60.0
 
 
 async def test_re_ingest_upserts_rollups_and_appends_raw_payloads(

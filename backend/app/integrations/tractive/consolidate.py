@@ -12,8 +12,8 @@ Category mapping — empirically verified against the API's
   * ``-1`` sums match API "active minutes" within rounding → ``active``
   * ``None`` = collar off-body or out of sync (large blocks when charging)
     → ``no_signal``
-  * ``6``  = long contiguous block at start of GMT day (= 03:00 local)
-    → ``night_sleep``
+  * ``6``  = long inactive stretch bundling extended rest; split into
+    ``night_sleep`` / ``day_sleep`` by local hour-of-day (see below)
   * ``7``  = medium segments during midday → ``day_sleep``
   * ``0``, ``1`` = small scattered segments — provisionally ``low_intensity`` /
     ``moderate``; the Tractive UI doesn't expose these as separate buckets.
@@ -59,10 +59,8 @@ CATEGORY_LABEL: dict[int | None, str] = {
     # Category 6 is Tractive's "long inactive stretch" bucket. On real-world data
     # it routinely totals 12-18 h/day, which makes it obvious it's not literally
     # night sleep — it bundles all extended rest periods, overnight or not.
-    # We now split it by local hour-of-day: only the slice that falls in
-    # NIGHT_SLEEP_HOURS gets counted as `night_sleep`. Daytime cat-6 minutes are
-    # dropped from the named buckets (raw timeline is still in
-    # tractive_raw_payload.payload if we want them back).
+    # We split it by local hour-of-day: the slice inside NIGHT_SLEEP_HOURS is
+    # counted as `night_sleep`, everything else as `day_sleep`.
     6: "night_sleep",
     # Category 7 totals ~30-130 min/day on real data — empirically that matches
     # an owner's "my dog napped a couple hours in the afternoon" gut check,
@@ -242,13 +240,20 @@ def decode_activity_day(
     total_seconds: dict[str, int] = defaultdict(int)
     hourly: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
-    cursor = 0  # seconds since start of GMT day
+    # The activity run-length timeline starts at LOCAL midnight, not GMT midnight.
+    # Verified against GPS fixes, whose UTC timestamps are independent of this
+    # encoding: active minutes bucketed by cursor-hour correlate +0.95 with GPS
+    # "away from home" by UTC hour under the local-start alignment, and -0.14 under
+    # a GMT-start alignment (best alignment is local-start on 24/24 days). So the
+    # cursor hour already IS the local hour — adding offset_hours here would shift
+    # every bucket by the offset. offset_hours is still used above for date_str.
+    cursor = 0  # seconds since start of the local day
     for seconds, category in day["activityCategories"]:
         base_label = CATEGORY_LABEL.get(category, f"unknown_{category}")
         remaining = seconds
         while remaining > 0:
             chunk = min(remaining, 3600 - (cursor % 3600))
-            local_hour = int(((cursor // 3600) + offset_hours) % 24)
+            local_hour = int((cursor // 3600) % 24)
             # Both cat 6 and cat 7 are sleep categories. Tractive's app splits
             # them into "night sleep" vs "day sleep" by whether the block lies
             # inside the 20:00..09:59 window — NOT by raw category. We mirror
