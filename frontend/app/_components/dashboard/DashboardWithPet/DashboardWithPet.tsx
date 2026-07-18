@@ -7,7 +7,14 @@ import { activePetStorageKey } from "@/lib/activePet";
 import type { PetRead } from "@/lib/pets";
 import { toDashboardPet } from "@/lib/pets.format";
 import { fetchTractiveRollups, type TractiveDailySummary } from "@/lib/tractive";
-import { toSleepSplitBars, toTodayPanelData } from "@/lib/tractive.format";
+import {
+  toIntradayActivityMatrix,
+  toOutingsCardData,
+  toSleepQualityData,
+  toSleepSplitBars,
+  toTodayPanelData,
+  toVitalsTrends,
+} from "@/lib/tractive.format";
 import { fetchPetWeightSeries, type WeightSeriesPoint } from "@/lib/weight";
 import { PetPicker } from "../../pets/PetPicker";
 import { PetDashboardView } from "../PetDashboardView";
@@ -81,6 +88,10 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
 
   const todayData = rollups ? toTodayPanelData(rollups) : undefined;
   const sleepSplitBars = rollups ? toSleepSplitBars(rollups) : [];
+  const intradayMatrix = rollups ? toIntradayActivityMatrix(rollups) : undefined;
+  const vitalsTrends = rollups ? toVitalsTrends(rollups) : undefined;
+  const outingsData = rollups ? toOutingsCardData(rollups) : undefined;
+  const sleepQuality = rollups ? toSleepQualityData(rollups) : undefined;
   const pickerOptions = pets.map((pet) => ({
     id: pet.id,
     name: pet.name,
@@ -108,6 +119,10 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
       todayLabel={todayLabel}
       todayData={todayData}
       sleepSplitBars={sleepSplitBars}
+      intradayMatrix={intradayMatrix}
+      vitalsTrends={vitalsTrends}
+      outingsData={outingsData}
+      sleepQuality={sleepQuality}
       weightSeries={weightSeries}
       rangeLabel={
         RANGE_OPTIONS.find((option) => option.days === rangeDays)?.label ?? `${rangeDays}d`

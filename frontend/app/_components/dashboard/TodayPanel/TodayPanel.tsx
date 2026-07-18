@@ -31,6 +31,7 @@ export type TodayPanelData = {
   activityWeekMean?: number;
   sleepWeekMean?: number;
   vitalsStatus?: VitalsStatus;
+  coverageNote?: string;
 };
 
 const VITAL_TONE_COLOR: Record<VitalsStatus["tone"], string> = {
@@ -122,6 +123,12 @@ export function TodayPanel({
         {isPlaceholder && (
           <p className={styles.placeholderHint}>
             Connect Tractive to see today&rsquo;s data.
+          </p>
+        )}
+
+        {!isPlaceholder && data.coverageNote && (
+          <p className={styles.coverageNote} role="note">
+            {data.coverageNote}
           </p>
         )}
       </section>

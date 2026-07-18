@@ -37,6 +37,7 @@ type LineChartProps = {
   accessibleLabel?: string;
   seriesLabel?: string;
   meanLabel?: string;
+  baselineLabel?: string;
 };
 
 function useMeasuredWidth() {
@@ -126,6 +127,7 @@ export function LineChart({
   accessibleLabel,
   seriesLabel = "this week",
   meanLabel = "30-day mean",
+  baselineLabel = "baseline range",
 }: LineChartProps) {
   const [containerRef, fullWidth] = useMeasuredWidth();
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -511,7 +513,7 @@ export function LineChart({
               {meanLabel}
             </LegendSwatch>
           )}
-          {baseline && <LegendSwatch type="hatch">baseline range</LegendSwatch>}
+          {baseline && <LegendSwatch type="hatch">{baselineLabel}</LegendSwatch>}
           {goal != null && (
             <LegendSwatch type="dash" color={color}>
               goal

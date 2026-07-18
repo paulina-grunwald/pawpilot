@@ -63,6 +63,13 @@ async def test_returns_rollups_oldest_first_with_default_days(
     hourly = day_one["hourly_minutes_by_category"]
     assert "0" in hourly  # JSON keys serialize as strings over the wire
     assert hourly["0"]["night_sleep"] == 60.0
+    assert day_one["heart_rate_record_count"] == 1
+    assert day_one["heart_rate_record_mean"] == 62.0
+    assert day_one["respiratory_rate_record_mean"] == 17.0
+    assert day_one["respiratory_rate_night_record_mean"] == 16.0
+    assert day_one["respiratory_rate_day_record_mean"] == 18.0
+    assert day_one["sleep_longest_bout_minutes"] == 60.0
+    assert day_one["sleep_bout_count"] == 1
 
 
 async def test_returns_empty_list_for_pet_without_rollups(

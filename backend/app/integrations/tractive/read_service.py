@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.tractive.models import TractiveDayRollup
+from app.integrations.tractive.schemas import OutingDetail
 
 
 class TractiveDailySummary(BaseModel):
@@ -30,6 +31,24 @@ class TractiveDailySummary(BaseModel):
     hourly_minutes_by_category: dict[int, dict[str, float]] = Field(default_factory=dict)
     heart_rate_mean: float | None
     respiratory_rate_mean: float | None
+    heart_rate_record_count: int = 0
+    heart_rate_record_mean: float | None = None
+    heart_rate_ci95_half_width: float | None = None
+    respiratory_rate_record_count: int = 0
+    respiratory_rate_record_mean: float | None = None
+    respiratory_rate_ci95_half_width: float | None = None
+    respiratory_rate_night_record_count: int = 0
+    respiratory_rate_night_record_mean: float | None = None
+    respiratory_rate_day_record_count: int = 0
+    respiratory_rate_day_record_mean: float | None = None
+    # Sleep continuity, never clinical stages.
+    sleep_longest_bout_minutes: float = 0.0
+    sleep_bout_count: int = 0
+    sleep_fragmentation_index: float | None = None
+    # Outing counts are floors: sampling gaps can hide whole outings.
+    outings_count: int = 0
+    outings_total_minutes: float = 0.0
+    outings: list[OutingDetail] = Field(default_factory=list)
     gps_distance_km: float
 
     @field_validator("hourly_minutes_by_category", mode="before")
@@ -216,6 +235,23 @@ async def fetch_recent_rollups(
                 hourly_minutes_by_category=row.hourly_minutes_by_category,  # type: ignore[arg-type]
                 heart_rate_mean=row.heart_rate_mean,
                 respiratory_rate_mean=row.respiratory_rate_mean,
+                heart_rate_record_count=row.heart_rate_record_count,
+                heart_rate_record_mean=row.heart_rate_record_mean,
+                heart_rate_ci95_half_width=row.heart_rate_ci95_half_width,
+                respiratory_rate_record_count=row.respiratory_rate_record_count,
+                respiratory_rate_record_mean=row.respiratory_rate_record_mean,
+                respiratory_rate_ci95_half_width=row.respiratory_rate_ci95_half_width,
+                respiratory_rate_night_record_count=row.respiratory_rate_night_record_count,
+                respiratory_rate_night_record_mean=row.respiratory_rate_night_record_mean,
+                respiratory_rate_day_record_count=row.respiratory_rate_day_record_count,
+                respiratory_rate_day_record_mean=row.respiratory_rate_day_record_mean,
+                sleep_longest_bout_minutes=row.sleep_longest_bout_minutes,
+                sleep_bout_count=row.sleep_bout_count,
+                sleep_fragmentation_index=row.sleep_fragmentation_index,
+                outings_count=row.outings_count,
+                outings_total_minutes=row.outings_total_minutes,
+                # JSONB hands back dicts; pydantic parses them into OutingDetail.
+                outings=row.outings,  # type: ignore[arg-type]
                 gps_distance_km=row.gps_distance_km,
             )
             for row in rows
