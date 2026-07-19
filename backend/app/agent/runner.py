@@ -20,7 +20,7 @@ from langsmith import traceable
 
 from app.agent.citations import CitationRegistry, extract_referenced_ids
 from app.agent.config import AgentSettings, get_agent_settings
-from app.agent.data_tools import SleepDataReader, build_pet_data_tools
+from app.agent.data_tools import PetDataReader, build_pet_data_tools
 from app.agent.datetime_tools import build_datetime_tools
 from app.agent.graph import (
     build_agent_graph,
@@ -143,7 +143,7 @@ class PawPilotAgent:
         dog_id: str | None,
         memory_active: bool,
         memory_block: str,
-        sleep_reader: SleepDataReader | None,
+        pet_data_reader: PetDataReader | None,
     ) -> _PreparedRun:
         validate_query(query)
         registry = CitationRegistry()
@@ -162,9 +162,9 @@ class PawPilotAgent:
 
         if memory_active and self._memory_store is not None and dog_id is not None:
             tools = tools + build_memory_tools(self._memory_store, dog_id, invoked_tools)
-        data_active = sleep_reader is not None
-        if sleep_reader is not None:
-            tools = tools + build_pet_data_tools(sleep_reader, invoked_tools)
+        data_active = pet_data_reader is not None
+        if pet_data_reader is not None:
+            tools = tools + build_pet_data_tools(pet_data_reader, invoked_tools)
         system_prompt = compose_system_prompt(
             memory_block=memory_block,
             include_memory_rule=memory_active,
@@ -223,8 +223,8 @@ class PawPilotAgent:
         top_k: int = _DEFAULT_TOP_K,
     ) -> AgentAnswer:
         memory_active, memory_block = self._memory_context(dog_id)
-        # The sync path stays corpus/web/memory only: the sleep tool is async-only
-        # because it reads the database, and the DB-backed run always uses `arun`.
+        # The sync path stays corpus/web/memory only: the metric tools are async-only
+        # because they read the database, and the DB-backed run always uses `arun`.
         prepared = self._prepare_run(
             query,
             top_k=top_k,
@@ -232,7 +232,7 @@ class PawPilotAgent:
             dog_id=dog_id,
             memory_active=memory_active,
             memory_block=memory_block,
-            sleep_reader=None,
+            pet_data_reader=None,
         )
         try:
             result = prepared.graph.invoke({"messages": prepared.messages}, config=prepared.config)
@@ -248,7 +248,7 @@ class PawPilotAgent:
         thread_id: str | None = None,
         dog_id: str | None = None,
         top_k: int = _DEFAULT_TOP_K,
-        sleep_reader: SleepDataReader | None = None,
+        pet_data_reader: PetDataReader | None = None,
     ) -> AgentAnswer:
         memory_active, memory_block = await self._amemory_context(dog_id)
         prepared = self._prepare_run(
@@ -258,7 +258,7 @@ class PawPilotAgent:
             dog_id=dog_id,
             memory_active=memory_active,
             memory_block=memory_block,
-            sleep_reader=sleep_reader,
+            pet_data_reader=pet_data_reader,
         )
         try:
             result = await prepared.graph.ainvoke(
@@ -276,7 +276,7 @@ class PawPilotAgent:
         thread_id: str | None = None,
         dog_id: str | None = None,
         top_k: int = _DEFAULT_TOP_K,
-        sleep_reader: SleepDataReader | None = None,
+        pet_data_reader: PetDataReader | None = None,
     ) -> AsyncIterator[AgentStreamChunk | AgentStreamFinal]:
         memory_active, memory_block = await self._amemory_context(dog_id)
         prepared = self._prepare_run(
@@ -286,7 +286,7 @@ class PawPilotAgent:
             dog_id=dog_id,
             memory_active=memory_active,
             memory_block=memory_block,
-            sleep_reader=sleep_reader,
+            pet_data_reader=pet_data_reader,
         )
         if prepared.emergency:
             yield AgentStreamChunk(text=EMERGENCY_BANNER)

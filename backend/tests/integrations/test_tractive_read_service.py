@@ -1,8 +1,8 @@
-"""DB-backed tests for the sleep aggregation in ``tractive.read_service``.
+"""DB-backed tests for the metric reads in ``tractive.read_service``.
 
 A pet is created over HTTP (so it is owned and visible on the shared test
-connection), rollups are inserted directly, and `summarize_sleep` is called
-against the same session so the averaging is checked against known inputs.
+connection), rollups are inserted directly, and the metric reads are called
+against the same session so the unit conversion is checked against known inputs.
 """
 
 from __future__ import annotations
@@ -16,9 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.tractive.models import TractiveDayRollup
 from app.integrations.tractive.read_service import (
-    TractiveSleepReader,
-    sleep_on_date,
-    summarize_sleep,
+    TractivePetDataReader,
+    fetch_metric_on_date,
+    fetch_metric_window,
 )
 
 
@@ -50,136 +50,23 @@ async def _insert_rollups(
 
 
 # --------------------------------------------------------------------------- #
-# summarize_sleep
+# fetch_metric_window
 # --------------------------------------------------------------------------- #
 
 
-async def test_summarize_sleep_returns_empty_summary_when_no_rollups(
+async def test_window_is_empty_when_no_rollups(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
     valid_pet_payload: Callable[..., dict[str, object]],
 ) -> None:
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
 
-    summary = await summarize_sleep(db_session, pet_id, days=7)
+    rows = await fetch_metric_window(db_session, pet_id, days=7)
 
-    assert summary.days_requested == 7
-    assert summary.days_with_data == 0
-    assert summary.average_total_sleep_hours is None
-    assert summary.average_night_sleep_hours is None
-    assert summary.average_day_sleep_hours is None
-    assert summary.start_date is None
-    assert summary.end_date is None
+    assert rows == []
 
 
-async def test_summarize_sleep_averages_over_all_days_in_window(
-    authenticated_client: AsyncClient,
-    db_session: AsyncSession,
-    valid_pet_payload: Callable[..., dict[str, object]],
-) -> None:
-    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    await _insert_rollups(
-        db_session,
-        pet_id,
-        [
-            (date(2024, 5, 14), 360.0, 60.0),  # 6h night + 1h day = 7h
-            (date(2024, 5, 15), 420.0, 120.0),  # 7h night + 2h day = 9h
-            (date(2024, 5, 16), 480.0, 0.0),  # 8h night + 0h day = 8h
-        ],
-    )
-
-    summary = await summarize_sleep(db_session, pet_id, days=7)
-
-    assert summary.days_requested == 7
-    assert summary.days_with_data == 3
-    assert summary.average_night_sleep_hours == 7.0
-    assert summary.average_day_sleep_hours == 1.0
-    assert summary.average_total_sleep_hours == 8.0
-    assert summary.start_date == date(2024, 5, 14)
-    assert summary.end_date == date(2024, 5, 16)
-
-
-async def test_summarize_sleep_limits_to_most_recent_days(
-    authenticated_client: AsyncClient,
-    db_session: AsyncSession,
-    valid_pet_payload: Callable[..., dict[str, object]],
-) -> None:
-    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    await _insert_rollups(
-        db_session,
-        pet_id,
-        [
-            (date(2024, 5, 14), 360.0, 60.0),  # excluded by days=2
-            (date(2024, 5, 15), 420.0, 120.0),
-            (date(2024, 5, 16), 480.0, 0.0),
-        ],
-    )
-
-    summary = await summarize_sleep(db_session, pet_id, days=2)
-
-    assert summary.days_with_data == 2
-    assert summary.average_night_sleep_hours == 7.5  # (420 + 480) / 2 = 450min
-    assert summary.average_day_sleep_hours == 1.0  # (120 + 0) / 2 = 60min
-    assert summary.average_total_sleep_hours == 8.5  # (540 + 480) / 2 = 510min
-    assert summary.start_date == date(2024, 5, 15)
-    assert summary.end_date == date(2024, 5, 16)
-
-
-async def test_summarize_sleep_rounds_hours_to_two_decimals(
-    authenticated_client: AsyncClient,
-    db_session: AsyncSession,
-    valid_pet_payload: Callable[..., dict[str, object]],
-) -> None:
-    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 16), 100.0, 0.0)])
-
-    summary = await summarize_sleep(db_session, pet_id, days=7)
-
-    # 100 minutes / 60 = 1.6666... -> rounded to 2dp.
-    assert summary.average_night_sleep_hours == 1.67
-    assert summary.average_total_sleep_hours == 1.67
-
-
-async def test_summarize_sleep_ignores_other_pets(
-    authenticated_client: AsyncClient,
-    db_session: AsyncSession,
-    valid_pet_payload: Callable[..., dict[str, object]],
-) -> None:
-    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    other_pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    await _insert_rollups(db_session, other_pet_id, [(date(2024, 5, 16), 480.0, 0.0)])
-
-    summary = await summarize_sleep(db_session, pet_id, days=7)
-
-    assert summary.days_with_data == 0
-
-
-# sleep_on_date
-async def test_sleep_on_date_returns_that_days_hours(
-    authenticated_client: AsyncClient,
-    db_session: AsyncSession,
-    valid_pet_payload: Callable[..., dict[str, object]],
-) -> None:
-    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    await _insert_rollups(
-        db_session,
-        pet_id,
-        [
-            (date(2024, 5, 21), 360.0, 60.0),  # neighbour day, must be ignored
-            (date(2024, 5, 22), 420.0, 120.0),  # 7h night + 2h day = 9h total
-        ],
-    )
-
-    daily = await sleep_on_date(db_session, pet_id, date(2024, 5, 22))
-
-    assert daily.date == date(2024, 5, 22)
-    assert daily.has_data is True
-    assert daily.night_sleep_hours == 7.0
-    assert daily.day_sleep_hours == 2.0
-    assert daily.total_sleep_hours == 9.0
-
-
-async def test_sleep_on_date_marks_no_data_when_day_missing(
+async def test_window_converts_minutes_to_hours_and_sums_total_sleep(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
     valid_pet_payload: Callable[..., dict[str, object]],
@@ -187,16 +74,61 @@ async def test_sleep_on_date_marks_no_data_when_day_missing(
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
     await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 420.0, 120.0)])
 
-    daily = await sleep_on_date(db_session, pet_id, date(2024, 5, 23))
+    rows = await fetch_metric_window(db_session, pet_id, days=7)
 
-    assert daily.date == date(2024, 5, 23)
-    assert daily.has_data is False
-    assert daily.night_sleep_hours is None
-    assert daily.day_sleep_hours is None
-    assert daily.total_sleep_hours is None
+    assert len(rows) == 1
+    assert rows[0].night_sleep_hours == 7.0
+    assert rows[0].day_sleep_hours == 2.0
+    assert rows[0].total_sleep_hours == 9.0
 
 
-async def test_sleep_on_date_rounds_hours_to_two_decimals(
+async def test_window_returns_days_oldest_first(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(
+        db_session,
+        pet_id,
+        [
+            (date(2024, 5, 16), 480.0, 0.0),
+            (date(2024, 5, 14), 360.0, 120.0),
+            (date(2024, 5, 15), 420.0, 120.0),
+        ],
+    )
+
+    rows = await fetch_metric_window(db_session, pet_id, days=7)
+
+    assert [row.date for row in rows] == [
+        date(2024, 5, 14),
+        date(2024, 5, 15),
+        date(2024, 5, 16),
+    ]
+
+
+async def test_window_limits_to_the_most_recent_days(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(
+        db_session,
+        pet_id,
+        [
+            (date(2024, 5, 14), 360.0, 120.0),
+            (date(2024, 5, 15), 420.0, 120.0),
+            (date(2024, 5, 16), 480.0, 0.0),
+        ],
+    )
+
+    rows = await fetch_metric_window(db_session, pet_id, days=2)
+
+    assert [row.date for row in rows] == [date(2024, 5, 15), date(2024, 5, 16)]
+
+
+async def test_window_rounds_hours_to_two_decimals(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
     valid_pet_payload: Callable[..., dict[str, object]],
@@ -204,57 +136,138 @@ async def test_sleep_on_date_rounds_hours_to_two_decimals(
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
     await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 100.0, 0.0)])
 
-    daily = await sleep_on_date(db_session, pet_id, date(2024, 5, 22))
+    rows = await fetch_metric_window(db_session, pet_id, days=7)
 
-    # 100 minutes / 60 = 1.6666... -> rounded to 2dp.
-    assert daily.night_sleep_hours == 1.67
-    assert daily.total_sleep_hours == 1.67
+    assert rows[0].night_sleep_hours == 1.67
+    assert rows[0].total_sleep_hours == 1.67
 
 
-async def test_sleep_on_date_ignores_other_pets(
+async def test_window_ignores_other_pets(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    """The tool cannot widen its scope, so the query must never cross pets."""
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    other_pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, other_pet_id, [(date(2024, 5, 22), 600.0, 0.0)])
+
+    rows = await fetch_metric_window(db_session, pet_id, days=7)
+
+    assert rows == []
+
+
+# --------------------------------------------------------------------------- #
+# fetch_metric_on_date
+# --------------------------------------------------------------------------- #
+
+
+async def test_on_date_returns_that_days_row(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(
+        db_session,
+        pet_id,
+        [(date(2024, 5, 21), 300.0, 60.0), (date(2024, 5, 22), 420.0, 120.0)],
+    )
+
+    row = await fetch_metric_on_date(db_session, pet_id, date(2024, 5, 22))
+
+    assert row is not None
+    assert row.date == date(2024, 5, 22)
+    assert row.total_sleep_hours == 9.0
+
+
+async def test_on_date_returns_none_when_day_missing(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 420.0, 120.0)])
+
+    assert await fetch_metric_on_date(db_session, pet_id, date(2024, 5, 23)) is None
+
+
+async def test_on_date_ignores_other_pets(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
     valid_pet_payload: Callable[..., dict[str, object]],
 ) -> None:
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
     other_pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    await _insert_rollups(db_session, other_pet_id, [(date(2024, 5, 22), 480.0, 0.0)])
+    await _insert_rollups(db_session, other_pet_id, [(date(2024, 5, 22), 600.0, 0.0)])
 
-    daily = await sleep_on_date(db_session, pet_id, date(2024, 5, 22))
+    assert await fetch_metric_on_date(db_session, pet_id, date(2024, 5, 22)) is None
 
-    assert daily.has_data is False
+
+async def test_defaults_are_zero_not_null_for_the_new_rollup_columns(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    """A rollup written before the sleep/outing columns existed still reads cleanly."""
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 420.0, 120.0)])
+
+    row = await fetch_metric_on_date(db_session, pet_id, date(2024, 5, 22))
+
+    assert row is not None
+    assert row.sleep_bout_count == 0
+    assert row.outings_count == 0
+    assert row.outings_total_hours == 0.0
+    assert row.walking_distance_km == 0.0
+    assert row.sleep_fragmentation_index is None
+    assert row.resting_heart_rate_bpm is None
 
 
 # --------------------------------------------------------------------------- #
-# TractiveSleepReader
+# TractivePetDataReader
 # --------------------------------------------------------------------------- #
 
 
-async def test_reader_delegates_to_summarize_sleep(
+async def test_reader_delegates_to_fetch_window(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
     valid_pet_payload: Callable[..., dict[str, object]],
 ) -> None:
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 16), 480.0, 0.0)])
+    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 420.0, 120.0)])
 
-    reader = TractiveSleepReader(db_session, pet_id)
-    via_reader = await reader.summarize_sleep(7)
-    direct = await summarize_sleep(db_session, pet_id, days=7)
+    reader = TractivePetDataReader(db_session, pet_id)
 
-    assert via_reader == direct
+    assert await reader.fetch_window(7) == await fetch_metric_window(db_session, pet_id, days=7)
 
 
-async def test_reader_delegates_to_sleep_on_date(
+async def test_reader_delegates_to_fetch_on_date(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
     valid_pet_payload: Callable[..., dict[str, object]],
 ) -> None:
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
-    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 480.0, 0.0)])
+    await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 420.0, 120.0)])
 
-    reader = TractiveSleepReader(db_session, pet_id)
-    via_reader = await reader.sleep_on_date(date(2024, 5, 22))
-    direct = await sleep_on_date(db_session, pet_id, date(2024, 5, 22))
+    reader = TractivePetDataReader(db_session, pet_id)
+    via_reader = await reader.fetch_on_date(date(2024, 5, 22))
+    direct = await fetch_metric_on_date(db_session, pet_id, date(2024, 5, 22))
 
     assert via_reader == direct
+
+
+async def test_reader_is_scoped_to_its_pet(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    """The reader binds the pet, so no argument the model picks can reach another."""
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    other_pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, other_pet_id, [(date(2024, 5, 22), 600.0, 0.0)])
+
+    reader = TractivePetDataReader(db_session, pet_id)
+
+    assert await reader.fetch_window(365) == []
+    assert await reader.fetch_on_date(date(2024, 5, 22)) is None
