@@ -1,4 +1,4 @@
-.PHONY: install dev lint format typecheck test check db-up db-down db-upgrade db-downgrade db-revision corpus-ingest retrieval-report rag-eval agent-eval langsmith-experiments
+.PHONY: install dev lint format typecheck test check db-up db-down db-upgrade db-downgrade db-revision corpus-ingest retrieval-report rag-eval agent-eval guardrail-eval langsmith-experiments
 
 install:
 	uv sync
@@ -55,6 +55,11 @@ rag-eval:
 agent-eval:
 	uv sync --group evals
 	uv run python -m evals.rag.run_agent_eval $(ARGS)
+
+# Scope-guardrail eval: off-topic questions refused, dog questions answered.
+# Needs live Gateway + Qdrant; no RAGAS judge, so no evals group required.
+guardrail-eval:
+	uv run python -m evals.rag.guardrail_eval $(ARGS)
 
 # RAGAS evals as LangSmith Datasets + Experiments (opt-in; needs live LangSmith + Gateway creds)
 langsmith-experiments:
