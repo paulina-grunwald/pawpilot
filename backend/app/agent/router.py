@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,9 +26,11 @@ from app.agent.schemas import (
 )
 from app.auth.deps import current_active_user
 from app.auth.models import User
+from app.config import settings
 from app.db.base import get_session
 from app.integrations.tractive.read_service import TractiveSleepReader
 from app.pets.deps import load_owned_pet
+from app.rate_limit import limiter, set_user_rate_limit_key
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +41,18 @@ def get_agent() -> PawPilotAgent:
     return runner.get_default_agent()
 
 
+async def rate_limited_user(request: Request, user: User = Depends(current_active_user)) -> User:
+    """Authenticate, then key the rate limiter by this user so limits are per-account."""
+    set_user_rate_limit_key(request, user.id)
+    return user
+
+
 @agent_router.post("/ask", response_model=AgentAnswer)
+@limiter.limit(settings.agent_rate_limit)
 async def ask_pawpilot(
+    request: Request,
     payload: AgentAskRequest,
-    user: User = Depends(current_active_user),
+    user: User = Depends(rate_limited_user),
     session: AsyncSession = Depends(get_session),
     agent: PawPilotAgent = Depends(get_agent),
 ) -> AgentAnswer:
@@ -76,9 +86,11 @@ def _sse(event: BaseModel) -> str:
 
 
 @agent_router.post("/ask/stream")
+@limiter.limit(settings.agent_rate_limit)
 async def ask_pawpilot_stream(
+    request: Request,
     payload: AgentAskRequest,
-    user: User = Depends(current_active_user),
+    user: User = Depends(rate_limited_user),
     session: AsyncSession = Depends(get_session),
     agent: PawPilotAgent = Depends(get_agent),
 ) -> StreamingResponse:

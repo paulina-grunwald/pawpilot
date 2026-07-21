@@ -1,4 +1,4 @@
-.PHONY: install dev lint format typecheck test check db-up db-down db-upgrade db-downgrade db-revision corpus-ingest retrieval-report rag-eval agent-eval guardrail-eval langsmith-experiments
+.PHONY: install dev lint format typecheck test check db-up db-down db-upgrade db-downgrade db-revision corpus-ingest retrieval-report rag-eval agent-eval guardrail-eval injection-eval langsmith-experiments
 
 install:
 	uv sync
@@ -60,6 +60,11 @@ agent-eval:
 # Needs live Gateway + Qdrant; no RAGAS judge, so no evals group required.
 guardrail-eval:
 	uv run python -m evals.rag.guardrail_eval $(ARGS)
+
+# Prompt-injection eval: poisoned web results must not subvert the agent, with a
+# rule-ablated arm for the delta. Needs live Gateway + Qdrant; no RAGAS judge.
+injection-eval:
+	uv run python -m evals.rag.injection_eval $(ARGS)
 
 # RAGAS evals as LangSmith Datasets + Experiments (opt-in; needs live LangSmith + Gateway creds)
 langsmith-experiments:

@@ -20,6 +20,19 @@ from app.rag.schemas import RetrievedChunk
 _REFERENCE_PATTERN = re.compile(r"\[([SWF]\d+)\]")
 
 
+def _wrap_untrusted(label: str, body: str) -> str:
+    """Fence live third-party tool output so the model reads it as data, not orders.
+
+    Web and pet-food results come from outside our trust boundary and can carry
+    injected instructions (indirect prompt injection). Fencing them in a named
+    block, paired with the system prompt's untrusted-content rule, marks exactly
+    which spans are attacker-influenceable. The corpus is not fenced: it is our
+    curated PDF set, and fencing it would also perturb the generation eval's
+    retrieved-context baseline for no threat-model gain.
+    """
+    return f"<untrusted_{label}>\n{body}\n</untrusted_{label}>"
+
+
 def extract_referenced_ids(text: str) -> list[str]:
     """Return the citation ids referenced in ``text``, in first-seen order."""
     referenced: list[str] = []
@@ -79,7 +92,9 @@ class CitationRegistry:
             )
             snippets.append(f"[{ref}] {result.title} ({result.url})\n{result.content}")
             self._retrieved_contexts.append(result.content)
-        return "\n\n".join(snippets)
+        if not snippets:
+            return ""
+        return _wrap_untrusted("web_results", "\n\n".join(snippets))
 
     def register_food_products(self, products: list[PetFoodProduct]) -> str:
         """Assign ``[F#]`` ids to pet-food products and return them as passages."""
@@ -96,7 +111,9 @@ class CitationRegistry:
             body = product.describe()
             passages.append(f"[{ref}] {product.display_title} ({product.url})\n{body}")
             self._retrieved_contexts.append(body)
-        return "\n\n".join(passages)
+        if not passages:
+            return ""
+        return _wrap_untrusted("food_results", "\n\n".join(passages))
 
     def resolve(self, referenced_ids: list[str]) -> list[Citation]:
         """Map referenced ids back to citations, ignoring unknown ids, in order."""

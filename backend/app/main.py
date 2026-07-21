@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.agent import runner
 from app.agent.config import get_agent_settings
@@ -21,6 +23,7 @@ from app.pets.router import pets_router
 from app.rag.admin_router import admin_rag_router
 from app.rag.observability import configure_langsmith
 from app.rag.router import rag_router
+from app.rate_limit import limiter
 
 # Set LangSmith EU endpoint + project defaults before any client is built.
 configure_langsmith()
@@ -47,6 +50,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="PawPilot", version="0.0.0", lifespan=lifespan)
+
+# Rate limiting for the paid agent routes (see app/rate_limit.py). The handler
+# turns an exceeded limit into a 429; the decorators live on the agent routes.
+app.state.limiter = limiter
+# slowapi's handler is typed with the concrete RateLimitExceeded rather than the
+# base Exception Starlette's signature expects; the registration is correct.
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 # Pet photos are NOT served from a public static mount — they are streamed by
 # the authenticated, owner-scoped GET /pets/{id}/photo route so a photo is only

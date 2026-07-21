@@ -178,8 +178,10 @@ def test_register_web_results_formats_single_snippet() -> None:
     result = make_web_result()
     snippets = registry.register_web_results([result])
     assert snippets == (
+        "<untrusted_web_results>\n"
         "[W1] Brand X kibble recall (https://news.example.com/recall)\n"
-        "The manufacturer recalled several lots this week."
+        "The manufacturer recalled several lots this week.\n"
+        "</untrusted_web_results>"
     )
 
 
@@ -209,7 +211,14 @@ def test_register_web_results_continues_ids_across_calls() -> None:
     registry = CitationRegistry()
     registry.register_web_results([make_web_result()])
     second = registry.register_web_results([make_web_result(title="Later recall")])
-    assert second.startswith("[W2] Later recall")
+    assert "[W2] Later recall" in second
+
+
+def test_register_web_results_fences_output_as_untrusted() -> None:
+    registry = CitationRegistry()
+    snippets = registry.register_web_results([make_web_result()])
+    assert snippets.startswith("<untrusted_web_results>\n")
+    assert snippets.endswith("\n</untrusted_web_results>")
 
 
 def test_register_web_results_builds_citation_with_title_and_url_only() -> None:
@@ -241,8 +250,9 @@ def test_register_food_products_returns_empty_string_for_no_products() -> None:
 def test_register_food_products_formats_single_passage() -> None:
     registry = CitationRegistry()
     passages = registry.register_food_products([make_pet_food_product()])
-    assert passages.startswith(
+    assert (
         "[F1] Orijen Six Fish (https://world.openpetfoodfacts.org/product/0064992281182)\n"
+        in passages
     )
     assert "- Crude protein: 40%" in passages
     assert "Ingredients: Whole sardine, whole hake, whole mackerel." in passages
@@ -262,7 +272,14 @@ def test_register_food_products_continues_ids_across_calls() -> None:
     registry = CitationRegistry()
     registry.register_food_products([make_pet_food_product()])
     second = registry.register_food_products([make_pet_food_product(name="Later Food")])
-    assert second.startswith("[F2] Orijen Later Food")
+    assert "[F2] Orijen Later Food" in second
+
+
+def test_register_food_products_fences_output_as_untrusted() -> None:
+    registry = CitationRegistry()
+    passages = registry.register_food_products([make_pet_food_product()])
+    assert passages.startswith("<untrusted_food_results>\n")
+    assert passages.endswith("\n</untrusted_food_results>")
 
 
 def test_register_food_products_builds_citation_with_title_and_url_only() -> None:

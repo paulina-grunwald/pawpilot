@@ -55,6 +55,12 @@ class Settings(BaseSettings):
 
     admin_ingest_token: str | None = None
 
+    # Rate limiting. The agent routes call the paid LLM gateway, so an authenticated
+    # user (or a leaked token) hammering them burns real money; these cap that. Keyed
+    # per authenticated user. Disabled under test so suites can call freely.
+    rate_limit_enabled: bool = True
+    agent_rate_limit: str = "30/minute"
+
     @field_validator("database_url", mode="after")
     @classmethod
     def _coerce_async_driver(cls, database_url: str) -> str:

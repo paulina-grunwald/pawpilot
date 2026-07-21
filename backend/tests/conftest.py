@@ -21,6 +21,7 @@ import os
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://placeholder:placeholder@localhost/placeholder"
 os.environ["JWT_SECRET"] = "test-jwt-secret-32-bytes-of-padding"
 os.environ["FRONTEND_BASE_URL"] = "http://localhost:3000"
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import date

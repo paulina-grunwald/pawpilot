@@ -7,6 +7,7 @@ Every run is traced to LangSmith when tracing is enabled.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -34,9 +35,12 @@ from app.agent.prompt import PROMPT_VERSION, compose_system_prompt
 from app.agent.red_flags import EMERGENCY_BANNER, has_red_flag
 from app.agent.schemas import AgentAnswer, AgentStreamChunk, AgentStreamFinal
 from app.agent.tools import build_agent_tools
+from app.agent.verifier import verify_answer
 from app.agent.web_search import TavilyWebSearch, WebSearch
 from app.rag.observability import configure_langsmith
 from app.rag.retriever import VetCorpusRetriever, build_retriever
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_TOP_K = 6
 _MAX_QUERY_LENGTH = 2000
@@ -85,6 +89,7 @@ class _PreparedRun:
         emergency: bool,
         messages: list[BaseMessage],
         config: dict[str, Any],
+        system_prompt: str,
     ) -> None:
         self.graph = graph
         self.registry = registry
@@ -92,6 +97,7 @@ class _PreparedRun:
         self.emergency = emergency
         self.messages = messages
         self.config = config
+        self.system_prompt = system_prompt
 
 
 class PawPilotAgent:
@@ -199,11 +205,20 @@ class PawPilotAgent:
             emergency=has_red_flag(query),
             messages=[HumanMessage(query)],
             config=config,
+            system_prompt=system_prompt,
         )
 
     def _assemble_answer(self, final_text: str, prepared: _PreparedRun) -> AgentAnswer:
         referenced_ids = extract_referenced_ids(final_text)
         citations = prepared.registry.resolve(referenced_ids)
+        verification = verify_answer(
+            answer_text=final_text,
+            tool_calls=prepared.invoked_tools,
+            has_citations=bool(citations),
+            system_prompt=prepared.system_prompt,
+        )
+        if not verification.ok:
+            logger.warning("answer verification flags: %s", ", ".join(verification.flags))
         text = EMERGENCY_BANNER + final_text if prepared.emergency else final_text
         return AgentAnswer(
             text=text,
@@ -310,6 +325,14 @@ class PawPilotAgent:
 
     def _final_event(self, answer_text: str, prepared: _PreparedRun) -> AgentStreamFinal:
         citations = prepared.registry.resolve(extract_referenced_ids(answer_text))
+        verification = verify_answer(
+            answer_text=answer_text,
+            tool_calls=prepared.invoked_tools,
+            has_citations=bool(citations),
+            system_prompt=prepared.system_prompt,
+        )
+        if not verification.ok:
+            logger.warning("answer verification flags (stream): %s", ", ".join(verification.flags))
         return AgentStreamFinal(
             citations=citations,
             emergency=prepared.emergency,

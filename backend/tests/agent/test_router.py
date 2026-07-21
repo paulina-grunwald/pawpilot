@@ -22,7 +22,9 @@ from app.agent.fakes import ScriptedChatModel
 from app.agent.models import AgentThread
 from app.agent.prompt import DATA_TOOL_RULE, VET_DISCLAIMER
 from app.agent.runner import PawPilotAgent
+from app.config import settings
 from app.integrations.tractive.models import TractiveDayRollup
+from app.rate_limit import limiter
 from tests.agent.conftest import RaisingChatModel, build_test_agent, make_chunk, tool_call_message
 
 
@@ -103,6 +105,27 @@ async def test_ask_returns_answer_without_pet_or_thread(
     # No thread id supplied -> nothing recorded.
     rows = (await db_session.execute(select(AgentThread))).scalars().all()
     assert rows == []
+
+
+async def test_ask_rate_limited_after_the_configured_quota(
+    authenticated_client: AsyncClient,
+    install_agent: Callable[[PawPilotAgent], None],
+) -> None:
+    install_agent(_answer_agent())
+    allowed = int(settings.agent_rate_limit.split("/")[0])
+    # The limiter is disabled suite-wide (conftest); enable it just for this case,
+    # reset its buckets so prior tests don't count, and restore on the way out.
+    limiter.reset()
+    limiter.enabled = True
+    try:
+        for _ in range(allowed):
+            ok = await authenticated_client.post("/agent/ask", json={"query": "hi"})
+            assert ok.status_code == 200, ok.text
+        blocked = await authenticated_client.post("/agent/ask", json={"query": "hi"})
+        assert blocked.status_code == 429
+    finally:
+        limiter.enabled = False
+        limiter.reset()
 
 
 async def test_ask_records_namespaced_thread(

@@ -80,6 +80,30 @@ class FakeWebSearch:
         return list(self._results)
 
 
+class KeyedFakeWebSearch:
+    """Returns different canned results per query, for injection-style evals.
+
+    A single agent instance is reused across many eval cases, so the web backend
+    must hand each case its own (possibly poisoned) payload. Lookup is by exact
+    query string; an unknown query yields ``default`` (empty unless given), which
+    keeps unrelated tool calls from accidentally seeing another case's payload.
+    """
+
+    def __init__(
+        self,
+        results_by_query: dict[str, list[WebSearchResult]],
+        *,
+        default: list[WebSearchResult] | None = None,
+    ) -> None:
+        self._results_by_query = {
+            query: list(results) for query, results in results_by_query.items()
+        }
+        self._default = list(default) if default is not None else []
+
+    def search(self, query: str) -> list[WebSearchResult]:
+        return list(self._results_by_query.get(query, self._default))
+
+
 class FakeSleepReader:
     """Returns preset sleep data, recording the windows and dates it was asked for.
 
