@@ -1,0 +1,20 @@
+{"question": "How did my dog sleep this week?", "bucket": "sleep_or_date", "acceptable_tool_sets": [["get_dog_sleep_summary"], ["get_current_date", "get_dog_sleep_summary"]], "notes": "relative window -> sleep summary; date tool optional for 'this week'"}
+{"question": "How many hours does my dog usually sleep?", "bucket": "sleep_or_date", "acceptable_tool_sets": [["get_dog_sleep_summary"]], "notes": "general habit -> summary, no date needed"}
+{"question": "Has my dog been sleeping more than usual lately?", "bucket": "sleep_or_date", "acceptable_tool_sets": [["get_dog_sleep_summary"], ["get_current_date", "get_dog_sleep_summary"]], "notes": "relative trend"}
+{"question": "What is my dog's average night-time sleep over the past two weeks?", "bucket": "sleep_or_date", "acceptable_tool_sets": [["get_dog_sleep_summary"], ["get_current_date", "get_dog_sleep_summary"]], "notes": "windowed average"}
+{"question": "How much did my dog sleep on May 20th?", "bucket": "sleep_or_date", "acceptable_tool_sets": [["get_dog_sleep_on_date"], ["get_current_date", "get_dog_sleep_on_date"]], "notes": "specific date -> on-date tool"}
+{"question": "Did my dog sleep well yesterday?", "bucket": "sleep_or_date", "acceptable_tool_sets": [["get_dog_sleep_on_date"], ["get_current_date", "get_dog_sleep_on_date"], ["get_dog_sleep_summary"], ["get_current_date", "get_dog_sleep_summary"]], "notes": "relative single day; either sleep tool acceptable"}
+{"question": "How has my dog's sleep been recently?", "bucket": "sleep_or_date", "acceptable_tool_sets": [["get_dog_sleep_summary"], ["get_current_date", "get_dog_sleep_summary"]], "notes": "recent trend -> summary"}
+{"question": "Was my dog restless last night?", "bucket": "sleep_or_date", "acceptable_tool_sets": [["get_dog_sleep_on_date"], ["get_current_date", "get_dog_sleep_on_date"], ["get_dog_sleep_summary"], ["get_current_date", "get_dog_sleep_summary"]], "notes": "single recent night; either sleep tool"}
+{"question": "What are the macros in Orijen Six Fish dog food?", "bucket": "named_food", "acceptable_tool_sets": [["lookup_pet_food"]], "notes": "named commercial product -> food lookup"}
+{"question": "How much protein is in Acana Wild Prairie?", "bucket": "named_food", "acceptable_tool_sets": [["lookup_pet_food"]], "notes": "named product macros"}
+{"question": "Look up the ingredients in Blue Buffalo Life Protection kibble.", "bucket": "named_food", "acceptable_tool_sets": [["lookup_pet_food"]], "notes": "named product ingredients"}
+{"question": "What is the fat content of Hill's Science Diet Adult?", "bucket": "named_food", "acceptable_tool_sets": [["lookup_pet_food"]], "notes": "named product macros"}
+{"question": "Can you check the guaranteed analysis for Taste of the Wild High Prairie?", "bucket": "named_food", "acceptable_tool_sets": [["lookup_pet_food"]], "notes": "named product guaranteed analysis"}
+{"question": "What is the weather in Berlin today?", "bucket": "must_abstain", "acceptable_tool_sets": [[]], "must_call_none": true, "notes": "off-topic weather -> refuse, no tools"}
+{"question": "Write me a Python script to reverse a string.", "bucket": "must_abstain", "acceptable_tool_sets": [[]], "must_call_none": true, "notes": "coding request -> refuse"}
+{"question": "Who won the World Cup in 2022?", "bucket": "must_abstain", "acceptable_tool_sets": [[]], "must_call_none": true, "notes": "general trivia -> refuse"}
+{"question": "What is a good recipe for lasagna?", "bucket": "must_abstain", "acceptable_tool_sets": [[]], "must_call_none": true, "notes": "off-topic cooking -> refuse"}
+{"question": "My cat keeps sneezing, is that normal?", "bucket": "must_abstain", "acceptable_tool_sets": [[]], "must_call_none": true, "notes": "non-dog pet -> out of scope, no tools"}
+{"question": "Hi!", "bucket": "must_abstain", "acceptable_tool_sets": [[]], "must_call_none": true, "notes": "greeting -> friendly reply, no tools"}
+{"question": "What can you do?", "bucket": "must_abstain", "acceptable_tool_sets": [[]], "must_call_none": true, "notes": "capability question -> friendly reply, no tools"}
