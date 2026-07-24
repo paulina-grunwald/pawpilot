@@ -20,10 +20,7 @@ const FOCUSABLE_SELECTOR = [
  * The container itself should carry `tabIndex={-1}` so it can receive focus as
  * a fallback when it holds no focusable children.
  */
-export function useFocusTrap(
-  containerRef: RefObject<HTMLElement | null>,
-  active = true,
-): void {
+export function useFocusTrap(containerRef: RefObject<HTMLElement | null>, active = true): void {
   useEffect(() => {
     if (!active) return;
     const container = containerRef.current;

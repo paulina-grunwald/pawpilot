@@ -11,22 +11,16 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
   ref,
 ) {
   const generatedId = useId();
-  const inputId = inputProps.name
-    ? `field-${inputProps.name}`
-    : `field-${generatedId}`;
+  const inputId = inputProps.name ? `field-${inputProps.name}` : `field-${generatedId}`;
   const errorId = `${inputId}-error`;
   const helpId = `${inputId}-help`;
   const describedBy =
-    [error ? errorId : null, helpText && !error ? helpId : null]
-      .filter(Boolean)
-      .join(" ") || undefined;
+    [error ? errorId : null, helpText && !error ? helpId : null].filter(Boolean).join(" ") ||
+    undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label
-        htmlFor={inputId}
-        className="text-[13px] font-medium text-ink"
-      >
+      <label htmlFor={inputId} className="text-ink text-[13px] font-medium">
         {label}
       </label>
       <input
@@ -34,7 +28,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
         id={inputId}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={describedBy}
-        className="focus-ring rounded-lg border px-3 py-2.5 text-[15px] outline-none transition-colors"
+        className="focus-ring rounded-lg border px-3 py-2.5 text-[15px] transition-colors outline-none"
         style={{
           background: "var(--paper)",
           borderColor: error ? "var(--terracotta)" : "var(--hairline-strong)",
@@ -43,17 +37,12 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
         {...inputProps}
       />
       {helpText && !error && (
-        <p id={helpId} className="text-[12px] text-muted">
+        <p id={helpId} className="text-muted text-[12px]">
           {helpText}
         </p>
       )}
       {error && (
-        <p
-          id={errorId}
-          role="alert"
-          className="text-[13px]"
-          style={{ color: "var(--terracotta)" }}
-        >
+        <p id={errorId} role="alert" className="text-[13px]" style={{ color: "var(--terracotta)" }}>
           {error}
         </p>
       )}

@@ -49,7 +49,7 @@ export function PetDashboardView({
     <main className={styles.page}>
       <section aria-label="Pet header" className={styles.petHeader}>
         <PetCard pet={pet} />
-        {headerActions && <div className="flex gap-2 items-center">{headerActions}</div>}
+        {headerActions && <div className="flex items-center gap-2">{headerActions}</div>}
       </section>
 
       <TodayPanel

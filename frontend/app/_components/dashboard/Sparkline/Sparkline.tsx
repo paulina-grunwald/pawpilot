@@ -33,10 +33,8 @@ export function Sparkline({
   const innerWidth = width - PADDING * 2;
   const innerHeight = height - PADDING * 2;
 
-  const xAt = (index: number) =>
-    PADDING + (index / (values.length - 1)) * innerWidth;
-  const yAt = (value: number) =>
-    PADDING + (1 - (value - minimum) / span) * innerHeight;
+  const xAt = (index: number) => PADDING + (index / (values.length - 1)) * innerWidth;
+  const yAt = (value: number) => PADDING + (1 - (value - minimum) / span) * innerHeight;
 
   const linePath = values
     .map((value, index) => `${index === 0 ? "M" : "L"}${xAt(index)},${yAt(value)}`)
@@ -74,13 +72,7 @@ export function Sparkline({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle
-        aria-hidden
-        cx={xAt(lastIndex)}
-        cy={yAt(values[lastIndex])}
-        r="2"
-        fill={color}
-      />
+      <circle aria-hidden cx={xAt(lastIndex)} cy={yAt(values[lastIndex])} r="2" fill={color} />
     </svg>
   );
 }

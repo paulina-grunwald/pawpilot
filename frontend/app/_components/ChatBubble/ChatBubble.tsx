@@ -52,18 +52,18 @@ export function ChatBubble() {
         <p className="m-0 mb-[10px]">
           <strong>One grape is unlikely to harm a 22 kg dog</strong>, but grape toxicity has no
           clean dose-response in the literature — some dogs react to very little
-          <sup className="text-[10px] font-semibold text-blue">[1]</sup>.
+          <sup className="text-blue text-[10px] font-semibold">[1]</sup>.
         </p>
         <p className="text-muted m-0 mb-[14px]">
           Watch Haru for vomiting or lethargy over the next 6–12 hours. Given her healthy kidney
           panel from March, the risk is low, not zero
-          <sup className="text-[10px] font-semibold text-blue">[2]</sup>.
+          <sup className="text-blue text-[10px] font-semibold">[2]</sup>.
         </p>
 
         <div className="flex flex-col gap-[6px] border-t border-(--hairline) pt-3">
           {citations.map((citation) => (
             <div key={citation.number} className="flex items-baseline gap-2 text-[12px]">
-              <sup className="text-[10px] font-bold text-blue">[{citation.number}]</sup>
+              <sup className="text-blue text-[10px] font-bold">[{citation.number}]</sup>
               <span className="text-ink font-medium">{citation.source}</span>
               <span className="mono text-muted text-[10.5px]">{citation.fragment}</span>
             </div>

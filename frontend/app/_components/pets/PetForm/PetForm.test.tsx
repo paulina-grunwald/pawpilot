@@ -151,16 +151,12 @@ describe("PetForm — create mode", () => {
     await user.click(cell!.querySelector("button")!);
     await user.click(screen.getByRole("button", { name: /save pet/i }));
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/didn't validate/i),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/didn't validate/i));
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 
   it("shows the required-field error for an empty name", async () => {
-    server.use(
-      http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json([])),
-    );
+    server.use(http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json([])));
     const user = userEvent.setup();
     render(<PetForm mode="create" />);
 
@@ -173,9 +169,7 @@ describe("PetForm — create mode", () => {
     await user.click(cell!.querySelector("button")!);
     await user.click(screen.getByRole("button", { name: /save pet/i }));
 
-    await waitFor(() =>
-      expect(screen.getByText(/name is required/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/name is required/i)).toBeInTheDocument());
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 });

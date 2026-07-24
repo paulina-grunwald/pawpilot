@@ -38,9 +38,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText(/email/i), "a@b.co");
     await user.type(screen.getByLabelText(/password/i), "short");
     await user.click(screen.getByRole("button", { name: /create account/i }));
-    expect(
-      await screen.findByText("Password must be at least 8 characters"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Password must be at least 8 characters")).toBeInTheDocument();
   });
 
   it("auto-logs in and redirects to /dashboard on successful signup", async () => {
@@ -75,10 +73,7 @@ describe("SignupPage", () => {
   it("surfaces a friendly message with login link when the email already exists", async () => {
     server.use(
       http.post(`${getApiBaseUrl()}/auth/register`, () =>
-        HttpResponse.json(
-          { detail: "REGISTER_USER_ALREADY_EXISTS" },
-          { status: 400 },
-        ),
+        HttpResponse.json({ detail: "REGISTER_USER_ALREADY_EXISTS" }, { status: 400 }),
       ),
     );
     const user = userEvent.setup();
@@ -86,12 +81,8 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText(/email/i), "taken@b.co");
     await user.type(screen.getByLabelText(/^password/i), "12345678");
     await user.click(screen.getByRole("button", { name: /create account/i }));
-    expect(
-      await screen.findByRole("alert"),
-    ).toHaveTextContent(/already exists/i);
-    expect(
-      screen.getByRole("link", { name: /log in instead/i }),
-    ).toHaveAttribute("href", "/login");
+    expect(await screen.findByRole("alert")).toHaveTextContent(/already exists/i);
+    expect(screen.getByRole("link", { name: /log in instead/i })).toHaveAttribute("href", "/login");
   });
 
   it("falls back to generic error on unknown backend failures", async () => {
@@ -105,16 +96,11 @@ describe("SignupPage", () => {
     await user.type(screen.getByLabelText(/email/i), "a@b.co");
     await user.type(screen.getByLabelText(/^password/i), "12345678");
     await user.click(screen.getByRole("button", { name: /create account/i }));
-    expect(
-      await screen.findByText(/something went wrong/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/something went wrong/i)).toBeInTheDocument();
   });
 
   it("renders 'Log in' footer link to /login", () => {
     render(<SignupPage />);
-    expect(screen.getByRole("link", { name: /^log in$/i })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(screen.getByRole("link", { name: /^log in$/i })).toHaveAttribute("href", "/login");
   });
 });

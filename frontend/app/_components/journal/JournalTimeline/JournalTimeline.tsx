@@ -1,11 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  deleteJournalEntry,
-  listJournalEntries,
-  type JournalListParams,
-} from "@/lib/journal";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { deleteJournalEntry, listJournalEntries, type JournalListParams } from "@/lib/journal";
 import { ENTRY_TYPE_META, type EntryType } from "@/lib/journal.constants";
 import { groupEntriesByDay } from "@/lib/journal.format";
 import type {
@@ -15,6 +11,8 @@ import type {
   MedicationPayload,
 } from "@/lib/journal.schemas";
 import { EntryCard } from "../EntryCard";
+import { EntryTypeIcon, SearchIcon } from "../EntryTypeIcon";
+import { FilterChips } from "../FilterChips";
 import {
   DEFAULT_FILTERS,
   FilterSheet,
@@ -22,6 +20,7 @@ import {
   dateRangeToOccurredFrom,
   type JournalFilters,
 } from "../FilterSheet";
+import { JournalStats } from "../JournalStats";
 import { QuickAddModal, type QuickAddSavedMode } from "../QuickAddModal";
 import styles from "./JournalTimeline.module.css";
 
@@ -46,15 +45,21 @@ type JournalTimelineProps = {
 };
 
 function sortNewestFirst(entries: JournalEntryRead[]): JournalEntryRead[] {
-  return [...entries].sort((first, second) =>
-    second.occurred_at.localeCompare(first.occurred_at),
-  );
+  return [...entries].sort((first, second) => second.occurred_at.localeCompare(first.occurred_at));
 }
 
-function queryParamsFor(
-  search: string,
-  filters: JournalFilters,
-): JournalListParams {
+function mergeStatsEntriesById(
+  current: JournalEntryRead[],
+  incoming: JournalEntryRead[],
+): JournalEntryRead[] {
+  const byId = new Map(current.map((entry) => [entry.id, entry]));
+  for (const entry of incoming) {
+    byId.set(entry.id, entry);
+  }
+  return sortNewestFirst([...byId.values()]);
+}
+
+function queryParamsFor(search: string, filters: JournalFilters): JournalListParams {
   return {
     entryTypes: filters.entryTypes.length > 0 ? filters.entryTypes : undefined,
     occurredFrom: dateRangeToOccurredFrom(filters.dateRange),
@@ -66,6 +71,7 @@ function queryParamsFor(
 
 export function JournalTimeline({ petId, petName, initialPage }: JournalTimelineProps) {
   const [entries, setEntries] = useState<JournalEntryRead[]>(initialPage.items);
+  const [statsEntries, setStatsEntries] = useState<JournalEntryRead[]>(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.next_cursor);
   const [totalMatching, setTotalMatching] = useState(initialPage.total_matching);
   const [search, setSearch] = useState("");
@@ -123,6 +129,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     setModal({ kind: "closed" });
     if (mode === "created") {
       setEntries((current) => sortNewestFirst([entry, ...current]));
+      setStatsEntries((current) => mergeStatsEntriesById(current, [entry]));
       setTotalMatching((current) => current + 1);
       showToast({
         message: `${ENTRY_TYPE_META[entry.payload.entry_type as EntryType].label} logged`,
@@ -132,6 +139,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
       setEntries((current) =>
         sortNewestFirst(current.map((existing) => (existing.id === entry.id ? entry : existing))),
       );
+      setStatsEntries((current) => mergeStatsEntriesById(current, [entry]));
       showToast({ message: "Entry updated", undoEntryId: null });
     }
   }
@@ -141,6 +149,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     try {
       await deleteJournalEntry(petId, entryId);
       setEntries((current) => current.filter((entry) => entry.id !== entryId));
+      setStatsEntries((current) => current.filter((entry) => entry.id !== entryId));
       setTotalMatching((current) => Math.max(0, current - 1));
     } catch {
       showToast({ message: "Couldn't undo — the entry is still saved.", undoEntryId: null });
@@ -152,6 +161,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
       try {
         await deleteJournalEntry(petId, entry.id);
         setEntries((current) => current.filter((existing) => existing.id !== entry.id));
+        setStatsEntries((current) => current.filter((existing) => existing.id !== entry.id));
         setTotalMatching((current) => Math.max(0, current - 1));
         showToast({ message: "Entry deleted", undoEntryId: null });
       } catch {
@@ -165,9 +175,15 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     setModal({ kind: "edit", entry });
   }, []);
 
+  function clearFilters() {
+    setSearch("");
+    setFilters(DEFAULT_FILTERS);
+  }
+
   async function handleLoadMore() {
     if (!nextCursor) return;
     const requestId = listRequestSeq.current;
+    const isUnfilteredPage = countActiveFilters(filters) === 0 && search.trim().length === 0;
     setLoadingMore(true);
     try {
       const page = await listJournalEntries(petId, {
@@ -176,6 +192,9 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
       });
       if (requestId !== listRequestSeq.current) return;
       setEntries((current) => [...current, ...page.items]);
+      if (isUnfilteredPage) {
+        setStatsEntries((current) => mergeStatsEntriesById(current, page.items));
+      }
       setNextCursor(page.next_cursor);
     } catch {
       if (requestId !== listRequestSeq.current) return;
@@ -226,26 +245,44 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
             {totalMatching === 1 ? "1 entry" : `${totalMatching} entries`}
           </p>
         </div>
+        {!showEmptyState && (
+          <button
+            type="button"
+            className={styles.addButton}
+            onClick={() => setModal({ kind: "create", initialType: null })}
+          >
+            + Add entry
+          </button>
+        )}
       </header>
 
       {!showEmptyState && (
-        <div className={styles.toolbar}>
-          <input
-            type="search"
-            className={styles.searchInput}
-            placeholder="Search notes & tags…"
-            aria-label="Search notes and tags"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <button
-            type="button"
-            className={`${styles.filterButton} ${activeFilterCount > 0 ? styles.filterButtonActive : ""}`}
-            onClick={() => setFilterSheetOpen(true)}
-          >
-            {activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : "Filter"}
-          </button>
-        </div>
+        <>
+          <JournalStats entries={statsEntries} />
+          <div className={styles.toolbar}>
+            <div className={styles.searchField}>
+              <span className={styles.searchIcon}>
+                <SearchIcon size={18} />
+              </span>
+              <input
+                type="search"
+                className={styles.searchInput}
+                placeholder="Search notes & tags…"
+                aria-label="Search notes and tags"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className={`${styles.filterButton} ${activeFilterCount > 0 ? styles.filterButtonActive : ""}`}
+              onClick={() => setFilterSheetOpen(true)}
+            >
+              {activeFilterCount > 0 ? `Filters · ${activeFilterCount}` : "Filter"}
+            </button>
+          </div>
+          <FilterChips filters={filters} onChange={setFilters} />
+        </>
       )}
 
       {listError && (
@@ -260,29 +297,57 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
           onStart={(entryType) => setModal({ kind: "create", initialType: entryType })}
         />
       ) : (
-        <div className={styles.feed} aria-busy={loading}>
+        <div className={styles.timeline} aria-busy={loading}>
+          <span className={styles.spine} aria-hidden="true" />
           {dayGroups.map((group) => (
             <section key={group.dayKey} aria-label={group.label}>
               <div className={styles.dayRow}>
-                <h2 className={`${styles.dayLabel} display`}>{group.label}</h2>
-                <span className={styles.dayCount}>
-                  {group.entries.length === 1 ? "1 entry" : `${group.entries.length} entries`}
+                <span className={styles.gutter}>
+                  <span className={styles.dayDot} aria-hidden="true" />
                 </span>
+                <div className={styles.dayHead}>
+                  <h2 className={`${styles.dayLabel} display`}>{group.label}</h2>
+                  <span className={styles.dayCount}>
+                    {group.entries.length === 1 ? "1 entry" : `${group.entries.length} entries`}
+                  </span>
+                </div>
               </div>
               <div className={styles.dayEntries}>
-                {group.entries.map((entry) => (
-                  <EntryCard
-                    key={entry.id}
-                    entry={entry}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                  />
-                ))}
+                {group.entries.map((entry) => {
+                  const entryType = entry.payload.entry_type as EntryType;
+                  return (
+                    <div
+                      key={entry.id}
+                      className={styles.entryRow}
+                      style={
+                        {
+                          "--entry-accent": `var(${ENTRY_TYPE_META[entryType].accentVar})`,
+                        } as CSSProperties
+                      }
+                    >
+                      <span className={styles.gutter}>
+                        <span className={styles.bubble}>
+                          <EntryTypeIcon type={entryType} size={15} />
+                        </span>
+                      </span>
+                      <EntryCard entry={entry} onEdit={handleEdit} onDelete={handleDelete} />
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ))}
           {entries.length === 0 && hasActiveQuery && !loading && (
-            <p className={styles.noMatches}>No entries match — try widening the filters.</p>
+            <div className={styles.noMatch}>
+              <span className={styles.noMatchIcon}>
+                <SearchIcon size={24} />
+              </span>
+              <p className={`${styles.noMatchTitle} display`}>No entries match</p>
+              <p className={styles.noMatchBody}>Try a different search, or clear your filters.</p>
+              <button type="button" className={styles.clearButton} onClick={clearFilters}>
+                Clear filters
+              </button>
+            </div>
           )}
           {nextCursor && (
             <button
@@ -360,8 +425,8 @@ function EmptyState({
     <div className={styles.emptyState}>
       <h2 className={`${styles.emptyTitle} display`}>{petName}&rsquo;s journal is empty.</h2>
       <p className={styles.emptyBody}>
-        Logging meals, mood, and symptoms helps PawPilot spot when something&rsquo;s off — before
-        it becomes a vet visit.
+        Logging meals, mood, and symptoms helps PawPilot spot when something&rsquo;s off — before it
+        becomes a vet visit.
       </p>
       <div className={styles.starterList}>
         {STARTERS.map((starter) => (

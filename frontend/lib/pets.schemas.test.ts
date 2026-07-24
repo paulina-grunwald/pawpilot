@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PetRead } from "./pets";
-import {
-  petFormSchema,
-  petReadToFormInput,
-  toCreateInput,
-  toUpdateInput,
-} from "./pets.schemas";
+import { petFormSchema, petReadToFormInput, toCreateInput, toUpdateInput } from "./pets.schemas";
 
 function validInput() {
   return {
@@ -65,15 +60,15 @@ describe("petFormSchema", () => {
   });
 
   it("rejects notes longer than 1000 chars", () => {
-    expect(
-      petFormSchema.safeParse({ ...validInput(), notes: "n".repeat(1001) }).success,
-    ).toBe(false);
+    expect(petFormSchema.safeParse({ ...validInput(), notes: "n".repeat(1001) }).success).toBe(
+      false,
+    );
   });
 
   it("accepts empty breed and notes", () => {
-    expect(
-      petFormSchema.safeParse({ ...validInput(), breedOther: "", notes: "" }).success,
-    ).toBe(true);
+    expect(petFormSchema.safeParse({ ...validInput(), breedOther: "", notes: "" }).success).toBe(
+      true,
+    );
   });
 });
 

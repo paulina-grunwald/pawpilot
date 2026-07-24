@@ -89,9 +89,7 @@ describe("toTodayPanelData", () => {
   });
 
   it("uses the standard sublabel when at or under 100%", () => {
-    const result = toTodayPanelData([
-      makeRollup({ minutes_active: DAILY_ACTIVE_TARGET_MINUTES }),
-    ]);
+    const result = toTodayPanelData([makeRollup({ minutes_active: DAILY_ACTIVE_TARGET_MINUTES })]);
     expect(result?.activityPercent).toBe(100);
     expect(result?.activitySublabel).toBe(`100% of ${DAILY_ACTIVE_TARGET_MINUTES}min goal`);
   });
@@ -273,12 +271,13 @@ describe("toSleepSplitBars", () => {
   });
 });
 
-
-
 describe("computePersonalActivityGoal", () => {
   function cleanDays(activeMinutes: number[]): TractiveDailySummary[] {
     return activeMinutes.map((minutes, index) =>
-      makeRollup({ date: `2024-05-${String(index + 1).padStart(2, "0")}`, minutes_active: minutes }),
+      makeRollup({
+        date: `2024-05-${String(index + 1).padStart(2, "0")}`,
+        minutes_active: minutes,
+      }),
     );
   }
 
@@ -440,8 +439,8 @@ describe("toVitalsTrends", () => {
   });
 
   it("omits the typical range until five plotted days exist", () => {
-    const fourDays = ["2024-05-15", "2024-05-16", "2024-05-17", "2024-05-18"].map(
-      (date, index) => vitalDay(date, 60 + index, 20),
+    const fourDays = ["2024-05-15", "2024-05-16", "2024-05-17", "2024-05-18"].map((date, index) =>
+      vitalDay(date, 60 + index, 20),
     );
     expect(toVitalsTrends(fourDays).heartRate.typicalRange).toBeUndefined();
 

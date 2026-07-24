@@ -29,24 +29,18 @@ describe("TodayPanel", () => {
       screen.getByRole("heading", { name: /connect tractive to see luna/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/wearable not connected/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/connect tractive to see today/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/connect tractive to see today/i)).toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(6);
     expect(screen.getAllByRole("note").length).toBe(2);
   });
 
   it("renders real data and stat values when data is provided", () => {
     render(<TodayPanel petName="Luna" todayLabel="Sat, May 23" data={sampleData} />);
-    expect(
-      screen.getByRole("heading", { name: /luna.*on track/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /luna.*on track/i })).toBeInTheDocument();
     expect(screen.getByText(/all vitals normal/i)).toBeInTheDocument();
     expect(screen.getByText("58")).toBeInTheDocument();
     expect(screen.getByText("68")).toBeInTheDocument();
-    expect(
-      screen.queryByText(/connect tractive to see today/i),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/connect tractive to see today/i)).not.toBeInTheDocument();
   });
 
   it("shows the today's label in the eyebrow", () => {

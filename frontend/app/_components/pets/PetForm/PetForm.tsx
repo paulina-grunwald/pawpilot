@@ -13,12 +13,7 @@ import {
   uploadPetPhoto,
   type PetSex,
 } from "@/lib/pets";
-import {
-  petFormSchema,
-  toCreateInput,
-  toUpdateInput,
-  type PetFormInput,
-} from "@/lib/pets.schemas";
+import { petFormSchema, toCreateInput, toUpdateInput, type PetFormInput } from "@/lib/pets.schemas";
 import { PhotoUploader } from "../../media/PhotoUploader";
 import { BirthdayField } from "../BirthdayField";
 import { BreedTypeahead } from "../BreedTypeahead";
@@ -131,7 +126,7 @@ export function PetForm(props: PetFormProps) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false);
   const [createdPetId, setCreatedPetId] = useState<string | null>(null);
-  const existingPhotoUrl = props.mode === "edit" ? props.existingPhotoUrl ?? null : null;
+  const existingPhotoUrl = props.mode === "edit" ? (props.existingPhotoUrl ?? null) : null;
 
   const {
     register,

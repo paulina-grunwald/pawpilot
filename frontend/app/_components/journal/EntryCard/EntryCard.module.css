@@ -4,15 +4,27 @@
   align-items: flex-start;
   background: var(--card);
   border: 1px solid var(--hairline);
-  border-left: 3px solid var(--entry-accent);
-  border-radius: 12px;
-  padding: 12px 14px;
+  border-radius: 14px;
+  padding: 13px 16px;
 }
 
 .concern {
   background: color-mix(in srgb, var(--terracotta) 6%, var(--card));
   border-color: color-mix(in srgb, var(--terracotta) 35%, var(--hairline));
-  border-left-color: var(--entry-accent);
+}
+
+.concernPill {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--terracotta) 12%, var(--card));
+  color: var(--terracotta);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .body {

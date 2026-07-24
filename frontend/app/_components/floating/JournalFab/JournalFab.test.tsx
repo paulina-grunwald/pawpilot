@@ -113,10 +113,9 @@ describe("JournalFab", () => {
 
     await user.click(screen.getByRole("button", { name: /log a journal entry/i }));
 
-    expect(await screen.findByRole("link", { name: /add a dog to start logging/i })).toHaveAttribute(
-      "href",
-      "/pets/new",
-    );
+    expect(
+      await screen.findByRole("link", { name: /add a dog to start logging/i }),
+    ).toHaveAttribute("href", "/pets/new");
     expect(screen.queryByRole("button", { name: /log meal/i })).not.toBeInTheDocument();
   });
 

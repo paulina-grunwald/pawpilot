@@ -113,9 +113,7 @@ describe("uploadTractiveExport", () => {
   });
 
   it("throws NETWORK_ERROR when fetch rejects", async () => {
-    server.use(
-      http.post(`${API}/pets/pet-1/tractive/ingest`, () => HttpResponse.error()),
-    );
+    server.use(http.post(`${API}/pets/pet-1/tractive/ingest`, () => HttpResponse.error()));
     await expect(uploadTractiveExport("pet-1", fakeZip())).rejects.toMatchObject({
       code: "NETWORK_ERROR",
     });
@@ -192,10 +190,7 @@ describe("fetchTractiveRollups", () => {
 
   it("throws TRACTIVE_UNAUTHENTICATED on 401", async () => {
     server.use(
-      http.get(
-        `${API}/pets/pet-1/tractive/rollups`,
-        () => new HttpResponse(null, { status: 401 }),
-      ),
+      http.get(`${API}/pets/pet-1/tractive/rollups`, () => new HttpResponse(null, { status: 401 })),
     );
     await expect(fetchTractiveRollups("pet-1", 7)).rejects.toMatchObject({
       code: "TRACTIVE_UNAUTHENTICATED",
@@ -203,9 +198,7 @@ describe("fetchTractiveRollups", () => {
   });
 
   it("throws NETWORK_ERROR when fetch rejects", async () => {
-    server.use(
-      http.get(`${API}/pets/pet-1/tractive/rollups`, () => HttpResponse.error()),
-    );
+    server.use(http.get(`${API}/pets/pet-1/tractive/rollups`, () => HttpResponse.error()));
     await expect(fetchTractiveRollups("pet-1", 7)).rejects.toMatchObject({
       code: "NETWORK_ERROR",
     });

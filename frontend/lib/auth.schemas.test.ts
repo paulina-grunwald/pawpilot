@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import { loginSchema, signupSchema } from "./auth.schemas";
 
 function firstError(
-  result: { success: true } | { success: false; error: { issues: { path: PropertyKey[]; message: string }[] } },
+  result:
+    | { success: true }
+    | { success: false; error: { issues: { path: PropertyKey[]; message: string }[] } },
   path: string,
 ): string | undefined {
   if (result.success) return undefined;
@@ -39,9 +41,7 @@ describe("loginSchema", () => {
 describe("signupSchema", () => {
   it("rejects password shorter than 8 chars", () => {
     const result = signupSchema.safeParse({ email: "a@b.co", password: "short" });
-    expect(firstError(result, "password")).toBe(
-      "Password must be at least 8 characters",
-    );
+    expect(firstError(result, "password")).toBe("Password must be at least 8 characters");
   });
 
   it("rejects empty password with 'Password is required'", () => {

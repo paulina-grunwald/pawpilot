@@ -32,7 +32,7 @@ type PetDetailViewProps = {
 export function PetDetailView({ pet, journalCard }: PetDetailViewProps) {
   return (
     <main className={`container-x ${styles.page}`}>
-      <p className="m-0 mb-2 text-[13px] text-muted">
+      <p className="text-muted m-0 mb-2 text-[13px]">
         <Link href="/dashboard" className="text-muted no-underline">
           ← Dashboard
         </Link>

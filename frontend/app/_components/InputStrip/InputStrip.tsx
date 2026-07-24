@@ -42,22 +42,17 @@ export function InputStrip() {
     <section className="pt-24 pb-24">
       <div className="container-x">
         <div
-          className="mm-grid grid gap-20 items-center"
+          className="mm-grid grid items-center gap-20"
           style={{ gridTemplateColumns: "1fr 1.1fr" }}
         >
           <div className="relative">
-            <span className="mono text-[11px] text-muted tracking-[0.16em] uppercase mb-[18px] block">
+            <span className="mono text-muted mb-[18px] block text-[11px] tracking-[0.16em] uppercase">
               § 04 — Ask anything
             </span>
-            <h2
-              className="display text-[clamp(32px,4vw,48px)] m-0 mb-5 text-ink"
-            >
-              Show, don&apos;t{" "}
-              <span className="display-italic text-blue">
-                spell.
-              </span>
+            <h2 className="display text-ink m-0 mb-5 text-[clamp(32px,4vw,48px)]">
+              Show, don&apos;t <span className="display-italic text-blue">spell.</span>
             </h2>
-            <p className="text-muted text-[16.5px] leading-[1.55] m-0 mb-7 max-w-[460px]">
+            <p className="text-muted m-0 mb-7 max-w-[460px] text-[16.5px] leading-[1.55]">
               Snap, film, drag, or type. PawPilot reads the same things a vet would in the exam room
               — and cites its sources, every time.
             </p>
@@ -68,19 +63,19 @@ export function InputStrip() {
             {tiles.map((tile, index) => (
               <div
                 key={index}
-                className="bg-surface border border-(--hairline) rounded-[18px] p-5 min-h-[180px] flex flex-col justify-between relative overflow-hidden"
+                className="bg-surface relative flex min-h-[180px] flex-col justify-between overflow-hidden rounded-[18px] border border-(--hairline) p-5"
               >
                 <span
-                  className="w-10 h-10 rounded-[12px] bg-(--paper) border border-(--hairline) inline-flex items-center justify-center"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-(--hairline) bg-(--paper)"
                   style={{ color: tile.iconColor }}
                 >
                   <tile.Icon />
                 </span>
                 <div>
-                  <div className="display text-[20px] font-medium text-ink leading-[1.2] mb-1">
+                  <div className="display text-ink mb-1 text-[20px] leading-[1.2] font-medium">
                     {tile.label}
                   </div>
-                  <div className="mono text-[11.5px] text-muted tracking-[0.02em]">
+                  <div className="mono text-muted text-[11.5px] tracking-[0.02em]">
                     {tile.subtitle}
                   </div>
                 </div>

@@ -28,38 +28,31 @@ const steps: Step[] = [
 
 export function HowItWorks() {
   return (
-    <section
-      id="how"
-      className="pt-24 pb-24 bg-forest text-paper relative"
-    >
+    <section id="how" className="bg-forest text-paper relative pt-24 pb-24">
       <div className="container-x">
         <div
-          className="how-grid grid gap-16 items-start"
+          className="how-grid grid items-start gap-16"
           style={{ gridTemplateColumns: "1fr 1.6fr" }}
         >
           <div>
-            <span className="mono text-[11px] text-[color-mix(in_srgb,var(--paper)_55%,transparent)] tracking-[0.16em] uppercase mb-[18px] block">
+            <span className="mono mb-[18px] block text-[11px] tracking-[0.16em] text-[color-mix(in_srgb,var(--paper)_55%,transparent)] uppercase">
               § 03 — How it works
             </span>
-            <h2
-              className="display text-[clamp(36px,4.4vw,60px)] m-0 mb-5 text-paper"
-            >
+            <h2 className="display text-paper m-0 mb-5 text-[clamp(36px,4.4vw,60px)]">
               Set it up in the time it takes to{" "}
-              <span className="display-italic text-(--blue-2)">
-                brew coffee.
-              </span>
+              <span className="display-italic text-(--blue-2)">brew coffee.</span>
             </h2>
-            <p className="text-[color-mix(in_srgb,var(--paper)_70%,transparent)] text-[17px] max-w-[380px] m-0">
+            <p className="m-0 max-w-[380px] text-[17px] text-[color-mix(in_srgb,var(--paper)_70%,transparent)]">
               No camera in the food bowl. No subscription on a new device. PawPilot is software that
               makes your dog&apos;s existing collar quietly smarter.
             </p>
           </div>
 
-          <ol className="list-none m-0 p-0 flex flex-col gap-1">
+          <ol className="m-0 flex list-none flex-col gap-1 p-0">
             {steps.map((step, index) => (
               <li
                 key={index}
-                className="grid gap-6 py-7 border-t border-[color-mix(in_srgb,var(--paper)_16%,transparent)]"
+                className="grid gap-6 border-t border-[color-mix(in_srgb,var(--paper)_16%,transparent)] py-7"
                 style={{
                   gridTemplateColumns: "90px 1fr",
                   borderBottom:
@@ -68,17 +61,17 @@ export function HowItWorks() {
                       : "none",
                 }}
               >
-                <div className="display text-[56px] text-(--blue-2) font-normal leading-none italic">
+                <div className="display text-[56px] leading-none font-normal text-(--blue-2) italic">
                   {step.number}
                 </div>
                 <div>
-                  <h3 className="display text-[26px] m-0 mb-1 text-paper font-medium">
+                  <h3 className="display text-paper m-0 mb-1 text-[26px] font-medium">
                     {step.title}
                   </h3>
-                  <div className="display-italic text-[16px] text-(--blue-2) mb-[10px]">
+                  <div className="display-italic mb-[10px] text-[16px] text-(--blue-2)">
                     {step.subtitle}
                   </div>
-                  <p className="text-[color-mix(in_srgb,var(--paper)_70%,transparent)] text-[15px] m-0 leading-[1.55] max-w-[540px]">
+                  <p className="m-0 max-w-[540px] text-[15px] leading-[1.55] text-[color-mix(in_srgb,var(--paper)_70%,transparent)]">
                     {step.body}
                   </p>
                 </div>

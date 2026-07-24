@@ -94,10 +94,7 @@ describe("JournalTimeline feed", () => {
     await user.type(screen.getByLabelText("Search notes and tags"), "kibble");
 
     await waitFor(() =>
-      expect(listMock).toHaveBeenCalledWith(
-        "pet-1",
-        expect.objectContaining({ search: "kibble" }),
-      ),
+      expect(listMock).toHaveBeenCalledWith("pet-1", expect.objectContaining({ search: "kibble" })),
     );
   });
 
@@ -110,9 +107,7 @@ describe("JournalTimeline feed", () => {
     await user.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     expect(deleteMock).toHaveBeenCalledWith("pet-1", "entry-1");
-    await waitFor(() =>
-      expect(screen.queryByText("Acana Grain-Free")).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText("Acana Grain-Free")).not.toBeInTheDocument());
     expect(screen.getByRole("status")).toHaveTextContent("Entry deleted");
   });
 
@@ -157,5 +152,96 @@ describe("JournalTimeline feed", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "What happened?" })).toBeInTheDocument();
+  });
+
+  it("opens the quick-add type picker from the header Add entry button", async () => {
+    const user = userEvent.setup();
+    renderTimeline(makePage([makeEntry()]));
+
+    await user.click(screen.getByRole("button", { name: "+ Add entry" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What happened?" })).toBeInTheDocument();
+  });
+
+  it("renders the filter chips and journal highlights above the feed", () => {
+    renderTimeline(makePage([makeEntry()]));
+
+    expect(screen.getByRole("group", { name: "Filter by entry type" })).toBeInTheDocument();
+    expect(screen.getByText("Current weight")).toBeInTheDocument();
+  });
+
+  it("clears the search and filters when Clear filters is clicked in the no-match state", async () => {
+    const user = userEvent.setup();
+    listMock.mockImplementation(async (_petId, params) =>
+      params && (params as { search?: string }).search ? makePage([]) : makePage([makeEntry()]),
+    );
+    renderTimeline(makePage([makeEntry()]));
+
+    await user.type(screen.getByLabelText("Search notes and tags"), "nomatch");
+    await waitFor(() => expect(screen.getByText("No entries match")).toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    await waitFor(() =>
+      expect(listMock).toHaveBeenLastCalledWith(
+        "pet-1",
+        expect.objectContaining({
+          search: undefined,
+          entryTypes: undefined,
+          concernsOnly: undefined,
+        }),
+      ),
+    );
+    await waitFor(() => expect(screen.getByLabelText("Search notes and tags")).toHaveValue(""));
+  });
+
+  it("keeps the journal highlights unaffected by an active search filter", async () => {
+    const user = userEvent.setup();
+    listMock.mockResolvedValue(makePage([]));
+    renderTimeline(
+      makePage([
+        makeEntry({
+          id: "weight-1",
+          entry_type: "weight",
+          payload: { entry_type: "weight", weight_grams: 28000, source: "vet" },
+        }),
+      ]),
+    );
+    expect(screen.getByText("28.0")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Search notes and tags"), "kibble");
+    await waitFor(() => expect(listMock).toHaveBeenCalled());
+
+    expect(screen.getByText("28.0")).toBeInTheDocument();
+  });
+
+  it("extends the highlights when unfiltered older pages are loaded", async () => {
+    const user = userEvent.setup();
+    const older = makeEntry({
+      id: "weight-older",
+      entry_type: "weight",
+      occurred_at: YESTERDAY.toISOString(),
+      payload: { entry_type: "weight", weight_grams: 28600, source: "home_scale" },
+    });
+    listMock.mockResolvedValue(makePage([older]));
+    renderTimeline(
+      makePage(
+        [
+          makeEntry({
+            id: "weight-new",
+            entry_type: "weight",
+            payload: { entry_type: "weight", weight_grams: 28000, source: "vet" },
+          }),
+        ],
+        { next_cursor: "cursor-1", total_matching: 2 },
+      ),
+    );
+
+    expect(screen.getByText("First reading logged")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Load older entries" }));
+
+    await waitFor(() => expect(screen.getByText("↓ 0.6 kg recently")).toBeInTheDocument());
   });
 });

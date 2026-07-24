@@ -3,6 +3,7 @@ export {
   FilterSheet,
   countActiveFilters,
   dateRangeToOccurredFrom,
+  toggleEntryTypeFilter,
   type DateRangePreset,
   type JournalFilters,
 } from "./FilterSheet";
