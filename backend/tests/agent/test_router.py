@@ -26,13 +26,13 @@ from app.integrations.tractive.models import TractiveDayRollup
 from tests.agent.conftest import RaisingChatModel, build_test_agent, make_chunk, tool_call_message
 
 
-def _sleep_tool_call() -> AIMessage:
+def _metric_tool_call() -> AIMessage:
     return AIMessage(
         content="",
         tool_calls=[
             {
-                "name": "get_dog_sleep_summary",
-                "args": {"days": 7},
+                "name": "get_dog_metric",
+                "args": {"metric": "total_sleep", "days": 7},
                 "id": "call-1",
                 "type": "tool_call",
             }
@@ -150,7 +150,7 @@ async def test_ask_resolves_owned_pet(
     assert [citation["ref"] for citation in body["citations"]] == ["S1"]
 
 
-async def test_ask_with_pet_reads_sleep_data_end_to_end(
+async def test_ask_with_pet_reads_metric_data_end_to_end(
     authenticated_client: AsyncClient,
     install_agent: Callable[[PawPilotAgent], None],
     db_session: AsyncSession,
@@ -170,7 +170,7 @@ async def test_ask_with_pet_reads_sleep_data_end_to_end(
 
     agent = build_test_agent(
         responses=[
-            _sleep_tool_call(),
+            _metric_tool_call(),
             AIMessage(content=f"Your dog slept about 8 hours a night. {VET_DISCLAIMER}"),
         ],
         with_memory=True,
@@ -183,11 +183,11 @@ async def test_ask_with_pet_reads_sleep_data_end_to_end(
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["tool_calls"] == ["get_dog_sleep_summary"]
+    assert body["tool_calls"] == ["get_dog_metric"]
     assert "8 hours" in body["text"]
 
 
-async def test_ask_without_pet_omits_sleep_tool_rule(
+async def test_ask_without_pet_omits_metric_tool_rule(
     authenticated_client: AsyncClient,
     install_agent: Callable[[PawPilotAgent], None],
 ) -> None:

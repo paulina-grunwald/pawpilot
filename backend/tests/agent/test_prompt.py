@@ -46,12 +46,22 @@ def test_data_tool_rule_is_non_empty_string() -> None:
     assert DATA_TOOL_RULE != ""
 
 
-def test_data_tool_rule_mentions_get_dog_sleep_summary() -> None:
-    assert "get_dog_sleep_summary" in DATA_TOOL_RULE
+def test_data_tool_rule_mentions_get_dog_metric() -> None:
+    assert "get_dog_metric" in DATA_TOOL_RULE
 
 
-def test_data_tool_rule_mentions_get_dog_sleep_on_date() -> None:
-    assert "get_dog_sleep_on_date" in DATA_TOOL_RULE
+def test_data_tool_rule_mentions_get_dog_health_snapshot() -> None:
+    assert "get_dog_health_snapshot" in DATA_TOOL_RULE
+
+
+def test_data_tool_rule_carries_the_tracker_caveats() -> None:
+    """The caveats are the difference between a figure and an overclaim."""
+    assert "floor" in DATA_TOOL_RULE
+    assert "never clinical" in DATA_TOOL_RULE
+
+
+def test_data_tool_rule_tells_the_model_to_abstain_on_unmeasured_things() -> None:
+    assert "does not record it" in DATA_TOOL_RULE
 
 
 def test_data_tool_rule_mentions_get_current_date_for_resolution() -> None:

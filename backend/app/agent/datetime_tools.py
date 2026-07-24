@@ -36,8 +36,8 @@ def _utc_now() -> datetime:
 def render_current_date(moment: datetime) -> str:
     """Render an instant as the plain text the model reads back.
 
-    Leads with the ISO date so the model can lift it straight into
-    get_dog_sleep_on_date, and names the weekday so relative days resolve.
+    Leads with the ISO date so the model can lift it straight into a metric
+    lookup, and names the weekday so relative days resolve.
     """
     return f"Today's date is {moment.date().isoformat()} ({moment.strftime('%A')}, UTC)."
 
