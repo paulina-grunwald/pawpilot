@@ -20,7 +20,7 @@ export function SubmitButton({
       type="submit"
       disabled={isDisabled}
       aria-busy={isSubmitting || undefined}
-      className={`focus-ring inline-flex w-full items-center justify-center rounded-full px-4 py-2.5 text-[14px] font-medium text-paper transition-opacity disabled:cursor-not-allowed disabled:opacity-60 ${className ?? ""}`.trim()}
+      className={`focus-ring text-paper inline-flex w-full items-center justify-center rounded-full px-4 py-2.5 text-[14px] font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-60 ${className ?? ""}`.trim()}
       style={{ background: "var(--ink)" }}
       {...buttonProps}
     >

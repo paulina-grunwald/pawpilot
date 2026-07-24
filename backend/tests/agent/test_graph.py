@@ -19,7 +19,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import SecretStr
 
 from app.agent.citations import CitationRegistry
-from app.agent.fakes import FakeWebSearch, ScriptedChatModel
+from app.agent.fakes import FakePetFood, FakeWebSearch, ScriptedChatModel
 from app.agent.graph import (
     build_agent_graph,
     build_chat_model,
@@ -60,6 +60,7 @@ def build_scripted_graph(
     tools = build_agent_tools(
         cast(VetCorpusRetriever, StubRetriever(chunks)),
         FakeWebSearch(web_results),
+        FakePetFood(None),
         registry,
         invoked_tools,
         top_k=top_k,

@@ -1,6 +1,6 @@
 import type { SleepSplitBar } from "@/app/_components/dashboard/SleepSplitBars";
 import type { TodayPanelData } from "@/app/_components/dashboard/TodayPanel/TodayPanel";
-import { formatMonthDay } from "./date";
+import { formatMonthDay, formatWeekday } from "./date";
 import type { TractiveDailySummary } from "./tractive";
 
 // TODO: make the daily active target per-pet user-configurable. Right now this
@@ -165,6 +165,7 @@ export function toTodayPanelData(
     activityWeekMinutes: sorted.map((row) => Math.round(row.minutes_active)),
     sleepWeekMinutes: sorted.map((row) => Math.round(totalSleepMinutes(row))),
     weekDates: sorted.map((row) => formatMonthDay(row.date)),
+    weekDays: sorted.map((row) => formatWeekday(row.date)),
     activityGoal: DAILY_ACTIVE_TARGET_MINUTES,
     activityWeekMean: activeBaseline === null ? undefined : Math.round(activeBaseline),
     sleepWeekMean: sleepBaseline === null ? undefined : Math.round(sleepBaseline),

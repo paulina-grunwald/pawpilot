@@ -14,9 +14,7 @@ describe("PhotoPlaceholder", () => {
   });
 
   it("applies width, height, and radius via inline style", () => {
-    const { container } = render(
-      <PhotoPlaceholder label="x" width={80} height={80} radius={20} />,
-    );
+    const { container } = render(<PhotoPlaceholder label="x" width={80} height={80} radius={20} />);
     const root = container.firstElementChild as HTMLElement;
     expect(root.style.width).toBe("80px");
     expect(root.style.height).toBe("80px");

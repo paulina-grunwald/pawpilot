@@ -53,6 +53,27 @@ describe("EntryCard", () => {
     expect(container.firstElementChild?.className).toMatch(/concern/);
   });
 
+  it("shows a Needs attention pill for concern entries", () => {
+    render(
+      <EntryCard
+        entry={makeEntry({
+          entry_type: "symptom",
+          is_concern: true,
+          tags: ["scratch"],
+          payload: { entry_type: "symptom", severity: 3, body_area: "ears" },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Needs attention")).toBeInTheDocument();
+  });
+
+  it("does not show the Needs attention pill for non-concern entries", () => {
+    render(<EntryCard entry={makeEntry({ is_concern: false })} />);
+
+    expect(screen.queryByText("Needs attention")).not.toBeInTheDocument();
+  });
+
   it("renders the note and non-symptom tags", () => {
     render(<EntryCard entry={makeEntry({ note: "Ate fast", tags: ["good-appetite"] })} />);
 

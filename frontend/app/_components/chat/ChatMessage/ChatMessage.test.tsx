@@ -33,7 +33,9 @@ describe("ChatMessage", () => {
   });
 
   it("renders assistant text with a citation link that opens in a new tab", () => {
-    render(<ChatMessage message={message({ text: "Yes, avoid it [S1].", citations: [citation] })} />);
+    render(
+      <ChatMessage message={message({ text: "Yes, avoid it [S1].", citations: [citation] })} />,
+    );
     expect(screen.getByText("Yes, avoid it [S1].")).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /wsava guide/i });
     expect(link).toHaveAttribute("href", "https://example.org/a");

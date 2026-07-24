@@ -21,7 +21,7 @@ export function Sticker({
 }: StickerProps) {
   return (
     <div
-      className="absolute text-paper text-[11px] font-bold tracking-[0.08em] uppercase px-[10px] py-[6px] rounded-[4px] whitespace-nowrap z-[2] shadow-[0_4px_10px_color-mix(in_srgb,var(--blue-deep)_25%,transparent)]"
+      className="text-paper absolute z-[2] rounded-[4px] px-[10px] py-[6px] text-[11px] font-bold tracking-[0.08em] whitespace-nowrap uppercase shadow-[0_4px_10px_color-mix(in_srgb,var(--blue-deep)_25%,transparent)]"
       style={{
         top,
         right,

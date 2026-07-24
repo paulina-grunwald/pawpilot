@@ -114,7 +114,9 @@ describe("ChatView", () => {
   });
 
   it("passes a stable thread id across turns of the same conversation", async () => {
-    streamMock.mockImplementation(() => scripted([{ type: "final", citations: [], emergency: false, tool_calls: [] }]));
+    streamMock.mockImplementation(() =>
+      scripted([{ type: "final", citations: [], emergency: false, tool_calls: [] }]),
+    );
     const user = userEvent.setup();
     render(<ChatView pets={pets} />);
 

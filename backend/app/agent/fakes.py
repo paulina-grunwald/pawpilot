@@ -9,6 +9,7 @@ keys and no network. `FakeWebSearch` returns canned results for the same reason.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 from typing import Any
 
 from langchain_core.callbacks import CallbackManagerForLLMRun
@@ -18,7 +19,9 @@ from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.runnables import Runnable
 from pydantic import PrivateAttr
 
+from app.agent.pet_food import PetFoodProduct
 from app.agent.web_search import WebSearchResult
+from app.integrations.tractive.read_service import DailySleep, SleepSummary
 
 
 class ScriptedChatModel(BaseChatModel):
@@ -75,3 +78,44 @@ class FakeWebSearch:
 
     def search(self, query: str) -> list[WebSearchResult]:
         return list(self._results)
+
+
+class FakeSleepReader:
+    """Returns preset sleep data, recording the windows and dates it was asked for.
+
+    A network-free stand-in for `TractiveSleepReader` so the sleep tools can be
+    exercised without a database. ``daily`` is the `DailySleep` returned for any
+    date; when omitted, `sleep_on_date` reports the day as having no data.
+    """
+
+    def __init__(self, summary: SleepSummary, daily: DailySleep | None = None) -> None:
+        self._summary = summary
+        self._daily = daily
+        self.requested_days: list[int] = []
+        self.requested_dates: list[date] = []
+
+    async def summarize_sleep(self, days: int) -> SleepSummary:
+        self.requested_days.append(days)
+        return self._summary
+
+    async def sleep_on_date(self, day: date) -> DailySleep:
+        self.requested_dates.append(day)
+        if self._daily is not None:
+            return self._daily
+        return DailySleep(
+            date=day,
+            has_data=False,
+            night_sleep_hours=None,
+            day_sleep_hours=None,
+            total_sleep_hours=None,
+        )
+
+
+class FakePetFood:
+    """Returns a fixed list of pet-food products, ignoring the query."""
+
+    def __init__(self, products: list[PetFoodProduct] | None = None) -> None:
+        self._products = products if products is not None else []
+
+    def lookup(self, query: str) -> list[PetFoodProduct]:
+        return list(self._products)

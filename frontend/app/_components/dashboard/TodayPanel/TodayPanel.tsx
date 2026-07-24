@@ -26,6 +26,7 @@ export type TodayPanelData = {
   activityWeekMinutes: number[];
   sleepWeekMinutes: number[];
   weekDates?: readonly (string | number)[];
+  weekDays?: readonly string[];
   activityGoal?: number;
   activityWeekMean?: number;
   sleepWeekMean?: number;
@@ -119,9 +120,7 @@ export function TodayPanel({
         </div>
 
         {isPlaceholder && (
-          <p className={styles.placeholderHint}>
-            Connect Tractive to see today&rsquo;s data.
-          </p>
+          <p className={styles.placeholderHint}>Connect Tractive to see today&rsquo;s data.</p>
         )}
       </section>
 
@@ -139,6 +138,7 @@ export function TodayPanel({
               values={data.activityWeekMinutes}
               height={160}
               color="var(--warm)"
+              days={data.weekDays}
               dates={data.weekDates}
               yFormat={(value) => `${value} min`}
               accessibleLabel="Activity, past 7 days"
@@ -160,6 +160,7 @@ export function TodayPanel({
               values={data.sleepWeekMinutes}
               height={160}
               color="var(--blue-midnight)"
+              days={data.weekDays}
               dates={data.weekDates}
               yFormat={(value) =>
                 `${Math.floor(value / 60)}h${String(value % 60).padStart(2, "0")}`
@@ -176,9 +177,7 @@ export function TodayPanel({
           <div className={styles.trendHeader}>
             <div>
               <h3 className={styles.trendTitle}>Sleep split</h3>
-              <p className={styles.trendSubtitle}>
-                Past {rangeLabel ?? "7d"} · night vs day naps
-              </p>
+              <p className={styles.trendSubtitle}>Past {rangeLabel ?? "7d"} · night vs day naps</p>
             </div>
           </div>
           <SleepSplitBars

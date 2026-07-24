@@ -34,7 +34,11 @@ describe("SubmitButton", () => {
     const user = userEvent.setup();
     let clicked = false;
     render(
-      <SubmitButton onClick={() => { clicked = true; }}>
+      <SubmitButton
+        onClick={() => {
+          clicked = true;
+        }}
+      >
         Sign up
       </SubmitButton>,
     );

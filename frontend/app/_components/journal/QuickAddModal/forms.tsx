@@ -32,14 +32,7 @@ import type {
   VetVisitPayload,
   WeightPayload,
 } from "@/lib/journal.schemas";
-import {
-  FieldLabel,
-  NotesField,
-  PillRow,
-  ScoreScale,
-  TagPicker,
-  TextField,
-} from "./primitives";
+import { FieldLabel, NotesField, PillRow, ScoreScale, TagPicker, TextField } from "./primitives";
 import styles from "./QuickAddModal.module.css";
 
 export type EntryDraft = {
@@ -167,7 +160,13 @@ export function MealForm({
         value={category}
         onChange={setCategory}
       />
-      <TextField label="Food" value={foodName} onChange={setFoodName} placeholder="Food name" maxLength={200} />
+      <TextField
+        label="Food"
+        value={foodName}
+        onChange={setFoodName}
+        placeholder="Food name"
+        maxLength={200}
+      />
       <TextField label="Brand" value={brand} onChange={setBrand} optional maxLength={200} />
       <div className={styles.field}>
         <FieldLabel htmlFor={amountId} optional>
@@ -372,7 +371,11 @@ export function SymptomForm({
           ))}
         </div>
       </fieldset>
-      <NotesField value={note} onChange={setNote} placeholder="What you noticed, when it started…" />
+      <NotesField
+        value={note}
+        onChange={setNote}
+        placeholder="What you noticed, when it started…"
+      />
       <FormError message={error} />
       <SubmitButton label={submitLabel} submitting={submitting} />
     </form>
@@ -405,7 +408,12 @@ export function MoodForm({
 
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
-      <ScoreScale legend="How are they doing?" labels={MOOD_LABELS} value={score} onChange={setScore} />
+      <ScoreScale
+        legend="How are they doing?"
+        labels={MOOD_LABELS}
+        value={score}
+        onChange={setScore}
+      />
       <NotesField value={note} onChange={setNote} placeholder="What gave you this read…" />
       <SubmitButton label={submitLabel} submitting={submitting} />
     </form>
@@ -559,7 +567,11 @@ export function WeightForm({
         value={source}
         onChange={setSource}
       />
-      <NotesField value={note} onChange={setNote} placeholder="Weighed after walk, before breakfast…" />
+      <NotesField
+        value={note}
+        onChange={setNote}
+        placeholder="Weighed after walk, before breakfast…"
+      />
       <FormError message={error} />
       <SubmitButton label={submitLabel} submitting={submitting} />
     </form>
@@ -642,8 +654,22 @@ export function VetVisitForm({
           onChange={(event) => setDiagnosis(event.target.value)}
         />
       </div>
-      <TextField label="Follow-up" value={followUp} onChange={setFollowUp} optional placeholder="In 2 weeks · May 29" maxLength={500} />
-      <TextField label="Vet" value={vetName} onChange={setVetName} optional placeholder="Dr. Patel" maxLength={200} />
+      <TextField
+        label="Follow-up"
+        value={followUp}
+        onChange={setFollowUp}
+        optional
+        placeholder="In 2 weeks · May 29"
+        maxLength={500}
+      />
+      <TextField
+        label="Vet"
+        value={vetName}
+        onChange={setVetName}
+        optional
+        placeholder="Dr. Patel"
+        maxLength={200}
+      />
       <NotesField value={note} onChange={setNote} />
       <FormError message={error} />
       <SubmitButton label={submitLabel} submitting={submitting} />

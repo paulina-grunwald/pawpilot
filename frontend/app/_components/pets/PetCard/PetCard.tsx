@@ -42,11 +42,7 @@ export function PetCard({ pet, href }: PetCardProps) {
         <div className={styles.titleRow}>
           <h2 className={`${styles.name} display`}>{pet.name}</h2>
           <Chip variant="default">
-            <span
-              aria-hidden
-              className={styles.chipDot}
-              style={{ background: "var(--forest)" }}
-            />
+            <span aria-hidden className={styles.chipDot} style={{ background: "var(--forest)" }} />
             {pet.lifeStage}
           </Chip>
         </div>

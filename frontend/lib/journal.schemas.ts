@@ -25,10 +25,13 @@ export const bathroomPayloadSchema = z
     bristol_score: z.number().int().min(1).max(7).nullable(),
     color: z.enum(BATHROOM_COLORS).nullable(),
   })
-  .refine((value) => value.kind !== "pee" || (value.bristol_score === null && value.color === null), {
-    message: "Stool details are only allowed when kind includes poop",
-    path: ["bristol_score"],
-  });
+  .refine(
+    (value) => value.kind !== "pee" || (value.bristol_score === null && value.color === null),
+    {
+      message: "Stool details are only allowed when kind includes poop",
+      path: ["bristol_score"],
+    },
+  );
 
 export const symptomPayloadSchema = z.object({
   entry_type: z.literal("symptom"),

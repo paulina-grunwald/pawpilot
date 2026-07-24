@@ -157,11 +157,9 @@ button {
   bottom: -0.18em;
   height: 0.42em;
   background: var(--blue);
-  -webkit-mask:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 25 1 50 6 T 100 6 T 150 6 T 198 6' stroke='black' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>")
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 25 1 50 6 T 100 6 T 150 6 T 198 6' stroke='black' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>")
     center / 100% 100% no-repeat;
-  mask:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 25 1 50 6 T 100 6 T 150 6 T 198 6' stroke='black' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>")
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 25 1 50 6 T 100 6 T 150 6 T 198 6' stroke='black' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>")
     center / 100% 100% no-repeat;
   z-index: -1;
   pointer-events: none;
@@ -180,11 +178,9 @@ button {
   bottom: -0.1em;
   height: 0.32em;
   background-color: var(--blue);
-  -webkit-mask:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M2 5 Q 15 1 28 5 T 54 5 T 80 5 T 100 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/></svg>")
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M2 5 Q 15 1 28 5 T 54 5 T 80 5 T 100 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/></svg>")
     center / 100% 100% no-repeat;
-  mask:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M2 5 Q 15 1 28 5 T 54 5 T 80 5 T 100 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/></svg>")
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M2 5 Q 15 1 28 5 T 54 5 T 80 5 T 100 5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/></svg>")
     center / 100% 100% no-repeat;
   z-index: -1;
   pointer-events: none;

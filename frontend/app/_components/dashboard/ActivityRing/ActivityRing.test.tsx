@@ -5,7 +5,12 @@ import { ActivityRing } from "./ActivityRing";
 describe("ActivityRing", () => {
   it("uses the provided accessibleLabel as aria-label", () => {
     render(
-      <ActivityRing percent={45} label="45%" sublabel="of goal" accessibleLabel="Daily activity 45%" />,
+      <ActivityRing
+        percent={45}
+        label="45%"
+        sublabel="of goal"
+        accessibleLabel="Daily activity 45%"
+      />,
     );
     expect(screen.getByRole("img", { name: /daily activity 45%/i })).toBeInTheDocument();
   });

@@ -22,8 +22,9 @@ from langgraph.store.memory import InMemoryStore
 from pydantic import SecretStr
 
 from app.agent.config import AgentSettings
-from app.agent.fakes import FakeWebSearch, ScriptedChatModel
+from app.agent.fakes import FakePetFood, FakeWebSearch, ScriptedChatModel
 from app.agent.memory import DogMemoryStore
+from app.agent.pet_food import PetFoodNutrient, PetFoodProduct
 from app.agent.runner import PawPilotAgent
 from app.agent.web_search import WebSearchResult
 from app.rag.retriever import VetCorpusRetriever
@@ -115,6 +116,25 @@ def make_web_result(**overrides: object) -> WebSearchResult:
     return WebSearchResult.model_validate(values)
 
 
+def make_pet_food_product(**overrides: object) -> PetFoodProduct:
+    """A fully-populated `PetFoodProduct` for pet-food and citation tests."""
+    values: dict[str, object] = {
+        "code": "0064992281182",
+        "name": "Six Fish",
+        "brands": "Orijen",
+        "quantity": "1.8 kg",
+        "ingredients_text": "Whole sardine, whole hake, whole mackerel.",
+        "nutrients": [
+            PetFoodNutrient(label="Crude protein", value=40.0),
+            PetFoodNutrient(label="Crude fat", value=19.0),
+            PetFoodNutrient(label="Crude fibre", value=3.0),
+        ],
+        "url": "https://world.openpetfoodfacts.org/product/0064992281182",
+    }
+    values.update(overrides)
+    return PetFoodProduct.model_validate(values)
+
+
 def tool_call_message(name: str, query: str, call_id: str = "call-1") -> AIMessage:
     """An assistant turn that calls ``name`` with a ``query`` argument."""
     return AIMessage(
@@ -129,6 +149,7 @@ def build_test_agent(
     model: BaseChatModel | None = None,
     chunks: list[RetrievedChunk] | None = None,
     web_results: list[WebSearchResult] | None = None,
+    pet_food_products: list[PetFoodProduct] | None = None,
     with_memory: bool = False,
     with_thread: bool = False,
     max_memories: int = 20,
@@ -148,6 +169,7 @@ def build_test_agent(
         model=resolved_model,
         retriever=cast(VetCorpusRetriever, StubRetriever(chunks)),
         web_search=FakeWebSearch(web_results),
+        pet_food=FakePetFood(pet_food_products),
         settings=resolved_settings,
         checkpointer=InMemorySaver() if with_thread else None,
         memory_store=memory_store,

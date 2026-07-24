@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE_NAME } from "@/lib/auth.constants";
 
-
 const PROTECTED_PATH_PREFIXES = ["/dashboard"];
 const AUTH_PATH_PREFIXES = ["/login", "/signup"];
 export const SESSION_EXPIRED_QUERY_KEY = "session";
@@ -33,8 +32,7 @@ export function buildAuthRedirect(input: {
 export default function proxy(request: NextRequest) {
   const hasAuthCookie = request.cookies.has(AUTH_COOKIE_NAME);
   const sessionExpired =
-    request.nextUrl.searchParams.get(SESSION_EXPIRED_QUERY_KEY) ===
-    SESSION_EXPIRED_QUERY_VALUE;
+    request.nextUrl.searchParams.get(SESSION_EXPIRED_QUERY_KEY) === SESSION_EXPIRED_QUERY_VALUE;
   const { redirectTo } = buildAuthRedirect({
     pathname: request.nextUrl.pathname,
     hasAuthCookie,

@@ -43,14 +43,14 @@ export function DebateMini() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-2 mt-[14px]">
+    <div className="mt-[14px] flex flex-col gap-2">
       {messages.map((message, index) => {
         const shown = step > index;
         const isFinal = index === messages.length - 1;
         return (
           <div
             key={index}
-            className="flex gap-2 items-start"
+            className="flex items-start gap-2"
             style={{
               opacity: shown ? 1 : 0.15,
               transform: shown ? "translateY(0)" : "translateY(4px)",
@@ -58,7 +58,7 @@ export function DebateMini() {
             }}
           >
             <span
-              className="mono text-[9px] px-[7px] py-[3px] rounded-full tracking-[0.06em] uppercase whitespace-nowrap mt-px"
+              className="mono mt-px rounded-full px-[7px] py-[3px] text-[9px] tracking-[0.06em] whitespace-nowrap uppercase"
               style={{
                 background: isFinal ? "var(--ink)" : "transparent",
                 color: isFinal ? "var(--paper)" : message.color,
@@ -67,9 +67,7 @@ export function DebateMini() {
             >
               {message.who}
             </span>
-            <span className="text-[12.5px] text-ink leading-[1.4]">
-              {message.text}
-            </span>
+            <span className="text-ink text-[12.5px] leading-[1.4]">{message.text}</span>
           </div>
         );
       })}

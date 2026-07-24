@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DAILY_ACTIVE_TARGET_MINUTES,
-  toSleepSplitBars,
-  toTodayPanelData,
-} from "./tractive.format";
+import { DAILY_ACTIVE_TARGET_MINUTES, toSleepSplitBars, toTodayPanelData } from "./tractive.format";
 import type { TractiveDailySummary } from "./tractive";
 
 function makeRollup(overrides: Partial<TractiveDailySummary>): TractiveDailySummary {
@@ -40,6 +36,17 @@ describe("toTodayPanelData", () => {
     expect(result?.activityPercent).toBe(100);
   });
 
+  it("derives weekday labels from the actual dates in chronological order", () => {
+    const result = toTodayPanelData([
+      makeRollup({ date: "2024-05-16" }),
+      makeRollup({ date: "2024-05-14" }),
+      makeRollup({ date: "2024-05-15" }),
+    ]);
+    // May 14-16, 2024 are Tue, Wed, Thu.
+    expect(result?.weekDates).toEqual(["May 14", "May 15", "May 16"]);
+    expect(result?.weekDays).toEqual(["Tu", "We", "Th"]);
+  });
+
   it("returns raw (unclamped) activity percent so the ring can render an overage state", () => {
     const high = toTodayPanelData([
       makeRollup({ minutes_active: DAILY_ACTIVE_TARGET_MINUTES * 5 }),
@@ -53,9 +60,7 @@ describe("toTodayPanelData", () => {
   });
 
   it("uses the standard sublabel when at or under 100%", () => {
-    const result = toTodayPanelData([
-      makeRollup({ minutes_active: DAILY_ACTIVE_TARGET_MINUTES }),
-    ]);
+    const result = toTodayPanelData([makeRollup({ minutes_active: DAILY_ACTIVE_TARGET_MINUTES })]);
     expect(result?.activityPercent).toBe(100);
     expect(result?.activitySublabel).toBe(`100% of ${DAILY_ACTIVE_TARGET_MINUTES}min goal`);
   });
@@ -236,5 +241,3 @@ describe("toSleepSplitBars", () => {
     });
   });
 });
-
-

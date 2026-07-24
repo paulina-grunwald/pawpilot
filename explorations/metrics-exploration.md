@@ -1,5 +1,11 @@
 # Metrics Exploration — Tractive GDPR Export
 
+> **Superseded by [`metrics-exploration-validated.md`](metrics-exploration-validated.md).**
+> This file is the original speculative wishlist. Several items here were later computed against
+> the real data and did **not** hold up (notably the "international travel / Den Haag" story, the
+> deep/light sleep proxy, HRV, and battery/temperature health metrics). Treat the validated
+> document as the source of truth; this one is kept for history.
+
 _Deep read of `data/*.json` (12 files from the Tractive GDPR export). Today we extract roughly 30% of the available signal — mostly aggregates. Lots of compound metrics are sitting unused._
 
 ## What we already extract

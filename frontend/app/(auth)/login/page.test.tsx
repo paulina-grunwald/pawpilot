@@ -46,16 +46,12 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText(/email/i), "not-an-email");
     await user.type(screen.getByLabelText(/password/i), "anything");
     await user.click(screen.getByRole("button", { name: /log in/i }));
-    expect(
-      await screen.findByText("Enter a valid email address"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Enter a valid email address")).toBeInTheDocument();
   });
 
   it("redirects to /dashboard on 204", async () => {
     server.use(
-      http.post(`${getApiBaseUrl()}/auth/login`, () =>
-        new HttpResponse(null, { status: 204 }),
-      ),
+      http.post(`${getApiBaseUrl()}/auth/login`, () => new HttpResponse(null, { status: 204 })),
     );
     const user = userEvent.setup();
     render(<LoginPage />);
@@ -77,24 +73,18 @@ describe("LoginPage", () => {
     await user.type(screen.getByLabelText(/email/i), "a@b.co");
     await user.type(screen.getByLabelText(/password/i), "wrong-password");
     await user.click(screen.getByRole("button", { name: /log in/i }));
-    expect(
-      await screen.findByText("Incorrect email or password."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Incorrect email or password.")).toBeInTheDocument();
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 
   it("shows network error copy when the request fails", async () => {
-    server.use(
-      http.post(`${getApiBaseUrl()}/auth/login`, () => HttpResponse.error()),
-    );
+    server.use(http.post(`${getApiBaseUrl()}/auth/login`, () => HttpResponse.error()));
     const user = userEvent.setup();
     render(<LoginPage />);
     await user.type(screen.getByLabelText(/email/i), "a@b.co");
     await user.type(screen.getByLabelText(/password/i), "password");
     await user.click(screen.getByRole("button", { name: /log in/i }));
-    expect(
-      await screen.findByText(/couldn't reach the server/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/couldn't reach the server/i)).toBeInTheDocument();
   });
 
   it("renders 'Create account' link to /signup", () => {

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 import app.rag.router as router_module
 from app.main import app
+from app.rag.reranking import RerankUnavailableError
 from app.rag.router import get_retriever
 from app.rag.schemas import RetrievalMode, RetrievedChunk, SourceTier
 
@@ -139,3 +140,13 @@ async def test_search_returns_500_on_corrupt_payload(
     response = await authenticated_client.post("/rag/search", json={"query": "anything"})
     assert response.status_code == 500
     assert response.json()["detail"] == "RAG_PAYLOAD_CORRUPT"
+
+
+async def test_search_returns_503_on_malformed_rerank_response(
+    authenticated_client: AsyncClient,
+    install_retriever: Callable[[_FakeRetriever], None],
+) -> None:
+    install_retriever(_FakeRetriever(error=RerankUnavailableError("malformed rerank envelope")))
+    response = await authenticated_client.post("/rag/search", json={"query": "anything"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "RAG_UNAVAILABLE"

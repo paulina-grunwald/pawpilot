@@ -19,6 +19,8 @@ import styles from "./LineChart.module.css";
 
 const DEFAULT_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
 
+const WEEKEND_DAYS = new Set(["Sa", "Su"]);
+
 type LineChartProps = {
   values: number[];
   height?: number;
@@ -84,10 +86,26 @@ function LegendSwatch({ type, color = "var(--muted)", children }: LegendSwatchPr
           </defs>
         )}
         {type === "solid" && (
-          <line x1="0" x2="18" y1="4" y2="4" stroke={color} strokeWidth="1.75" strokeLinecap="round" />
+          <line
+            x1="0"
+            x2="18"
+            y1="4"
+            y2="4"
+            stroke={color}
+            strokeWidth="1.75"
+            strokeLinecap="round"
+          />
         )}
         {type === "dash" && (
-          <line x1="0" x2="18" y1="4" y2="4" stroke={color} strokeWidth="1.25" strokeDasharray="3 2" />
+          <line
+            x1="0"
+            x2="18"
+            y1="4"
+            y2="4"
+            stroke={color}
+            strokeWidth="1.25"
+            strokeDasharray="3 2"
+          />
         )}
         {type === "hatch" && (
           <rect
@@ -151,8 +169,7 @@ export function LineChart({
   const { yMin, yMax } = computeYBounds(values, extraBounds);
 
   const xAt = (index: number) => paddingLeft + (index / (values.length - 1)) * innerWidth;
-  const yAt = (value: number) =>
-    paddingTop + (1 - (value - yMin) / (yMax - yMin)) * innerHeight;
+  const yAt = (value: number) => paddingTop + (1 - (value - yMin) / (yMax - yMin)) * innerHeight;
 
   const ticks = Array.from(
     { length: yTicks + 1 },
@@ -473,7 +490,7 @@ export function LineChart({
                   fill={
                     index === todayIndex
                       ? "var(--ink-deep)"
-                      : index >= 5
+                      : WEEKEND_DAYS.has(days[index] ?? "")
                         ? "var(--ochre)"
                         : "var(--muted-2)"
                   }

@@ -54,16 +54,12 @@ describe("PhotoUploader", () => {
   it("labels the trigger 'Add photo' when there is no existing photo", () => {
     render(<ControlledHarness />);
     expect(screen.getByRole("button", { name: /add photo/i })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /change photo/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /change photo/i })).not.toBeInTheDocument();
   });
 
   it("labels the trigger 'Change photo' when an existing photo is shown", () => {
     render(<ControlledHarness initialExisting="https://media/luna.jpg" />);
-    expect(
-      screen.getByRole("button", { name: /change photo/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /change photo/i })).toBeInTheDocument();
   });
 
   it("opens the upload modal when the trigger is clicked", async () => {
@@ -142,9 +138,7 @@ describe("PhotoUploader", () => {
 
   it("offers a 'Remove current photo' control only when both existing photo and callback exist", () => {
     render(<ControlledHarness initialExisting="https://media/luna.jpg" withRemove />);
-    expect(
-      screen.getByRole("button", { name: /remove current photo/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /remove current photo/i })).toBeInTheDocument();
   });
 
   it("hides the existing preview after the remove-existing callback fires", async () => {
@@ -161,9 +155,7 @@ describe("PhotoUploader", () => {
     await user.click(screen.getByRole("button", { name: /change photo/i }));
     const file = new File(["a"], "n.jpg", { type: "image/jpeg" });
     await user.upload(screen.getByLabelText(/pet photo/i), file);
-    expect(
-      screen.queryByRole("button", { name: /remove current photo/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove current photo/i })).not.toBeInTheDocument();
   });
 
   it("closes the modal when clicking the backdrop", async () => {
@@ -184,11 +176,7 @@ describe("PhotoUploader", () => {
     const file = new File(["a"], "n.jpg", { type: "image/jpeg" });
     await user.upload(screen.getByLabelText(/pet photo/i), file);
     await user.click(screen.getByRole("button", { name: /discard pick/i }));
-    expect(
-      screen.queryByRole("button", { name: /discard pick/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /remove current photo/i }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /discard pick/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /remove current photo/i })).toBeInTheDocument();
   });
 });

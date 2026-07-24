@@ -10,10 +10,7 @@ describe("LineChart", () => {
 
   it("renders an SVG with the accessible label when given values", () => {
     render(
-      <LineChart
-        values={[10, 12, 8, 15, 18, 22, 24]}
-        accessibleLabel="Activity, past 7 days"
-      />,
+      <LineChart values={[10, 12, 8, 15, 18, 22, 24]} accessibleLabel="Activity, past 7 days" />,
     );
     expect(screen.getByRole("img", { name: /activity, past 7 days/i })).toBeInTheDocument();
   });
@@ -50,6 +47,17 @@ describe("LineChart", () => {
     // Leaving the chart restores the latest-value tooltip.
     fireEvent.pointerLeave(svg);
     expect(screen.getByText(/40 min/)).toBeInTheDocument();
+  });
+
+  it("renders the provided weekday labels instead of a fixed Monday-start week", () => {
+    // Data covering Thu -> Wed (Jul 9-15, 2026): the last day is Wednesday, not Sunday.
+    const days = ["Th", "Fr", "Sa", "Su", "Mo", "Tu", "We"];
+    render(<LineChart values={[1, 2, 3, 4, 5, 6, 7]} days={days} accessibleLabel="Activity" />);
+    // The first and last labels are always drawn; they prove labels follow the
+    // real weekday (Th -> We) rather than the hardcoded Mo -> Su default, where
+    // the last point would read "Su".
+    expect(screen.getByText("Th")).toBeInTheDocument();
+    expect(screen.getByText("We")).toBeInTheDocument();
   });
 
   it("thins x-axis date labels for long ranges", () => {
