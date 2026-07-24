@@ -69,6 +69,11 @@ function queryParamsFor(
 
 export function JournalTimeline({ petId, petName, initialPage }: JournalTimelineProps) {
   const [entries, setEntries] = useState<JournalEntryRead[]>(initialPage.items);
+  // The journal highlights bar always summarizes this unfiltered, unsearched
+  // set (seeded from the same unfiltered initial page) so an active search or
+  // filter chip never makes "Current weight"/"Active med" look empty just
+  // because the matching entry happens to be scrolled out of view.
+  const [statsEntries, setStatsEntries] = useState<JournalEntryRead[]>(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.next_cursor);
   const [totalMatching, setTotalMatching] = useState(initialPage.total_matching);
   const [search, setSearch] = useState("");
@@ -126,6 +131,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     setModal({ kind: "closed" });
     if (mode === "created") {
       setEntries((current) => sortNewestFirst([entry, ...current]));
+      setStatsEntries((current) => sortNewestFirst([entry, ...current]));
       setTotalMatching((current) => current + 1);
       showToast({
         message: `${ENTRY_TYPE_META[entry.payload.entry_type as EntryType].label} logged`,
@@ -133,6 +139,9 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
       });
     } else {
       setEntries((current) =>
+        sortNewestFirst(current.map((existing) => (existing.id === entry.id ? entry : existing))),
+      );
+      setStatsEntries((current) =>
         sortNewestFirst(current.map((existing) => (existing.id === entry.id ? entry : existing))),
       );
       showToast({ message: "Entry updated", undoEntryId: null });
@@ -144,6 +153,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     try {
       await deleteJournalEntry(petId, entryId);
       setEntries((current) => current.filter((entry) => entry.id !== entryId));
+      setStatsEntries((current) => current.filter((entry) => entry.id !== entryId));
       setTotalMatching((current) => Math.max(0, current - 1));
     } catch {
       showToast({ message: "Couldn't undo — the entry is still saved.", undoEntryId: null });
@@ -155,6 +165,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
       try {
         await deleteJournalEntry(petId, entry.id);
         setEntries((current) => current.filter((existing) => existing.id !== entry.id));
+        setStatsEntries((current) => current.filter((existing) => existing.id !== entry.id));
         setTotalMatching((current) => Math.max(0, current - 1));
         showToast({ message: "Entry deleted", undoEntryId: null });
       } catch {
@@ -247,7 +258,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
 
       {!showEmptyState && (
         <>
-          <JournalStats entries={entries} />
+          <JournalStats entries={statsEntries} />
           <div className={styles.toolbar}>
             <div className={styles.searchField}>
               <span className={styles.searchIcon}>

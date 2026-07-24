@@ -8,11 +8,12 @@ payload back into a RetrievedChunk.
 from __future__ import annotations
 
 from langsmith import traceable
+from pydantic import ValidationError
 from qdrant_client import QdrantClient, models
 
 from app.rag.config import RagSettings, get_rag_settings
 from app.rag.embeddings import Embedder, GatewayEmbedder
-from app.rag.reranking import CohereGatewayReranker, Reranker
+from app.rag.reranking import CohereGatewayReranker, Reranker, RerankUnavailableError
 from app.rag.schemas import RetrievalMode, RetrievedChunk, SourceTier
 from app.rag.store import DENSE_VECTOR
 
@@ -113,7 +114,16 @@ class VetCorpusRetriever:
         candidates = self._dense_search(query, self._rerank_candidates, query_filter)
         if not candidates:
             return []
-        results = self._reranker.rerank(query, [chunk.text for chunk in candidates], top_n=top_k)
+        try:
+            results = self._reranker.rerank(
+                query, [chunk.text for chunk in candidates], top_n=top_k
+            )
+        except ValidationError as error:
+            # A malformed Gateway rerank response is an upstream availability
+            # problem, not corrupt stored data — don't let it collide with the
+            # ValidationError branch in router.py that means "a stored Qdrant
+            # payload is corrupt".
+            raise RerankUnavailableError("reranker returned a malformed response") from error
         # Skip any index a misbehaving reranker returns outside the candidate range,
         # so one malformed row cannot crash the whole retrieval with an IndexError.
         return [

@@ -1,8 +1,10 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useEffect, useState, type CSSProperties } from "react";
+import { Sparkline } from "@/app/_components/dashboard/Sparkline";
 import type { JournalEntryRead } from "@/lib/journal.schemas";
 import { computeJournalStats } from "@/lib/journal.stats";
 import { EntryTypeIcon } from "../EntryTypeIcon";
-import { Sparkline } from "../Sparkline";
 import styles from "./JournalStats.module.css";
 
 type JournalStatsProps = {
@@ -10,7 +12,15 @@ type JournalStatsProps = {
 };
 
 export function JournalStats({ entries }: JournalStatsProps) {
-  const stats = computeJournalStats(entries);
+  // Stays null through the server render and the initial client render so the
+  // two match exactly; only after mount do relative-time strings switch on,
+  // avoiding a hydration mismatch from `new Date()` evaluated twice.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNow(new Date());
+  }, []);
+  const stats = computeJournalStats(entries, now);
 
   return (
     <dl className={styles.grid} aria-label="Journal highlights">
@@ -24,7 +34,14 @@ export function JournalStats({ entries }: JournalStatsProps) {
             <dt className={styles.label}>{stat.label}</dt>
             <span className={styles.art}>
               {stat.sparkline ? (
-                <Sparkline values={stat.sparkline} />
+                <Sparkline
+                  values={stat.sparkline}
+                  width={62}
+                  height={22}
+                  color={`var(${stat.accentVar})`}
+                  fill={false}
+                  accessibleLabel={`${stat.label} trend, latest ${stat.value}${stat.unit ? ` ${stat.unit}` : ""}`}
+                />
               ) : (
                 <EntryTypeIcon type={stat.iconType} size={18} />
               )}
@@ -34,7 +51,7 @@ export function JournalStats({ entries }: JournalStatsProps) {
             <span className={`${styles.number} display`}>{stat.value}</span>
             {stat.unit && <span className={styles.unit}>{stat.unit}</span>}
           </dd>
-          <p className={styles.sub}>{stat.sub}</p>
+          <p className={styles.subtitle}>{stat.subtitle}</p>
         </div>
       ))}
     </dl>

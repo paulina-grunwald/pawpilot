@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { ENTRY_TYPE_META, ENTRY_TYPES, type EntryType } from "@/lib/journal.constants";
-import type { JournalFilters } from "../FilterSheet";
+import { toggleEntryTypeFilter, type JournalFilters } from "../FilterSheet";
 import styles from "./FilterChips.module.css";
 
 type FilterChipsProps = {
@@ -19,13 +19,7 @@ export function FilterChips({ filters, onChange }: FilterChipsProps) {
   }
 
   function toggleType(entryType: EntryType) {
-    const active = filters.entryTypes.includes(entryType);
-    onChange({
-      ...filters,
-      entryTypes: active
-        ? filters.entryTypes.filter((existing) => existing !== entryType)
-        : [...filters.entryTypes, entryType],
-    });
+    onChange(toggleEntryTypeFilter(filters, entryType));
   }
 
   return (

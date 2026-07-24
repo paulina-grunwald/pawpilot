@@ -36,6 +36,17 @@ class Reranker(Protocol):
     def rerank(self, query: str, documents: list[str], *, top_n: int) -> list[RerankResult]: ...
 
 
+class RerankUnavailableError(RuntimeError):
+    """A reranker's response could not be parsed (e.g. a malformed gateway envelope).
+
+    Callers should treat this the same as any other reranker-unavailable
+    failure (503), not the same as a pydantic ``ValidationError`` raised
+    elsewhere for a corrupt *stored* Qdrant payload (500) — those are
+    different failure domains that happen to share an exception type at the
+    parsing layer.
+    """
+
+
 def _rerank_endpoint(gateway_base_url: str) -> str:
     """Derive the ``/v2/rerank`` URL from the gateway base (which ends in ``/v1``).
 

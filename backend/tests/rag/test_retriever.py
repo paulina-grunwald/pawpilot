@@ -6,7 +6,13 @@ from qdrant_client import QdrantClient, models
 from app.rag import retriever as retriever_module
 from app.rag.config import RagSettings
 from app.rag.fakes import FakeEmbedder, FakeReranker
-from app.rag.reranking import CohereGatewayReranker, Reranker, RerankResult
+from app.rag.reranking import (
+    CohereGatewayReranker,
+    Reranker,
+    RerankResponse,
+    RerankResult,
+    RerankUnavailableError,
+)
 from app.rag.retriever import VetCorpusRetriever, build_retriever
 from app.rag.schemas import RetrievalMode, RetrievedChunk
 from app.rag.store import DENSE_VECTOR, chunk_point_id, ensure_collection
@@ -176,6 +182,17 @@ class _NegativeIndexReranker:
         ]
 
 
+class _MalformedResponseReranker:
+    """Reranker whose response fails ``RerankResponse`` validation.
+
+    Simulates a malformed Gateway envelope the same way CohereGatewayReranker
+    would encounter one, without needing an HTTP mock.
+    """
+
+    def rerank(self, query: str, documents: list[str], *, top_n: int) -> list[RerankResult]:
+        return RerankResponse.model_validate({"unexpected": []}).results
+
+
 def test_rerank_mode_reorders_and_annotates_chunks() -> None:
     retriever = _make_retriever(
         default_mode="rerank", reranker=FakeReranker(), rerank_candidates=25
@@ -256,6 +273,15 @@ def test_rerank_drops_negative_reranker_index_without_wrapping() -> None:
 def test_rerank_returns_empty_when_dense_search_has_no_hits() -> None:
     retriever = _make_retriever(default_mode="rerank", reranker=_RaisingReranker())
     assert retriever.retrieve("anything", sources=["does-not-exist"]) == []
+
+
+def test_rerank_malformed_response_raises_rerank_unavailable_not_validation_error() -> None:
+    # A malformed Gateway envelope must not surface as the same ValidationError
+    # type that means "a stored Qdrant payload is corrupt" — router.py relies
+    # on the exception type to tell those two failure domains apart.
+    retriever = _make_retriever(default_mode="rerank", reranker=_MalformedResponseReranker())
+    with pytest.raises(RerankUnavailableError):
+        retriever.retrieve("anything", top_k=1)
 
 
 def test_unknown_mode_raises_value_error() -> None:
