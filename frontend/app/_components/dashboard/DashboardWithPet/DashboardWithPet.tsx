@@ -8,6 +8,7 @@ import type { PetRead } from "@/lib/pets";
 import { toDashboardPet } from "@/lib/pets.format";
 import { fetchTractiveRollups, type TractiveDailySummary } from "@/lib/tractive";
 import { toSleepSplitBars, toTodayPanelData } from "@/lib/tractive.format";
+import { fetchPetWeightSeries, type WeightSeriesPoint } from "@/lib/weight";
 import { PetPicker } from "../../pets/PetPicker";
 import { PetDashboardView } from "../PetDashboardView";
 import { RangeToggle, type RangeOption } from "../RangeToggle";
@@ -30,6 +31,7 @@ type DashboardWithPetProps = {
 export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: DashboardWithPetProps) {
   const router = useRouter();
   const [rollups, setRollups] = useState<TractiveDailySummary[] | null>(null);
+  const [weightSeries, setWeightSeries] = useState<WeightSeriesPoint[] | undefined>(undefined);
   const [rangeDays, setRangeDays] = useState<number>(DEFAULT_RANGE_DAYS);
 
   const activePet = pets.find((pet) => pet.id === activePetId) ?? pets[0];
@@ -43,8 +45,6 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
 
   useEffect(() => {
     let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRollups(null);
     fetchTractiveRollups(activePet.id, rangeDays)
       .then((response) => {
         if (!cancelled) setRollups(response.daily);
@@ -53,6 +53,20 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
         // Fall back to the placeholder state on any error — the upload card on
         // the pet detail page is the surface for fixing this.
         if (!cancelled) setRollups([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePet.id, rangeDays]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPetWeightSeries(activePet.id, rangeDays)
+      .then((series) => {
+        if (!cancelled) setWeightSeries(series);
+      })
+      .catch(() => {
+        if (!cancelled) setWeightSeries([]);
       });
     return () => {
       cancelled = true;
@@ -94,6 +108,7 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
       todayLabel={todayLabel}
       todayData={todayData}
       sleepSplitBars={sleepSplitBars}
+      weightSeries={weightSeries}
       rangeLabel={
         RANGE_OPTIONS.find((option) => option.days === rangeDays)?.label ?? `${rangeDays}d`
       }

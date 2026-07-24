@@ -27,6 +27,7 @@ from app.agent.schemas import (
 from app.auth.deps import current_active_user
 from app.auth.models import User
 from app.db.base import get_session
+from app.integrations.tractive.read_service import TractiveSleepReader
 from app.pets.deps import load_owned_pet
 
 logger = logging.getLogger(__name__)
@@ -46,12 +47,16 @@ async def ask_pawpilot(
     agent: PawPilotAgent = Depends(get_agent),
 ) -> AgentAnswer:
     dog_id: str | None = None
+    sleep_reader: TractiveSleepReader | None = None
     if payload.pet_id is not None:
         pet = await load_owned_pet(payload.pet_id, user, session)
         dog_id = str(pet.id)
+        sleep_reader = TractiveSleepReader(session, pet.id)
     thread_id = f"{user.id}:{payload.thread_id}" if payload.thread_id is not None else None
     try:
-        answer = await agent.arun(payload.query, thread_id=thread_id, dog_id=dog_id)
+        answer = await agent.arun(
+            payload.query, thread_id=thread_id, dog_id=dog_id, sleep_reader=sleep_reader
+        )
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
@@ -84,14 +89,18 @@ async def ask_pawpilot_stream(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
         ) from error
     dog_id: str | None = None
+    sleep_reader: TractiveSleepReader | None = None
     if payload.pet_id is not None:
         pet = await load_owned_pet(payload.pet_id, user, session)
         dog_id = str(pet.id)
+        sleep_reader = TractiveSleepReader(session, pet.id)
     thread_id = f"{user.id}:{payload.thread_id}" if payload.thread_id is not None else None
 
     async def event_stream() -> AsyncIterator[str]:
         try:
-            async for event in agent.astream_run(payload.query, thread_id=thread_id, dog_id=dog_id):
+            async for event in agent.astream_run(
+                payload.query, thread_id=thread_id, dog_id=dog_id, sleep_reader=sleep_reader
+            ):
                 yield _sse(event)
         except Exception:
             logger.exception("agent stream failed for user %s", user.id)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { SleepSplitBars, type SleepSplitBar } from "./SleepSplitBars";
 
 function makeBars(): SleepSplitBar[] {
@@ -30,6 +30,20 @@ describe("SleepSplitBars", () => {
     expect(barTitles).toHaveLength(2);
     expect(barTitles[0]).toMatch(/May 15.*8h 30m total.*7h 00m night.*1h 30m day/);
     expect(barTitles[1]).toMatch(/May 16.*9h 20m total.*8h 20m night.*1h 00m day/);
+  });
+
+  it("shows a hover tooltip breaking out night and day for the hovered bar", () => {
+    render(<SleepSplitBars bars={makeBars()} accessibleLabel="sleep bars" />);
+    const svg = screen.getByRole("img", { name: "sleep bars" });
+    // No tooltip until the pointer enters the plot.
+    expect(screen.queryByText(/^night 7h 00m$/)).not.toBeInTheDocument();
+    // Hover near the left edge to land on the first bar.
+    fireEvent.pointerMove(svg, { clientX: 60, clientY: 100 });
+    expect(screen.getByText(/^night 7h 00m$/)).toBeInTheDocument();
+    expect(screen.getByText(/^day naps 1h 30m$/)).toBeInTheDocument();
+    // Leaving clears the tooltip.
+    fireEvent.pointerLeave(svg);
+    expect(screen.queryByText(/^night 7h 00m$/)).not.toBeInTheDocument();
   });
 
   it("renders a legend for night and day", () => {

@@ -1,5 +1,6 @@
 import type { SleepSplitBar } from "@/app/_components/dashboard/SleepSplitBars";
 import type { TodayPanelData } from "@/app/_components/dashboard/TodayPanel/TodayPanel";
+import { formatMonthDay, formatWeekday } from "./date";
 import type { TractiveDailySummary } from "./tractive";
 
 // TODO: make the daily active target per-pet user-configurable. Right now this
@@ -59,17 +60,6 @@ function totalSleepMinutes(rollup: TractiveDailySummary): number {
 function roundedPercent(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
   return Math.round(value);
-}
-
-function formatMonthDay(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  if (!year || !month || !day) return isoDate;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.toLocaleDateString("en-US", {
-    timeZone: "UTC",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function meanOfPreceding(
@@ -175,6 +165,7 @@ export function toTodayPanelData(
     activityWeekMinutes: sorted.map((row) => Math.round(row.minutes_active)),
     sleepWeekMinutes: sorted.map((row) => Math.round(totalSleepMinutes(row))),
     weekDates: sorted.map((row) => formatMonthDay(row.date)),
+    weekDays: sorted.map((row) => formatWeekday(row.date)),
     activityGoal: DAILY_ACTIVE_TARGET_MINUTES,
     activityWeekMean: activeBaseline === null ? undefined : Math.round(activeBaseline),
     sleepWeekMean: sleepBaseline === null ? undefined : Math.round(sleepBaseline),

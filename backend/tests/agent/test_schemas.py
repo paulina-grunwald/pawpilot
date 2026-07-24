@@ -171,6 +171,10 @@ def test_citation_accepts_web_kind() -> None:
     assert make_citation(kind="web").kind == "web"
 
 
+def test_citation_accepts_food_kind() -> None:
+    assert make_citation(kind="food").kind == "food"
+
+
 def test_citation_rejects_unknown_kind() -> None:
     with pytest.raises(ValidationError):
         make_citation(kind="podcast")

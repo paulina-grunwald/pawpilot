@@ -54,6 +54,141 @@ class TractiveRollupsResponse(BaseModel):
     daily: list[TractiveDailySummary] = Field(default_factory=list)
 
 
+_MINUTES_PER_HOUR = 60.0
+
+
+class SleepSummary(BaseModel):
+    """Averaged sleep over a recent window, computed server-side.
+
+    Averages are taken over the days that actually have a rollup, and
+    ``days_with_data`` is reported next to ``days_requested`` so a caller can
+    caveat missing days instead of pretending the window was fully covered. All
+    three averages are None exactly when there is no data in the window.
+    """
+
+    days_requested: int
+    days_with_data: int
+    average_total_sleep_hours: float | None
+    average_night_sleep_hours: float | None
+    average_day_sleep_hours: float | None
+    start_date: date_type | None
+    end_date: date_type | None
+
+
+class DailySleep(BaseModel):
+    """One calendar day's sleep for a dog, or a marker that the day has no rollup.
+
+    ``has_data`` is False exactly when no rollup exists for that date, in which case
+    all three hour figures are None so a caller can say "no data" rather than report
+    a misleading zero.
+    """
+
+    date: date_type
+    has_data: bool
+    night_sleep_hours: float | None
+    day_sleep_hours: float | None
+    total_sleep_hours: float | None
+
+
+def _hours_rounded(minutes: float) -> float:
+    """Convert a minute total to hours, rounded to 2dp."""
+    return round(minutes / _MINUTES_PER_HOUR, 2)
+
+
+def _mean_hours_rounded(minutes: list[float]) -> float:
+    """Average a list of per-day minute totals and return hours, rounded to 2dp."""
+    return round(sum(minutes) / len(minutes) / _MINUTES_PER_HOUR, 2)
+
+
+async def summarize_sleep(session: AsyncSession, pet_id: uuid.UUID, days: int) -> SleepSummary:
+    """Average night, day, and total sleep over ``pet_id``'s most recent ``days`` rollups.
+
+    The average is computed here, not by the caller, so a language model never has
+    to do the arithmetic. Callers bound ``days`` to a sensible window before calling.
+    """
+    statement = (
+        select(
+            TractiveDayRollup.date,
+            TractiveDayRollup.minutes_night_sleep,
+            TractiveDayRollup.minutes_day_sleep,
+        )
+        .where(TractiveDayRollup.pet_id == pet_id)
+        .order_by(TractiveDayRollup.date.desc())
+        .limit(days)
+    )
+    rows = list((await session.execute(statement)).all())
+    if not rows:
+        return SleepSummary(
+            days_requested=days,
+            days_with_data=0,
+            average_total_sleep_hours=None,
+            average_night_sleep_hours=None,
+            average_day_sleep_hours=None,
+            start_date=None,
+            end_date=None,
+        )
+    night_minutes = [row.minutes_night_sleep for row in rows]
+    day_minutes = [row.minutes_day_sleep for row in rows]
+    total_minutes = [night + day for night, day in zip(night_minutes, day_minutes, strict=True)]
+    dates = [row.date for row in rows]
+    return SleepSummary(
+        days_requested=days,
+        days_with_data=len(rows),
+        average_total_sleep_hours=_mean_hours_rounded(total_minutes),
+        average_night_sleep_hours=_mean_hours_rounded(night_minutes),
+        average_day_sleep_hours=_mean_hours_rounded(day_minutes),
+        start_date=min(dates),
+        end_date=max(dates),
+    )
+
+
+async def sleep_on_date(session: AsyncSession, pet_id: uuid.UUID, day: date_type) -> DailySleep:
+    """Return ``pet_id``'s sleep for one calendar ``day``, or a no-data marker.
+
+    Hours are computed here, not by the caller, so a language model never has to do
+    the arithmetic.
+    """
+    statement = select(
+        TractiveDayRollup.minutes_night_sleep,
+        TractiveDayRollup.minutes_day_sleep,
+    ).where(TractiveDayRollup.pet_id == pet_id, TractiveDayRollup.date == day)
+    row = (await session.execute(statement)).first()
+    if row is None:
+        return DailySleep(
+            date=day,
+            has_data=False,
+            night_sleep_hours=None,
+            day_sleep_hours=None,
+            total_sleep_hours=None,
+        )
+    return DailySleep(
+        date=day,
+        has_data=True,
+        night_sleep_hours=_hours_rounded(row.minutes_night_sleep),
+        day_sleep_hours=_hours_rounded(row.minutes_day_sleep),
+        total_sleep_hours=_hours_rounded(row.minutes_night_sleep + row.minutes_day_sleep),
+    )
+
+
+class TractiveSleepReader:
+    """Per-request, pet-scoped adapter that the agent's sleep tools depend on.
+
+    Binds the request session and the owner-verified pet, so a tool can choose only
+    the time window or date and never widen its scope to another owner's pet. Built
+    fresh per request, so no session is ever shared across concurrent requests.
+    """
+
+    def __init__(self, session: AsyncSession, pet_id: uuid.UUID) -> None:
+        self._session = session
+        self._pet_id = pet_id
+
+    async def summarize_sleep(self, days: int) -> SleepSummary:
+        return await summarize_sleep(self._session, self._pet_id, days)
+
+    async def sleep_on_date(self, day: date_type) -> DailySleep:
+        return await sleep_on_date(self._session, self._pet_id, day)
+
+
 async def fetch_recent_rollups(
     session: AsyncSession, pet_id: uuid.UUID, days: int
 ) -> TractiveRollupsResponse:
