@@ -20,10 +20,7 @@ describe("PetPicker", () => {
     await user.click(screen.getByRole("button", { name: /luna/i }));
     const listbox = screen.getByRole("listbox", { name: /switch active pet/i });
     expect(listbox).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /luna/i })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(screen.getByRole("option", { name: /luna/i })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("option", { name: /bowie/i })).toHaveAttribute(
       "aria-selected",
       "false",

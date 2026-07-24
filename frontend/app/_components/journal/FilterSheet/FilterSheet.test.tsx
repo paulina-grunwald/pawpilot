@@ -44,9 +44,7 @@ describe("FilterSheet", () => {
 
     await user.click(screen.getByRole("button", { name: "Symptom" }));
 
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ entryTypes: ["symptom"] }),
-    );
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ entryTypes: ["symptom"] }));
   });
 
   it("selects a date range preset", async () => {
@@ -131,8 +129,7 @@ describe("dateRangeToOccurredFrom", () => {
 
   it("returns a date 7 days back for 7d", () => {
     const from = dateRangeToOccurredFrom("7d", now);
-    const diffDays =
-      (now.getTime() - new Date(from as string).getTime()) / (1000 * 60 * 60 * 24);
+    const diffDays = (now.getTime() - new Date(from as string).getTime()) / (1000 * 60 * 60 * 24);
     expect(Math.round(diffDays)).toBe(7);
   });
 });

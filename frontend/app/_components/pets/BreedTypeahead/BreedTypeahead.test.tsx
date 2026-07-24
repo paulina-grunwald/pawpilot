@@ -58,16 +58,12 @@ describe("BreedTypeahead", () => {
     await user.type(combobox, "aus");
 
     await waitFor(() => {
-      expect(
-        screen.getByRole("option", { name: /australian shepherd/i }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: /australian shepherd/i })).toBeInTheDocument();
     });
   });
 
   it("selecting an option populates the input and closes the listbox", async () => {
-    server.use(
-      http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json(AUSSIE_BREEDS)),
-    );
+    server.use(http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json(AUSSIE_BREEDS)));
     const user = userEvent.setup();
     render(<ControlledHarness />);
 
@@ -80,9 +76,7 @@ describe("BreedTypeahead", () => {
   });
 
   it("closes the listbox when Escape is pressed", async () => {
-    server.use(
-      http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json(AUSSIE_BREEDS)),
-    );
+    server.use(http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json(AUSSIE_BREEDS)));
     const user = userEvent.setup();
     render(<ControlledHarness />);
 
@@ -93,9 +87,7 @@ describe("BreedTypeahead", () => {
   });
 
   it("keeps the user's typed value when the network call fails", async () => {
-    server.use(
-      http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.error()),
-    );
+    server.use(http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.error()));
     const user = userEvent.setup();
     render(<ControlledHarness />);
 
@@ -104,15 +96,11 @@ describe("BreedTypeahead", () => {
   });
 
   it("shows a helpful empty state when no results match a non-empty query", async () => {
-    server.use(
-      http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json([])),
-    );
+    server.use(http.get(`${getApiBaseUrl()}/breeds`, () => HttpResponse.json([])));
     const user = userEvent.setup();
     render(<ControlledHarness />);
     await user.type(screen.getByRole("combobox"), "zzz");
-    await waitFor(() =>
-      expect(screen.getByText(/no matches/i)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/no matches/i)).toBeInTheDocument());
   });
 });
 

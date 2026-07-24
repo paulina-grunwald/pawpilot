@@ -7,7 +7,9 @@ describe("Differentiators", () => {
     render(<Differentiators />);
     expect(screen.getByRole("heading", { name: /speaks fluent tractive/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /notices before you do/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /two minds, no echo chamber/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /two minds, no echo chamber/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /haru's whole story/i })).toBeInTheDocument();
   });
 

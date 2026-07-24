@@ -25,7 +25,7 @@ export function AlertMini() {
       {items.map((alert, index) => (
         <div
           key={index}
-          className="flex items-center gap-3 px-3 py-2 rounded-[10px]"
+          className="flex items-center gap-3 rounded-[10px] px-3 py-2"
           style={{
             background: alert.strong
               ? "color-mix(in srgb, var(--ochre) 10%, transparent)"
@@ -36,13 +36,13 @@ export function AlertMini() {
           }}
         >
           <span
-            className="mono text-[9px] font-semibold tracking-[0.08em] min-w-[28px]"
+            className="mono min-w-[28px] text-[9px] font-semibold tracking-[0.08em]"
             style={{ color: toneColor[alert.tone] }}
           >
             {alert.time}
           </span>
           <span
-            className="text-[12.5px] text-ink flex-1"
+            className="text-ink flex-1 text-[12.5px]"
             style={{ fontWeight: alert.strong ? 600 : 400 }}
           >
             {alert.text}

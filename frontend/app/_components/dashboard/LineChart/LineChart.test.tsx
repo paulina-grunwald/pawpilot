@@ -10,10 +10,7 @@ describe("LineChart", () => {
 
   it("renders an SVG with the accessible label when given values", () => {
     render(
-      <LineChart
-        values={[10, 12, 8, 15, 18, 22, 24]}
-        accessibleLabel="Activity, past 7 days"
-      />,
+      <LineChart values={[10, 12, 8, 15, 18, 22, 24]} accessibleLabel="Activity, past 7 days" />,
     );
     expect(screen.getByRole("img", { name: /activity, past 7 days/i })).toBeInTheDocument();
   });

@@ -28,7 +28,10 @@ export function countActiveFilters(filters: JournalFilters): number {
   );
 }
 
-export function toggleEntryTypeFilter(filters: JournalFilters, entryType: EntryType): JournalFilters {
+export function toggleEntryTypeFilter(
+  filters: JournalFilters,
+  entryType: EntryType,
+): JournalFilters {
   const active = filters.entryTypes.includes(entryType);
   return {
     ...filters,

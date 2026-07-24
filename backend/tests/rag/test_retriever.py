@@ -183,11 +183,7 @@ class _NegativeIndexReranker:
 
 
 class _MalformedResponseReranker:
-    """Reranker whose response fails ``RerankResponse`` validation.
-
-    Simulates a malformed Gateway envelope the same way CohereGatewayReranker
-    would encounter one, without needing an HTTP mock.
-    """
+    """Reranker whose response fails ``RerankResponse`` validation."""
 
     def rerank(self, query: str, documents: list[str], *, top_n: int) -> list[RerankResult]:
         return RerankResponse.model_validate({"unexpected": []}).results
@@ -276,9 +272,6 @@ def test_rerank_returns_empty_when_dense_search_has_no_hits() -> None:
 
 
 def test_rerank_malformed_response_raises_rerank_unavailable_not_validation_error() -> None:
-    # A malformed Gateway envelope must not surface as the same ValidationError
-    # type that means "a stored Qdrant payload is corrupt" — router.py relies
-    # on the exception type to tell those two failure domains apart.
     retriever = _make_retriever(default_mode="rerank", reranker=_MalformedResponseReranker())
     with pytest.raises(RerankUnavailableError):
         retriever.retrieve("anything", top_k=1)

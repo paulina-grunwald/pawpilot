@@ -95,9 +95,7 @@ describe("listPetsForBrowser", () => {
 
 describe("createPet", () => {
   it("returns the created pet on 201", async () => {
-    server.use(
-      http.post(`${API}/pets`, () => HttpResponse.json(samplePet, { status: 201 })),
-    );
+    server.use(http.post(`${API}/pets`, () => HttpResponse.json(samplePet, { status: 201 })));
     const result = await createPet({
       name: "Luna",
       birthday: "2021-06-14",
@@ -125,9 +123,7 @@ describe("createPet", () => {
 describe("updatePet", () => {
   it("returns the updated pet on 200", async () => {
     server.use(
-      http.patch(`${API}/pets/pet-1`, () =>
-        HttpResponse.json({ ...samplePet, name: "Lunita" }),
-      ),
+      http.patch(`${API}/pets/pet-1`, () => HttpResponse.json({ ...samplePet, name: "Lunita" })),
     );
     const result = await updatePet("pet-1", { name: "Lunita" });
     expect(result.name).toBe("Lunita");
@@ -166,9 +162,7 @@ describe("uploadPetPhoto", () => {
   });
 
   it("maps 413 to PET_PHOTO_TOO_LARGE", async () => {
-    server.use(
-      http.post(`${API}/pets/pet-1/photo`, () => new HttpResponse(null, { status: 413 })),
-    );
+    server.use(http.post(`${API}/pets/pet-1/photo`, () => new HttpResponse(null, { status: 413 })));
     const file = new File(["x"], "big.jpg", { type: "image/jpeg" });
     await expect(uploadPetPhoto("pet-1", file)).rejects.toMatchObject({
       code: "PET_PHOTO_TOO_LARGE",
@@ -176,9 +170,7 @@ describe("uploadPetPhoto", () => {
   });
 
   it("maps 415 to PET_PHOTO_UNSUPPORTED_MEDIA_TYPE", async () => {
-    server.use(
-      http.post(`${API}/pets/pet-1/photo`, () => new HttpResponse(null, { status: 415 })),
-    );
+    server.use(http.post(`${API}/pets/pet-1/photo`, () => new HttpResponse(null, { status: 415 })));
     const file = new File(["x"], "x.heic", { type: "image/heic" });
     await expect(uploadPetPhoto("pet-1", file)).rejects.toMatchObject({
       code: "PET_PHOTO_UNSUPPORTED_MEDIA_TYPE",
@@ -188,9 +180,7 @@ describe("uploadPetPhoto", () => {
 
 describe("deletePetPhoto", () => {
   it("returns pet on 200", async () => {
-    server.use(
-      http.delete(`${API}/pets/pet-1/photo`, () => HttpResponse.json(samplePet)),
-    );
+    server.use(http.delete(`${API}/pets/pet-1/photo`, () => HttpResponse.json(samplePet)));
     const result = await deletePetPhoto("pet-1");
     expect(result.id).toBe("pet-1");
   });

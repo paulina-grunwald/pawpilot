@@ -119,9 +119,7 @@ export function TodayPanel({
         </div>
 
         {isPlaceholder && (
-          <p className={styles.placeholderHint}>
-            Connect Tractive to see today&rsquo;s data.
-          </p>
+          <p className={styles.placeholderHint}>Connect Tractive to see today&rsquo;s data.</p>
         )}
       </section>
 
@@ -176,9 +174,7 @@ export function TodayPanel({
           <div className={styles.trendHeader}>
             <div>
               <h3 className={styles.trendTitle}>Sleep split</h3>
-              <p className={styles.trendSubtitle}>
-                Past {rangeLabel ?? "7d"} · night vs day naps
-              </p>
+              <p className={styles.trendSubtitle}>Past {rangeLabel ?? "7d"} · night vs day naps</p>
             </div>
           </div>
           <SleepSplitBars

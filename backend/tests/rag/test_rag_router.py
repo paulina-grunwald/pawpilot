@@ -146,8 +146,6 @@ async def test_search_returns_503_on_malformed_rerank_response(
     authenticated_client: AsyncClient,
     install_retriever: Callable[[_FakeRetriever], None],
 ) -> None:
-    # A malformed rerank Gateway response is an upstream availability problem,
-    # not corrupt stored data — it must map to 503, not the 500 branch above.
     install_retriever(_FakeRetriever(error=RerankUnavailableError("malformed rerank envelope")))
     response = await authenticated_client.post("/rag/search", json={"query": "anything"})
     assert response.status_code == 503

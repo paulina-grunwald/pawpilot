@@ -136,7 +136,9 @@ describe("toDashboardPet", () => {
 
 describe("toDetailPet", () => {
   it("includes both sex and spayed/neutered display", () => {
-    const detail = toDetailPet(makePet({ notes: "Loves frisbee.", sex: "male", spayed_neutered: false }));
+    const detail = toDetailPet(
+      makePet({ notes: "Loves frisbee.", sex: "male", spayed_neutered: false }),
+    );
     expect(detail.sexDisplay).toBe("Male");
     expect(detail.spayedNeuteredDisplay).toBe("Intact");
     expect(detail.notes).toBe("Loves frisbee.");

@@ -16,9 +16,7 @@ describe("Polaroid", () => {
   });
 
   it("renders the sticker child", () => {
-    render(
-      <Polaroid src="/img/sunset-dog.webp" sticker={<span data-testid="sticker">!</span>} />,
-    );
+    render(<Polaroid src="/img/sunset-dog.webp" sticker={<span data-testid="sticker">!</span>} />);
     expect(screen.getByTestId("sticker")).toBeInTheDocument();
   });
 

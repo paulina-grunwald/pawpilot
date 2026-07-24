@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DAILY_ACTIVE_TARGET_MINUTES,
-  toSleepSplitBars,
-  toTodayPanelData,
-} from "./tractive.format";
+import { DAILY_ACTIVE_TARGET_MINUTES, toSleepSplitBars, toTodayPanelData } from "./tractive.format";
 import type { TractiveDailySummary } from "./tractive";
 
 function makeRollup(overrides: Partial<TractiveDailySummary>): TractiveDailySummary {
@@ -53,9 +49,7 @@ describe("toTodayPanelData", () => {
   });
 
   it("uses the standard sublabel when at or under 100%", () => {
-    const result = toTodayPanelData([
-      makeRollup({ minutes_active: DAILY_ACTIVE_TARGET_MINUTES }),
-    ]);
+    const result = toTodayPanelData([makeRollup({ minutes_active: DAILY_ACTIVE_TARGET_MINUTES })]);
     expect(result?.activityPercent).toBe(100);
     expect(result?.activitySublabel).toBe(`100% of ${DAILY_ACTIVE_TARGET_MINUTES}min goal`);
   });
@@ -236,5 +230,3 @@ describe("toSleepSplitBars", () => {
     });
   });
 });
-
-

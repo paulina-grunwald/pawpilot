@@ -119,10 +119,6 @@ class VetCorpusRetriever:
                 query, [chunk.text for chunk in candidates], top_n=top_k
             )
         except ValidationError as error:
-            # A malformed Gateway rerank response is an upstream availability
-            # problem, not corrupt stored data — don't let it collide with the
-            # ValidationError branch in router.py that means "a stored Qdrant
-            # payload is corrupt".
             raise RerankUnavailableError("reranker returned a malformed response") from error
         # Skip any index a misbehaving reranker returns outside the candidate range,
         # so one malformed row cannot crash the whole retrieval with an IndexError.

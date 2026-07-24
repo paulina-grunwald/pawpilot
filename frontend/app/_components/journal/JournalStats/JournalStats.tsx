@@ -12,9 +12,6 @@ type JournalStatsProps = {
 };
 
 export function JournalStats({ entries }: JournalStatsProps) {
-  // Stays null through the server render and the initial client render so the
-  // two match exactly; only after mount do relative-time strings switch on,
-  // avoiding a hydration mismatch from `new Date()` evaluated twice.
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

@@ -8,10 +8,7 @@ import {
   parseJournalResponse,
   type JournalListParams,
 } from "./journal";
-import {
-  journalEntryListResponseSchema,
-  type JournalEntryListResponse,
-} from "./journal.schemas";
+import { journalEntryListResponseSchema, type JournalEntryListResponse } from "./journal.schemas";
 
 async function getCookieHeader(): Promise<string | null> {
   const cookieStore = await cookies();

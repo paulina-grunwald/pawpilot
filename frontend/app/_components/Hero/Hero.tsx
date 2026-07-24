@@ -30,39 +30,27 @@ export function Hero() {
   const sendDisabled = status === "sending" || status === "done";
 
   return (
-    <section className="pt-14 pb-20 relative overflow-hidden">
+    <section className="relative overflow-hidden pt-14 pb-20">
       <div className="container-x relative">
-        <div className="flex justify-center mb-7">
-          <span className="inline-flex items-center gap-2 px-[14px] py-[6px] rounded-full bg-surface border border-(--hairline) text-[12px] font-medium text-ink">
+        <div className="mb-7 flex justify-center">
+          <span className="bg-surface text-ink inline-flex items-center gap-2 rounded-full border border-(--hairline) px-[14px] py-[6px] text-[12px] font-medium">
             <span
-              className="w-[6px] h-[6px] rounded-full bg-blue"
+              className="bg-blue h-[6px] w-[6px] rounded-full"
               style={{ animation: "pulse-dot 1.6s infinite" }}
             />
-            <span className="mono tracking-[0.06em]">
-              NOW IN PRIVATE BETA · 1,247 DOGS
-            </span>
+            <span className="mono tracking-[0.06em]">NOW IN PRIVATE BETA · 1,247 DOGS</span>
           </span>
         </div>
 
-        <h1
-          className="display text-center mx-auto mb-7 max-w-[1000px] text-[clamp(44px,7vw,96px)] leading-[0.98] tracking-[-0.035em] font-semibold text-ink"
-        >
+        <h1 className="display text-ink mx-auto mb-7 max-w-[1000px] text-center text-[clamp(44px,7vw,96px)] leading-[0.98] font-semibold tracking-[-0.035em]">
           For the dog you
           <br />
           can&apos;t stop{" "}
-          <em
-            className="display-italic underline-wave font-semibold text-blue"
-          >
-            worrying
-          </em>{" "}
-          about.
+          <em className="display-italic underline-wave text-blue font-semibold">worrying</em> about.
         </h1>
 
-        <p className="text-center max-w-[640px] mx-auto mb-9 text-[19px] text-muted leading-[1.55]">
-          PawPilot watches their patterns, learns{" "}
-          <em className="display-italic text-ink">
-            their
-          </em>{" "}
+        <p className="text-muted mx-auto mb-9 max-w-[640px] text-center text-[19px] leading-[1.55]">
+          PawPilot watches their patterns, learns <em className="display-italic text-ink">their</em>{" "}
           normal — not the breed average — and tells you the morning something drifts. Not the week
           after you start to worry.
         </p>
@@ -70,7 +58,7 @@ export function Hero() {
         <form
           onSubmit={submit}
           id="waitlist"
-          className="flex justify-center gap-2 max-w-[480px] mx-auto mb-[14px] flex-wrap relative"
+          className="relative mx-auto mb-[14px] flex max-w-[480px] flex-wrap justify-center gap-2"
           suppressHydrationWarning
         >
           <label htmlFor="email-hero" className="absolute left-[-9999px]">
@@ -86,7 +74,7 @@ export function Hero() {
             }}
             placeholder="you@yourdog.house"
             disabled={sendDisabled}
-            className="focus-ring flex-[1_1_240px] min-w-[240px] px-[18px] py-[14px] text-[15px] rounded-full bg-(--card) font-[inherit] outline-none text-ink"
+            className="focus-ring text-ink min-w-[240px] flex-[1_1_240px] rounded-full bg-(--card) px-[18px] py-[14px] font-[inherit] text-[15px] outline-none"
             style={{
               border: `1.5px solid ${status === "error" ? "var(--terracotta)" : "var(--ink)"}`,
             }}
@@ -95,7 +83,7 @@ export function Hero() {
             type="submit"
             disabled={sendDisabled}
             aria-live="polite"
-            className="px-6 py-[14px] rounded-full border-none text-paper text-[15px] font-semibold inline-flex items-center gap-[6px] shadow-[0_6px_20px_-8px_color-mix(in_srgb,var(--blue)_60%,transparent)]"
+            className="text-paper inline-flex items-center gap-[6px] rounded-full border-none px-6 py-[14px] text-[15px] font-semibold shadow-[0_6px_20px_-8px_color-mix(in_srgb,var(--blue)_60%,transparent)]"
             style={{
               background: status === "done" ? "var(--forest)" : "var(--blue)",
             }}
@@ -116,7 +104,7 @@ export function Hero() {
         </form>
 
         <div
-          className="hand text-center text-[19px] mb-14"
+          className="hand mb-14 text-center text-[19px]"
           style={{ color: status === "error" ? "var(--terracotta)" : "var(--muted)" }}
         >
           {status === "error"
@@ -125,7 +113,7 @@ export function Hero() {
         </div>
 
         <div
-          className="hero-cast relative max-w-[1000px] mx-auto grid gap-8 items-center justify-items-center"
+          className="hero-cast relative mx-auto grid max-w-[1000px] items-center justify-items-center gap-8"
           style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
         >
           <div className="relative">

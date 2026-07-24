@@ -1,11 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import {
-  deleteJournalEntry,
-  listJournalEntries,
-  type JournalListParams,
-} from "@/lib/journal";
+import { deleteJournalEntry, listJournalEntries, type JournalListParams } from "@/lib/journal";
 import { ENTRY_TYPE_META, type EntryType } from "@/lib/journal.constants";
 import { groupEntriesByDay } from "@/lib/journal.format";
 import type {
@@ -49,15 +45,21 @@ type JournalTimelineProps = {
 };
 
 function sortNewestFirst(entries: JournalEntryRead[]): JournalEntryRead[] {
-  return [...entries].sort((first, second) =>
-    second.occurred_at.localeCompare(first.occurred_at),
-  );
+  return [...entries].sort((first, second) => second.occurred_at.localeCompare(first.occurred_at));
 }
 
-function queryParamsFor(
-  search: string,
-  filters: JournalFilters,
-): JournalListParams {
+function mergeStatsEntriesById(
+  current: JournalEntryRead[],
+  incoming: JournalEntryRead[],
+): JournalEntryRead[] {
+  const byId = new Map(current.map((entry) => [entry.id, entry]));
+  for (const entry of incoming) {
+    byId.set(entry.id, entry);
+  }
+  return sortNewestFirst([...byId.values()]);
+}
+
+function queryParamsFor(search: string, filters: JournalFilters): JournalListParams {
   return {
     entryTypes: filters.entryTypes.length > 0 ? filters.entryTypes : undefined,
     occurredFrom: dateRangeToOccurredFrom(filters.dateRange),
@@ -69,10 +71,6 @@ function queryParamsFor(
 
 export function JournalTimeline({ petId, petName, initialPage }: JournalTimelineProps) {
   const [entries, setEntries] = useState<JournalEntryRead[]>(initialPage.items);
-  // The journal highlights bar always summarizes this unfiltered, unsearched
-  // set (seeded from the same unfiltered initial page) so an active search or
-  // filter chip never makes "Current weight"/"Active med" look empty just
-  // because the matching entry happens to be scrolled out of view.
   const [statsEntries, setStatsEntries] = useState<JournalEntryRead[]>(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.next_cursor);
   const [totalMatching, setTotalMatching] = useState(initialPage.total_matching);
@@ -131,7 +129,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
     setModal({ kind: "closed" });
     if (mode === "created") {
       setEntries((current) => sortNewestFirst([entry, ...current]));
-      setStatsEntries((current) => sortNewestFirst([entry, ...current]));
+      setStatsEntries((current) => mergeStatsEntriesById(current, [entry]));
       setTotalMatching((current) => current + 1);
       showToast({
         message: `${ENTRY_TYPE_META[entry.payload.entry_type as EntryType].label} logged`,
@@ -141,9 +139,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
       setEntries((current) =>
         sortNewestFirst(current.map((existing) => (existing.id === entry.id ? entry : existing))),
       );
-      setStatsEntries((current) =>
-        sortNewestFirst(current.map((existing) => (existing.id === entry.id ? entry : existing))),
-      );
+      setStatsEntries((current) => mergeStatsEntriesById(current, [entry]));
       showToast({ message: "Entry updated", undoEntryId: null });
     }
   }
@@ -187,6 +183,7 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
   async function handleLoadMore() {
     if (!nextCursor) return;
     const requestId = listRequestSeq.current;
+    const isUnfilteredPage = countActiveFilters(filters) === 0 && search.trim().length === 0;
     setLoadingMore(true);
     try {
       const page = await listJournalEntries(petId, {
@@ -195,6 +192,9 @@ export function JournalTimeline({ petId, petName, initialPage }: JournalTimeline
       });
       if (requestId !== listRequestSeq.current) return;
       setEntries((current) => [...current, ...page.items]);
+      if (isUnfilteredPage) {
+        setStatsEntries((current) => mergeStatsEntriesById(current, page.items));
+      }
       setNextCursor(page.next_cursor);
     } catch {
       if (requestId !== listRequestSeq.current) return;
@@ -425,8 +425,8 @@ function EmptyState({
     <div className={styles.emptyState}>
       <h2 className={`${styles.emptyTitle} display`}>{petName}&rsquo;s journal is empty.</h2>
       <p className={styles.emptyBody}>
-        Logging meals, mood, and symptoms helps PawPilot spot when something&rsquo;s off — before
-        it becomes a vet visit.
+        Logging meals, mood, and symptoms helps PawPilot spot when something&rsquo;s off — before it
+        becomes a vet visit.
       </p>
       <div className={styles.starterList}>
         {STARTERS.map((starter) => (

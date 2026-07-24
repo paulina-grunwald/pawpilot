@@ -94,10 +94,7 @@ describe("JournalTimeline feed", () => {
     await user.type(screen.getByLabelText("Search notes and tags"), "kibble");
 
     await waitFor(() =>
-      expect(listMock).toHaveBeenCalledWith(
-        "pet-1",
-        expect.objectContaining({ search: "kibble" }),
-      ),
+      expect(listMock).toHaveBeenCalledWith("pet-1", expect.objectContaining({ search: "kibble" })),
     );
   });
 
@@ -110,9 +107,7 @@ describe("JournalTimeline feed", () => {
     await user.click(screen.getByRole("button", { name: "Confirm delete" }));
 
     expect(deleteMock).toHaveBeenCalledWith("pet-1", "entry-1");
-    await waitFor(() =>
-      expect(screen.queryByText("Acana Grain-Free")).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByText("Acana Grain-Free")).not.toBeInTheDocument());
     expect(screen.getByRole("status")).toHaveTextContent("Entry deleted");
   });
 
@@ -191,12 +186,14 @@ describe("JournalTimeline feed", () => {
     await waitFor(() =>
       expect(listMock).toHaveBeenLastCalledWith(
         "pet-1",
-        expect.objectContaining({ search: undefined, entryTypes: undefined, concernsOnly: undefined }),
+        expect.objectContaining({
+          search: undefined,
+          entryTypes: undefined,
+          concernsOnly: undefined,
+        }),
       ),
     );
-    await waitFor(() =>
-      expect(screen.getByLabelText("Search notes and tags")).toHaveValue(""),
-    );
+    await waitFor(() => expect(screen.getByLabelText("Search notes and tags")).toHaveValue(""));
   });
 
   it("keeps the journal highlights unaffected by an active search filter", async () => {
@@ -204,7 +201,11 @@ describe("JournalTimeline feed", () => {
     listMock.mockResolvedValue(makePage([]));
     renderTimeline(
       makePage([
-        makeEntry({ id: "weight-1", entry_type: "weight", payload: { entry_type: "weight", weight_grams: 28000, source: "vet" } }),
+        makeEntry({
+          id: "weight-1",
+          entry_type: "weight",
+          payload: { entry_type: "weight", weight_grams: 28000, source: "vet" },
+        }),
       ]),
     );
     expect(screen.getByText("28.0")).toBeInTheDocument();
@@ -212,9 +213,35 @@ describe("JournalTimeline feed", () => {
     await user.type(screen.getByLabelText("Search notes and tags"), "kibble");
     await waitFor(() => expect(listMock).toHaveBeenCalled());
 
-    // The search narrowed the visible feed to zero matches, but the weight
-    // highlight — sourced from a separate, unfiltered stats dataset — still
-    // reflects the pet's real history instead of flipping to "No weigh-ins yet".
     expect(screen.getByText("28.0")).toBeInTheDocument();
+  });
+
+  it("extends the highlights when unfiltered older pages are loaded", async () => {
+    const user = userEvent.setup();
+    const older = makeEntry({
+      id: "weight-older",
+      entry_type: "weight",
+      occurred_at: YESTERDAY.toISOString(),
+      payload: { entry_type: "weight", weight_grams: 28600, source: "home_scale" },
+    });
+    listMock.mockResolvedValue(makePage([older]));
+    renderTimeline(
+      makePage(
+        [
+          makeEntry({
+            id: "weight-new",
+            entry_type: "weight",
+            payload: { entry_type: "weight", weight_grams: 28000, source: "vet" },
+          }),
+        ],
+        { next_cursor: "cursor-1", total_matching: 2 },
+      ),
+    );
+
+    expect(screen.getByText("First reading logged")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Load older entries" }));
+
+    await waitFor(() => expect(screen.getByText("↓ 0.6 kg recently")).toBeInTheDocument());
   });
 });

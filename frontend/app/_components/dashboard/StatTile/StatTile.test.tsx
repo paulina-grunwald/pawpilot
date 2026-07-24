@@ -4,9 +4,7 @@ import { StatTile } from "./StatTile";
 
 describe("StatTile", () => {
   it("renders the label, value, unit, and delta", () => {
-    render(
-      <StatTile label="Active" value="58" unit="min" delta="+12 vs avg" tone="positive" />,
-    );
+    render(<StatTile label="Active" value="58" unit="min" delta="+12 vs avg" tone="positive" />);
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("58")).toBeInTheDocument();
     expect(screen.getByText("min")).toBeInTheDocument();

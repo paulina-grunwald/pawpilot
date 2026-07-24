@@ -79,9 +79,7 @@ describe("DeletePetDialog", () => {
     render(<DeletePetDialog open petId="pet-1" petName="Luna" onClose={() => {}} />);
     await user.type(screen.getByRole("textbox"), "Luna");
     await user.click(screen.getByRole("button", { name: /delete forever/i }));
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/couldn't delete/i),
-    );
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/couldn't delete/i));
     expect(replaceSpy).not.toHaveBeenCalled();
   });
 

@@ -70,8 +70,7 @@ export function SleepSplitBars({ bars, height = 200, accessibleLabel }: SleepSpl
 
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((fraction) => fraction * yMax);
 
-  const ariaLabel =
-    accessibleLabel ?? `Sleep split bars, ${bars.length} days (night vs day)`;
+  const ariaLabel = accessibleLabel ?? `Sleep split bars, ${bars.length} days (night vs day)`;
 
   return (
     <div ref={containerRef} className={styles.container}>

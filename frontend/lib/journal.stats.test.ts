@@ -89,7 +89,13 @@ describe("computeJournalStats", () => {
   it("summarizes the last meal amount and food", () => {
     const { meal } = statsByKey([
       makeEntry(
-        { entry_type: "meal", food_name: "Chicken", brand: null, amount_grams: 200, category: "kibble" },
+        {
+          entry_type: "meal",
+          food_name: "Chicken",
+          brand: null,
+          amount_grams: 200,
+          category: "kibble",
+        },
         { occurred_at: new Date(NOW.getTime() - 3 * 60 * 60 * 1000).toISOString() },
       ),
     ]);
@@ -100,7 +106,13 @@ describe("computeJournalStats", () => {
 
   it("falls back to the food name when a meal has no amount", () => {
     const { meal } = statsByKey([
-      makeEntry({ entry_type: "meal", food_name: "Treats", brand: null, amount_grams: null, category: "treat" }),
+      makeEntry({
+        entry_type: "meal",
+        food_name: "Treats",
+        brand: null,
+        amount_grams: null,
+        category: "treat",
+      }),
     ]);
     expect(meal.value).toBe("Treats");
     expect(meal.unit).toBe("");
@@ -110,7 +122,13 @@ describe("computeJournalStats", () => {
     const { meal } = statsByKey(
       [
         makeEntry(
-          { entry_type: "meal", food_name: "Chicken", brand: null, amount_grams: 200, category: "kibble" },
+          {
+            entry_type: "meal",
+            food_name: "Chicken",
+            brand: null,
+            amount_grams: 200,
+            category: "kibble",
+          },
           { occurred_at: "2026-07-07T08:00:00Z" },
         ),
       ],
@@ -121,7 +139,12 @@ describe("computeJournalStats", () => {
 
   it("summarizes the active medication and flags a missed dose", () => {
     const { medication } = statsByKey([
-      makeEntry({ entry_type: "medication", drug_name: "Apoquel", dose: "16 mg", missed_dose: true }),
+      makeEntry({
+        entry_type: "medication",
+        drug_name: "Apoquel",
+        dose: "16 mg",
+        missed_dose: true,
+      }),
     ]);
     expect(medication.value).toBe("Apoquel");
     expect(medication.label).toBe("Active med");
@@ -164,7 +187,12 @@ describe("computeJournalStats", () => {
     const { medication } = statsByKey(
       [
         makeEntry(
-          { entry_type: "medication", drug_name: "Amoxicillin", dose: "250 mg", missed_dose: false },
+          {
+            entry_type: "medication",
+            drug_name: "Amoxicillin",
+            dose: "250 mg",
+            missed_dose: false,
+          },
           { occurred_at: new Date(NOW.getTime() - 42 * 24 * 60 * 60 * 1000).toISOString() },
         ),
       ],
@@ -179,7 +207,13 @@ describe("computeJournalStats", () => {
         { entry_type: "symptom", severity: 3, body_area: "paws" },
         { is_concern: true, tags: ["itchy"], occurred_at: "2026-07-07T08:00:00Z" },
       ),
-      makeEntry({ entry_type: "meal", food_name: "Chicken", brand: null, amount_grams: 200, category: "kibble" }),
+      makeEntry({
+        entry_type: "meal",
+        food_name: "Chicken",
+        brand: null,
+        amount_grams: 200,
+        category: "kibble",
+      }),
     ]);
     expect(attention.value).toBe("1");
     expect(attention.unit).toBe("flag");
