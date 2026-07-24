@@ -100,10 +100,10 @@ export async function fetchTractiveRollups(
 ): Promise<TractiveRollupsResponse> {
   let response: Response;
   try {
-    response = await fetch(
-      `${getApiBaseUrl()}/pets/${petId}/tractive/rollups?days=${days}`,
-      { credentials: "include", cache: "no-store" },
-    );
+    response = await fetch(`${getApiBaseUrl()}/pets/${petId}/tractive/rollups?days=${days}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
   } catch (error) {
     throw new TractiveError(
       "NETWORK_ERROR",

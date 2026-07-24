@@ -60,11 +60,7 @@ export default function SignupPage() {
         </span>
       }
     >
-      <form
-        noValidate
-        className="mt-4 flex flex-col gap-4"
-        onSubmit={handleSubmit(onSubmit)}
-      >
+      <form noValidate className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
         <Field
           label="Email"
           type="email"
@@ -94,7 +90,11 @@ export default function SignupPage() {
             {accountExists && (
               <>
                 {" "}
-                <Link href="/login" className="font-medium underline" style={{ color: "var(--terracotta-deep)" }}>
+                <Link
+                  href="/login"
+                  className="font-medium underline"
+                  style={{ color: "var(--terracotta-deep)" }}
+                >
                   Log in instead
                 </Link>
                 .

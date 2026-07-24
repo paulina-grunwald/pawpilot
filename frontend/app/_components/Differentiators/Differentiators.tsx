@@ -51,50 +51,39 @@ const cards: Card[] = [
 
 export function Differentiators() {
   return (
-    <section id="why" className="pt-20 pb-20 relative">
+    <section id="why" className="relative pt-20 pb-20">
       <div className="container-x">
-        <div className="flex items-baseline gap-6 mb-12 flex-wrap">
-          <span className="mono text-[11px] text-muted tracking-[0.16em] uppercase">
+        <div className="mb-12 flex flex-wrap items-baseline gap-6">
+          <span className="mono text-muted text-[11px] tracking-[0.16em] uppercase">
             § 02 — Why PawPilot
           </span>
-          <h2
-            className="display text-[clamp(32px,4vw,52px)] m-0 max-w-[760px] text-ink"
-          >
+          <h2 className="display text-ink m-0 max-w-[760px] text-[clamp(32px,4vw,52px)]">
             Four things a generic chatbot{" "}
-            <span className="display-italic text-blue">
-              fundamentally can&apos;t do.
-            </span>
+            <span className="display-italic text-blue">fundamentally can&apos;t do.</span>
           </h2>
         </div>
 
-        <div
-          className="diff-grid grid gap-5"
-          style={{ gridTemplateColumns: "repeat(2, 1fr)" }}
-        >
+        <div className="diff-grid grid gap-5" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
           {cards.map((card, index) => (
             <article
               key={index}
-              className="bg-surface border border-(--hairline) rounded-[24px] p-7 relative"
+              className="bg-surface relative rounded-[24px] border border-(--hairline) p-7"
             >
-              <div className="flex justify-between items-start mb-4">
-                <span className="mono text-[11px] text-muted tracking-[0.12em]">
+              <div className="mb-4 flex items-start justify-between">
+                <span className="mono text-muted text-[11px] tracking-[0.12em]">
                   {card.eyebrow}
                 </span>
                 <span
-                  className="w-8 h-8 rounded-[10px] bg-(--paper) border border-(--hairline) inline-flex items-center justify-center"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-(--hairline) bg-(--paper)"
                   style={{ color: card.iconColor }}
                 >
                   {card.icon}
                 </span>
               </div>
-              <h3
-                className="display text-[26px] m-0 mb-[10px] font-medium leading-[1.15] text-ink"
-              >
+              <h3 className="display text-ink m-0 mb-[10px] text-[26px] leading-[1.15] font-medium">
                 {card.title}
               </h3>
-              <p className="text-[14.5px] text-muted m-0 leading-[1.55]">
-                {card.body}
-              </p>
+              <p className="text-muted m-0 text-[14.5px] leading-[1.55]">{card.body}</p>
               {card.surface}
             </article>
           ))}

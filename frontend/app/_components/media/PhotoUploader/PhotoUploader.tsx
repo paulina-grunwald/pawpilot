@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type DragEvent,
-} from "react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { useFocusTrap } from "@/lib/useFocusTrap";
 import styles from "./PhotoUploader.module.css";
 
@@ -15,9 +8,7 @@ const ACCEPTED_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
 const ACCEPTED_ATTR = ACCEPTED_MIMES.join(",");
 const MAX_BYTES = 5 * 1024 * 1024;
 
-type PhotoUploaderError =
-  | { type: "mime"; message: string }
-  | { type: "size"; message: string };
+type PhotoUploaderError = { type: "mime"; message: string } | { type: "size"; message: string };
 
 type PhotoUploaderProps = {
   existingPhotoUrl?: string | null;
@@ -51,7 +42,7 @@ export function PhotoUploader({
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const previewUrl = localPreview ?? (removeRequested ? null : existingPhotoUrl ?? null);
+  const previewUrl = localPreview ?? (removeRequested ? null : (existingPhotoUrl ?? null));
   const hasLocalFile = file !== null;
   const hasExistingVisible = !!existingPhotoUrl && !removeRequested;
   const hasAnyPreview = hasLocalFile || hasExistingVisible;
@@ -117,28 +108,16 @@ export function PhotoUploader({
       </div>
 
       <div className={styles.actionsRow}>
-        <button
-          type="button"
-          className={styles.actionButton}
-          onClick={openModal}
-        >
+        <button type="button" className={styles.actionButton} onClick={openModal}>
           {hasAnyPreview ? "Change photo" : "Add photo"}
         </button>
         {hasLocalFile && (
-          <button
-            type="button"
-            className={styles.removeButton}
-            onClick={clearLocalPick}
-          >
+          <button type="button" className={styles.removeButton} onClick={clearLocalPick}>
             Discard pick
           </button>
         )}
         {showRemoveExistingButton && (
-          <button
-            type="button"
-            className={styles.removeButton}
-            onClick={requestRemoveExisting}
-          >
+          <button type="button" className={styles.removeButton} onClick={requestRemoveExisting}>
             Remove current photo
           </button>
         )}
@@ -240,12 +219,8 @@ function PhotoUploadModalBody({ error, onFiles, onClose }: PhotoUploadModalBodyP
           onDragLeave={onDragLeave}
           onDrop={onDrop}
         >
-          <span className={styles.dropzonePrimary}>
-            Drop a photo here or click to pick
-          </span>
-          <span className={styles.dropzoneHint}>
-            PNG, JPG, or WEBP · up to 5 MB
-          </span>
+          <span className={styles.dropzonePrimary}>Drop a photo here or click to pick</span>
+          <span className={styles.dropzoneHint}>PNG, JPG, or WEBP · up to 5 MB</span>
           <input
             ref={inputRef}
             id={inputId}
@@ -264,11 +239,7 @@ function PhotoUploadModalBody({ error, onFiles, onClose }: PhotoUploadModalBodyP
         )}
 
         <div className={styles.dialogActions}>
-          <button
-            type="button"
-            onClick={onClose}
-            className={styles.cancelButton}
-          >
+          <button type="button" onClick={onClose} className={styles.cancelButton}>
             Cancel
           </button>
         </div>

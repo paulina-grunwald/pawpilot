@@ -2,11 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  TractiveError,
-  type TractiveIngestResult,
-  uploadTractiveExport,
-} from "@/lib/tractive";
+import { TractiveError, type TractiveIngestResult, uploadTractiveExport } from "@/lib/tractive";
 import styles from "./TractiveUpload.module.css";
 
 type TractiveUploadProps = {
@@ -60,8 +56,7 @@ export function TractiveUpload({ petId }: TractiveUploadProps) {
     return (
       <div className={styles.root}>
         <p className={styles.successHeadline}>
-          Imported {result.rollups_upserted}{" "}
-          {result.rollups_upserted === 1 ? "day" : "days"}
+          Imported {result.rollups_upserted} {result.rollups_upserted === 1 ? "day" : "days"}
           {result.date_range_start && result.date_range_end
             ? ` (${result.date_range_start} – ${result.date_range_end})`
             : ""}
@@ -79,8 +74,8 @@ export function TractiveUpload({ petId }: TractiveUploadProps) {
   return (
     <div className={styles.root}>
       <p className={styles.helper}>
-        Upload your Tractive GDPR-export <code>.zip</code> to import activity, sleep, vitals,
-        and walks.
+        Upload your Tractive GDPR-export <code>.zip</code> to import activity, sleep, vitals, and
+        walks.
       </p>
       <input
         ref={fileInputRef}

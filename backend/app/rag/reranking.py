@@ -36,6 +36,10 @@ class Reranker(Protocol):
     def rerank(self, query: str, documents: list[str], *, top_n: int) -> list[RerankResult]: ...
 
 
+class RerankUnavailableError(RuntimeError):
+    """A reranker response could not be parsed (e.g. a malformed gateway envelope)."""
+
+
 def _rerank_endpoint(gateway_base_url: str) -> str:
     """Derive the ``/v2/rerank`` URL from the gateway base (which ends in ``/v1``).
 

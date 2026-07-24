@@ -65,7 +65,9 @@ export function PetPicker({ pets, activePetId, onSelect, align = "end" }: PetPic
         onClick={() => setOpen((prev) => !prev)}
       >
         <span>{activePet?.name ?? "Pick a dog"}</span>
-        <span aria-hidden className={styles.caret}>▾</span>
+        <span aria-hidden className={styles.caret}>
+          ▾
+        </span>
       </button>
       {open && (
         <ul

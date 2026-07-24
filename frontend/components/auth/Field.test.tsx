@@ -11,18 +11,14 @@ describe("Field", () => {
   });
 
   it("renders helpText when no error is present", () => {
-    render(
-      <Field label="Password" name="password" helpText="At least 8 characters" />,
-    );
+    render(<Field label="Password" name="password" helpText="At least 8 characters" />);
     const input = screen.getByLabelText("Password");
     expect(screen.getByText("At least 8 characters")).toBeInTheDocument();
     expect(input).toHaveAttribute("aria-describedby", "field-password-help");
   });
 
   it("renders error and sets aria-invalid + aria-describedby", () => {
-    render(
-      <Field label="Email" name="email" error="Email is required" />,
-    );
+    render(<Field label="Email" name="email" error="Email is required" />);
     const input = screen.getByLabelText("Email");
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input).toHaveAttribute("aria-describedby", "field-email-error");
@@ -57,12 +53,7 @@ describe("Field", () => {
 
   it("forwards arbitrary props to the input (autoComplete, type)", () => {
     render(
-      <Field
-        label="Password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
-      />,
+      <Field label="Password" name="password" type="password" autoComplete="current-password" />,
     );
     const input = screen.getByLabelText("Password");
     expect(input).toHaveAttribute("type", "password");

@@ -47,6 +47,7 @@ export const EntryCard = memo(function EntryCard({ entry, onEdit, onDelete }: En
         </div>
         {presentation.meta && <p className={styles.meta}>{presentation.meta}</p>}
         {entry.note && <p className={styles.note}>{entry.note}</p>}
+        {entry.is_concern && <span className={styles.concernPill}>Needs attention</span>}
         {entry.tags.length > 0 && entryType !== "symptom" && (
           <div className={styles.tags}>
             {entry.tags.map((tag) => (

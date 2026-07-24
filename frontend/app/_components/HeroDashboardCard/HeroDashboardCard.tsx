@@ -22,7 +22,7 @@ export function HeroDashboardCard() {
       ([entry]) => {
         if (entry.isIntersecting) setVisible(true);
       },
-      { threshold: 0.2 }
+      { threshold: 0.2 },
     );
     observer.observe(node);
     return () => observer.disconnect();
@@ -45,45 +45,37 @@ export function HeroDashboardCard() {
   return (
     <div
       ref={cardRef}
-      className="bg-(--card) rounded-[14px] p-4 border-[1.5px] border-ink shadow-[8px_8px_0_0_var(--blue)] w-[280px]"
+      className="border-ink w-[280px] rounded-[14px] border-[1.5px] bg-(--card) p-4 shadow-[8px_8px_0_0_var(--blue)]"
     >
-      <div className="flex items-center gap-2 mb-3">
-        <span className="relative w-7 h-7 rounded-full overflow-hidden shrink-0 border border-(--hairline)">
-          <Image
-            src={HARU_THUMB}
-            alt=""
-            fill
-            sizes="28px"
-            style={{ objectFit: "cover" }}
-          />
+      <div className="mb-3 flex items-center gap-2">
+        <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-(--hairline)">
+          <Image src={HARU_THUMB} alt="" fill sizes="28px" style={{ objectFit: "cover" }} />
         </span>
         <div>
           <div className="text-[12px] font-semibold">Haru</div>
-          <div className="mono text-[9px] text-(--muted-2) tracking-[0.06em]">
+          <div className="mono text-[9px] tracking-[0.06em] text-(--muted-2)">
             AUSTRALIAN SHEPHERD · 6Y
           </div>
         </div>
-        <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-(--warm) font-semibold">
+        <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-semibold text-(--warm)">
           <AlertIcon /> ALERT
         </span>
       </div>
-      <div className="p-3 mb-[10px] bg-[color-mix(in_srgb,var(--warm)_8%,transparent)] border border-[color-mix(in_srgb,var(--warm)_30%,transparent)] rounded-lg">
-        <div className="text-[12px] font-semibold mb-[2px]">
-          Activity ↓ 38% · 3-day window
-        </div>
-        <div className="text-[11px] text-muted leading-[1.5]">
+      <div className="mb-[10px] rounded-lg border border-[color-mix(in_srgb,var(--warm)_30%,transparent)] bg-[color-mix(in_srgb,var(--warm)_8%,transparent)] p-3">
+        <div className="mb-[2px] text-[12px] font-semibold">Activity ↓ 38% · 3-day window</div>
+        <div className="text-muted text-[11px] leading-[1.5]">
           For Australian Shepherd her age, often points to tick-borne illness or low-grade joint
           pain.
         </div>
       </div>
-      <div className="mono text-[9px] text-(--muted-2) tracking-[0.06em] mb-1">
+      <div className="mono mb-1 text-[9px] tracking-[0.06em] text-(--muted-2)">
         ACTIVE MINS · LAST 12D
       </div>
       <svg
         width={CHART_WIDTH}
         height={CHART_HEIGHT}
         viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-        className="w-full block"
+        className="block w-full"
         aria-hidden
       >
         <defs>

@@ -54,11 +54,7 @@ export default function LoginPage() {
         </span>
       }
     >
-      <form
-        noValidate
-        className="mt-4 flex flex-col gap-4"
-        onSubmit={handleSubmit(onSubmit)}
-      >
+      <form noValidate className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
         <Field
           label="Email"
           type="email"

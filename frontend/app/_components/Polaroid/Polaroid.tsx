@@ -26,7 +26,7 @@ export function Polaroid({
 }: PolaroidProps) {
   return (
     <div
-      className="bg-(--card) relative border border-[color-mix(in_srgb,var(--ink)_4%,transparent)]"
+      className="relative border border-[color-mix(in_srgb,var(--ink)_4%,transparent)] bg-(--card)"
       style={{
         padding: "12px 12px 18px",
         boxShadow:
@@ -38,14 +38,14 @@ export function Polaroid({
     >
       <div
         aria-hidden
-        className="absolute left-1/2 -translate-x-1/2 w-[70px] h-[22px] border-l border-r border-dashed border-[color-mix(in_srgb,var(--ink)_6%,transparent)]"
+        className="absolute left-1/2 h-[22px] w-[70px] -translate-x-1/2 border-r border-l border-dashed border-[color-mix(in_srgb,var(--ink)_6%,transparent)]"
         style={{
           top: -10,
           transform: "translateX(-50%) rotate(-3deg)",
           background: "color-mix(in srgb, var(--tape) 70%, transparent)",
         }}
       />
-      <div className="w-full aspect-square overflow-hidden bg-(--surface-2) relative">
+      <div className="relative aspect-square w-full overflow-hidden bg-(--surface-2)">
         <Image
           src={src}
           alt={alt}
@@ -61,7 +61,7 @@ export function Polaroid({
         />
       </div>
       {caption && (
-        <div className="hand text-center mt-[10px] text-[22px] text-ink leading-none">
+        <div className="hand text-ink mt-[10px] text-center text-[22px] leading-none">
           {caption}
         </div>
       )}

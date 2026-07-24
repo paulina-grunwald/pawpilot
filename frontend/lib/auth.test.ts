@@ -1,14 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import {
-  AuthError,
-  getApiBaseUrl,
-  getCurrentUser,
-  login,
-  logout,
-  signup,
-} from "./auth";
+import { AuthError, getApiBaseUrl, getCurrentUser, login, logout, signup } from "./auth";
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -41,15 +34,10 @@ describe("signup", () => {
   it("throws AuthError with REGISTER_USER_ALREADY_EXISTS when backend returns that code", async () => {
     server.use(
       http.post(`${API_BASE_URL}/auth/register`, () =>
-        HttpResponse.json(
-          { detail: "REGISTER_USER_ALREADY_EXISTS" },
-          { status: 400 },
-        ),
+        HttpResponse.json({ detail: "REGISTER_USER_ALREADY_EXISTS" }, { status: 400 }),
       ),
     );
-    await expect(
-      signup({ email: "taken@b.co", password: "12345678" }),
-    ).rejects.toMatchObject({
+    await expect(signup({ email: "taken@b.co", password: "12345678" })).rejects.toMatchObject({
       name: "AuthError",
       code: "REGISTER_USER_ALREADY_EXISTS",
     });
@@ -69,9 +57,9 @@ describe("signup", () => {
         ),
       ),
     );
-    await expect(
-      signup({ email: "a@b.co", password: "12345678" }),
-    ).rejects.toMatchObject({ code: "REGISTER_INVALID_PASSWORD" });
+    await expect(signup({ email: "a@b.co", password: "12345678" })).rejects.toMatchObject({
+      code: "REGISTER_INVALID_PASSWORD",
+    });
   });
 
   it("throws AuthError with UNKNOWN for unexpected error shape", async () => {
@@ -80,9 +68,9 @@ describe("signup", () => {
         HttpResponse.json({ weird: true }, { status: 500 }),
       ),
     );
-    await expect(
-      signup({ email: "a@b.co", password: "12345678" }),
-    ).rejects.toMatchObject({ code: "UNKNOWN" });
+    await expect(signup({ email: "a@b.co", password: "12345678" })).rejects.toMatchObject({
+      code: "UNKNOWN",
+    });
   });
 
   it("throws AuthError with VALIDATION_ERROR on 422", async () => {
@@ -91,9 +79,9 @@ describe("signup", () => {
         HttpResponse.json({ detail: [] }, { status: 422 }),
       ),
     );
-    await expect(
-      signup({ email: "a@b.co", password: "12345678" }),
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(signup({ email: "a@b.co", password: "12345678" })).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
   });
 });
 
@@ -127,8 +115,7 @@ describe("login", () => {
   });
 
   it("throws NETWORK_ERROR when fetch rejects", async () => {
-    const failingFetch = (() =>
-      Promise.reject(new TypeError("Network failed"))) as typeof fetch;
+    const failingFetch = (() => Promise.reject(new TypeError("Network failed"))) as typeof fetch;
     await expect(
       login({ email: "a@b.co", password: "secret123" }, failingFetch),
     ).rejects.toMatchObject({ code: "NETWORK_ERROR" });
@@ -185,8 +172,7 @@ describe("getCurrentUser", () => {
   });
 
   it("throws NETWORK_ERROR when fetch rejects", async () => {
-    const failingFetch = (() =>
-      Promise.reject(new TypeError("offline"))) as typeof fetch;
+    const failingFetch = (() => Promise.reject(new TypeError("offline"))) as typeof fetch;
     await expect(getCurrentUser(failingFetch)).rejects.toMatchObject({
       code: "NETWORK_ERROR",
     });

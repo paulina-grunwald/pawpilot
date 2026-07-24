@@ -25,9 +25,7 @@ function highlightMatch(name: string, query: string): ReactNode {
   return (
     <>
       {name.slice(0, matchIndex)}
-      <mark className={styles.match}>
-        {name.slice(matchIndex, matchIndex + needle.length)}
-      </mark>
+      <mark className={styles.match}>{name.slice(matchIndex, matchIndex + needle.length)}</mark>
       {name.slice(matchIndex + needle.length)}
     </>
   );

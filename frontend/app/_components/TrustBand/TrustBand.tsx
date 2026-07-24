@@ -79,12 +79,12 @@ export function TrustBand() {
                   filter: "saturate(0.92)",
                 }}
               />
-              <div className="mono text-muted mt-2 text-center text-[10px] leading-[1.5]"></div>
+              <div className="mono text-muted mt-2 text-center text-[10px] leading-normal"></div>
             </div>
           </div>
         </div>
 
-        <div className="mt-14 border-t border-(--hairline) pt-7">
+        <div className="border-hairline mt-14 border-t pt-7">
           <div className="mono text-muted mb-[14px] text-[11px] tracking-[0.14em] uppercase">
             Knowledge corpus drawn from
           </div>

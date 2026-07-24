@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
-import {
-  JournalError,
-  createJournalEntry,
-  updateJournalEntry,
-} from "@/lib/journal";
+import { JournalError, createJournalEntry, updateJournalEntry } from "@/lib/journal";
 import { ENTRY_TYPE_META, ENTRY_TYPES, type EntryType } from "@/lib/journal.constants";
 import type {
   BathroomPayload,

@@ -74,18 +74,14 @@ describe("streamAgentAnswer", () => {
   });
 
   it("throws AGENT_UNAVAILABLE on a 503", async () => {
-    server.use(
-      http.post(`${API}/agent/ask/stream`, () => new HttpResponse(null, { status: 503 })),
-    );
+    server.use(http.post(`${API}/agent/ask/stream`, () => new HttpResponse(null, { status: 503 })));
     await expect(collect(streamAgentAnswer({ query: "hi" }))).rejects.toMatchObject({
       code: "AGENT_UNAVAILABLE",
     });
   });
 
   it("throws AGENT_VALIDATION on a 422", async () => {
-    server.use(
-      http.post(`${API}/agent/ask/stream`, () => new HttpResponse(null, { status: 422 })),
-    );
+    server.use(http.post(`${API}/agent/ask/stream`, () => new HttpResponse(null, { status: 422 })));
     await expect(collect(streamAgentAnswer({ query: "" }))).rejects.toMatchObject({
       code: "AGENT_VALIDATION",
     });
@@ -132,7 +128,8 @@ describe("streamAgentAnswer", () => {
     server.use(
       http.post(
         `${API}/agent/ask/stream`,
-        () => new HttpResponse("data: {}\n\n", { headers: { "content-type": "text/event-stream" } }),
+        () =>
+          new HttpResponse("data: {}\n\n", { headers: { "content-type": "text/event-stream" } }),
       ),
     );
     const controller = new AbortController();

@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ComponentType,
-  type CSSProperties,
-} from "react";
+import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import {
   AlertIcon,
   BathroomIcon,
@@ -135,7 +129,9 @@ export function JournalFab({ userId }: JournalFabProps) {
         <div
           className={styles.menu}
           role="group"
-          aria-label={activePet ? `Log a journal entry for ${activePet.name}` : "Log a journal entry"}
+          aria-label={
+            activePet ? `Log a journal entry for ${activePet.name}` : "Log a journal entry"
+          }
         >
           {petsState.status === "loading" && <p className={styles.hint}>Loading…</p>}
 

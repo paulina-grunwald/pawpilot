@@ -20,9 +20,9 @@ const toneBg: Record<MemoryItem["tone"], string> = {
 
 export function MemoryMini() {
   return (
-    <div className="mt-[18px] relative">
+    <div className="relative mt-[18px]">
       <div
-        className="absolute left-[7px] top-[6px] bottom-[6px] w-[1.5px]"
+        className="absolute top-[6px] bottom-[6px] left-[7px] w-[1.5px]"
         style={{
           background:
             "repeating-linear-gradient(180deg, var(--hairline-strong) 0 4px, transparent 4px 8px)",
@@ -31,19 +31,17 @@ export function MemoryMini() {
       {items.map((memory, index) => (
         <div
           key={index}
-          className="flex items-center gap-[14px] relative"
+          className="relative flex items-center gap-[14px]"
           style={{ marginBottom: index === items.length - 1 ? 0 : 10 }}
         >
           <span
-            className="w-4 h-4 rounded-full border-[3px] border-surface z-[1] shrink-0"
+            className="border-surface z-[1] h-4 w-4 shrink-0 rounded-full border-[3px]"
             style={{ background: toneBg[memory.tone] }}
           />
-          <span className="mono text-[10.5px] text-muted tracking-[0.04em] min-w-[64px]">
+          <span className="mono text-muted min-w-[64px] text-[10.5px] tracking-[0.04em]">
             {memory.date}
           </span>
-          <span className="text-[12.5px] text-ink">
-            {memory.text}
-          </span>
+          <span className="text-ink text-[12.5px]">{memory.text}</span>
         </div>
       ))}
     </div>

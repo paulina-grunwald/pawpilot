@@ -91,9 +91,10 @@ export function entryPresentation(entry: JournalEntryRead): EntryPresentation {
     case "vet_visit": {
       return {
         title: [payload.reason, payload.vet_name].filter(Boolean).join(" · "),
-        meta: [payload.diagnosis, payload.follow_up ? `Follow-up: ${payload.follow_up}` : null]
-          .filter(Boolean)
-          .join(" · ") || null,
+        meta:
+          [payload.diagnosis, payload.follow_up ? `Follow-up: ${payload.follow_up}` : null]
+            .filter(Boolean)
+            .join(" · ") || null,
         value: null,
       };
     }

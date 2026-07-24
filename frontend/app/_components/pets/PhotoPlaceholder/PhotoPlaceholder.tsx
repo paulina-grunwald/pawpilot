@@ -14,11 +14,7 @@ export function PhotoPlaceholder({
   height = "100%",
 }: PhotoPlaceholderProps) {
   return (
-    <div
-      aria-hidden
-      className={styles.placeholder}
-      style={{ width, height, borderRadius: radius }}
-    >
+    <div aria-hidden className={styles.placeholder} style={{ width, height, borderRadius: radius }}>
       <span className={`${styles.label} mono`}>{label}</span>
     </div>
   );

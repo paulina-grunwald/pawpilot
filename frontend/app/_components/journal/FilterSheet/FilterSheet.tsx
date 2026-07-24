@@ -28,6 +28,19 @@ export function countActiveFilters(filters: JournalFilters): number {
   );
 }
 
+export function toggleEntryTypeFilter(
+  filters: JournalFilters,
+  entryType: EntryType,
+): JournalFilters {
+  const active = filters.entryTypes.includes(entryType);
+  return {
+    ...filters,
+    entryTypes: active
+      ? filters.entryTypes.filter((existing) => existing !== entryType)
+      : [...filters.entryTypes, entryType],
+  };
+}
+
 export function dateRangeToOccurredFrom(
   preset: DateRangePreset,
   now: Date = new Date(),
@@ -77,13 +90,7 @@ function FilterSheetBody({ filters, totalMatching, onChange, onClose }: FilterSh
   }, [onClose]);
 
   function toggleEntryType(entryType: EntryType) {
-    const active = filters.entryTypes.includes(entryType);
-    onChange({
-      ...filters,
-      entryTypes: active
-        ? filters.entryTypes.filter((existing) => existing !== entryType)
-        : [...filters.entryTypes, entryType],
-    });
+    onChange(toggleEntryTypeFilter(filters, entryType));
   }
 
   const dateRangeItemProps = useRadioGroupNav(
