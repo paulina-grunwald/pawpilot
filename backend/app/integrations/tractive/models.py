@@ -73,6 +73,49 @@ class TractiveDayRollup(Base):
         JSONB, nullable=False, default=list
     )
 
+    # Record-level daily vitals: one measurement event counts once, motion
+    # contaminated bursts rejected. See consolidate.record_stats_from_records.
+    heart_rate_record_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    heart_rate_record_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
+    heart_rate_ci95_half_width: Mapped[float | None] = mapped_column(Float, nullable=True)
+    respiratory_rate_record_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    respiratory_rate_record_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
+    respiratory_rate_ci95_half_width: Mapped[float | None] = mapped_column(Float, nullable=True)
+    respiratory_rate_night_record_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    respiratory_rate_night_record_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
+    respiratory_rate_day_record_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    respiratory_rate_day_record_mean: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Sleep continuity from the activity timeline: consolidated bouts, never
+    # clinical stages. Fragmentation is awake interruptions per hour of rest.
+    sleep_longest_bout_minutes: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0, server_default="0"
+    )
+    sleep_bout_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    sleep_fragmentation_index: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Outings derived from GPS against a data-derived home (the configured
+    # geofence can be stale). Counts are a floor, not an exact tally.
+    outings_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    outings_total_minutes: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0, server_default="0"
+    )
+    outings: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    home_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    home_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     gps_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     gps_distance_km: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     gps_segments_counted: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

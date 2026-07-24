@@ -60,6 +60,73 @@ class VitalStats(BaseModel):
     samples: list[float] = Field(default_factory=list)
 
 
+class VitalRecordStats(BaseModel):
+    """Record-level aggregate for a vital sign across a single day.
+
+    A record is one measurement event: a burst of samples taken together.
+    Bursts repeat near-identical values, so sample-level aggregation overstates
+    precision. Records whose burst contains any sample above the artifact
+    ceiling are dropped as non-resting contamination before aggregating.
+    """
+
+    record_count: int = Field(ge=0, default=0)
+    mean: float | None = None
+    ci95_half_width: float | None = None
+
+
+class RespiratoryNightDaySplit(BaseModel):
+    """Record-level resting respiratory rate split by the night-sleep window.
+
+    Night resting respiratory rate is the reading vets ask owners to watch,
+    so it is aggregated separately from daytime records. Descriptive only.
+    """
+
+    night_record_count: int = Field(ge=0, default=0)
+    night_mean: float | None = None
+    day_record_count: int = Field(ge=0, default=0)
+    day_mean: float | None = None
+
+
+class SleepArchitecture(BaseModel):
+    """Sleep continuity for one day, derived by walking the activity timeline.
+
+    These describe how consolidated rest was, never clinical sleep stages:
+    the tracker cannot see deep or light sleep and neither can we. Days with
+    long no-signal stretches understate rest, so callers should caveat them.
+    """
+
+    longest_bout_minutes: float = Field(ge=0.0, default=0.0)
+    bout_count: int = Field(ge=0, default=0)
+    fragmentation_index: float | None = Field(default=None, ge=0.0)
+
+
+class OutingDetail(BaseModel):
+    """One detected outing: a run of GPS fixes away from the derived home.
+
+    Durations are measured first-to-last away fix, so the walk's leaving and
+    returning legs inside the home radius are cut off. Callers should present
+    the duration as a floor, never an exact figure.
+    """
+
+    started_at: datetime
+    ended_at: datetime
+    duration_minutes: float = Field(ge=0.0)
+    max_distance_meters: float = Field(ge=0.0)
+    fix_count: int = Field(ge=0)
+
+
+class OutingSummary(BaseModel):
+    """Daily outings summary. The count is a floor: sampling gaps and collar
+    off time can hide whole outings, so zero detected does not mean the dog
+    never left home. One caveat in the other direction: outings are detected
+    per local day, so a walk spanning midnight counts once on each side.
+    """
+
+    count: int = Field(ge=0, default=0)
+    total_minutes: float = Field(ge=0.0, default=0.0)
+    entries: list[OutingDetail] = Field(default_factory=list)
+
+
 class PositionSummary(BaseModel):
     """Daily summary of GPS / phone-fallback positions."""
 
@@ -95,5 +162,16 @@ class PerDayRollup(BaseModel):
     hourly_minutes_by_category: dict[int, dict[str, float]] = Field(default_factory=dict)
     resting_heart_rate: VitalStats
     resting_respiratory_rate: VitalStats
+    resting_heart_rate_records: VitalRecordStats = Field(default_factory=VitalRecordStats)
+    resting_respiratory_rate_records: VitalRecordStats = Field(default_factory=VitalRecordStats)
+    respiratory_night_day: RespiratoryNightDaySplit = Field(
+        default_factory=RespiratoryNightDaySplit
+    )
     positions: PositionSummary
     tracker: TrackerSummary
+    sleep_architecture: SleepArchitecture = Field(default_factory=SleepArchitecture)
+    outings: OutingSummary = Field(default_factory=OutingSummary)
+    # Home derived from the data (densest fix cluster), because the configured
+    # geofence can be stale; same value on every day of a batch.
+    home_latitude: float | None = None
+    home_longitude: float | None = None

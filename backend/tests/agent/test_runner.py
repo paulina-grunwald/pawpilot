@@ -8,11 +8,13 @@ keys or a network.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agent import runner
-from app.agent.fakes import FakeSleepReader, ScriptedChatModel
+from app.agent.fakes import FakePetDataReader, ScriptedChatModel
 from app.agent.prompt import DATA_TOOL_RULE, VET_DISCLAIMER
 from app.agent.red_flags import EMERGENCY_BANNER
 from app.agent.runner import (
@@ -21,7 +23,7 @@ from app.agent.runner import (
     validate_query,
 )
 from app.agent.schemas import AgentAnswer, AgentStreamChunk, AgentStreamFinal
-from app.integrations.tractive.read_service import SleepSummary
+from app.integrations.tractive.read_service import MetricDayRow
 from tests.agent.conftest import (
     build_test_agent,
     make_agent_settings,
@@ -32,27 +34,46 @@ from tests.agent.conftest import (
 )
 
 
-def _sleep_summary() -> SleepSummary:
-    """A populated `SleepSummary` for the sleep-tool wiring tests."""
-    return SleepSummary(
-        days_requested=7,
-        days_with_data=7,
-        average_total_sleep_hours=8.0,
-        average_night_sleep_hours=6.5,
-        average_day_sleep_hours=1.5,
-        start_date=None,
-        end_date=None,
-    )
+def _metric_rows() -> list[MetricDayRow]:
+    """One populated metric day for the metric-tool wiring tests."""
+    return [
+        MetricDayRow(
+            date=date(2026, 5, 14),
+            total_sleep_hours=8.0,
+            night_sleep_hours=6.5,
+            day_sleep_hours=1.5,
+            longest_sleep_bout_hours=3.0,
+            sleep_bout_count=4,
+            sleep_fragmentation_index=1.25,
+            active_hours=2.0,
+            moderate_hours=1.0,
+            low_intensity_hours=3.0,
+            no_signal_hours=0.5,
+            resting_heart_rate_bpm=68.0,
+            resting_heart_rate_reading_count=12,
+            resting_heart_rate_ci95_half_width=3.0,
+            resting_respiratory_rate_per_minute=22.0,
+            resting_respiratory_rate_reading_count=9,
+            resting_respiratory_rate_ci95_half_width=2.0,
+            night_resting_respiratory_rate_per_minute=20.0,
+            night_resting_respiratory_rate_reading_count=5,
+            day_resting_respiratory_rate_per_minute=24.0,
+            day_resting_respiratory_rate_reading_count=4,
+            outings_count=3,
+            outings_total_hours=1.5,
+            walking_distance_km=4.2,
+        )
+    ]
 
 
-def _sleep_tool_call(days: int = 7, call_id: str = "call-1") -> AIMessage:
-    """An assistant turn that calls the sleep tool with a ``days`` argument."""
+def _metric_tool_call(days: int = 7, call_id: str = "call-1") -> AIMessage:
+    """An assistant turn that calls the metric tool over a ``days`` window."""
     return AIMessage(
         content="",
         tool_calls=[
             {
-                "name": "get_dog_sleep_summary",
-                "args": {"days": days},
+                "name": "get_dog_metric",
+                "args": {"metric": "total_sleep", "days": days},
                 "id": call_id,
                 "type": "tool_call",
             }
@@ -317,27 +338,27 @@ def test_memory_context_inactive_without_store() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Sleep tool wiring (get_dog_sleep_summary)
+# Metric tool wiring (get_dog_metric)
 # --------------------------------------------------------------------------- #
 
 
-async def test_arun_invokes_sleep_tool_when_reader_supplied() -> None:
-    reader = FakeSleepReader(_sleep_summary())
+async def test_arun_invokes_metric_tool_when_reader_supplied() -> None:
+    reader = FakePetDataReader(_metric_rows())
     agent = build_test_agent(
         responses=[
-            _sleep_tool_call(days=7),
+            _metric_tool_call(days=7),
             AIMessage(content=f"Your dog slept about 8 hours a night. {VET_DISCLAIMER}"),
         ],
     )
 
-    answer = await agent.arun("How much did my dog sleep this week?", sleep_reader=reader)
+    answer = await agent.arun("How much did my dog sleep this week?", pet_data_reader=reader)
 
-    assert answer.tool_calls == ["get_dog_sleep_summary"]
+    assert answer.tool_calls == ["get_dog_metric"]
     assert reader.requested_days == [7]
     assert "8 hours" in answer.text
 
 
-async def test_arun_without_reader_does_not_wire_sleep_tool() -> None:
+async def test_arun_without_reader_does_not_wire_metric_tool() -> None:
     model = ScriptedChatModel(responses=[AIMessage(content=f"Sure. {VET_DISCLAIMER}")])
     agent = build_test_agent(model=model)
 
@@ -356,7 +377,7 @@ async def test_arun_includes_data_rule_in_system_prompt_when_reader_supplied() -
     model = ScriptedChatModel(responses=[AIMessage(content=f"Sure. {VET_DISCLAIMER}")])
     agent = build_test_agent(model=model)
 
-    await agent.arun("General question", sleep_reader=FakeSleepReader(_sleep_summary()))
+    await agent.arun("General question", pet_data_reader=FakePetDataReader(_metric_rows()))
 
     system_messages = [
         str(message.content)
@@ -367,20 +388,20 @@ async def test_arun_includes_data_rule_in_system_prompt_when_reader_supplied() -
     assert any(DATA_TOOL_RULE in content for content in system_messages)
 
 
-async def test_astream_run_invokes_sleep_tool_when_reader_supplied() -> None:
-    reader = FakeSleepReader(_sleep_summary())
+async def test_astream_run_invokes_metric_tool_when_reader_supplied() -> None:
+    reader = FakePetDataReader(_metric_rows())
     agent = build_test_agent(
         responses=[
-            _sleep_tool_call(days=7),
+            _metric_tool_call(days=7),
             AIMessage(content=f"About 8 hours a night. {VET_DISCLAIMER}"),
         ],
     )
 
-    events = [event async for event in agent.astream_run("How much sleep?", sleep_reader=reader)]
+    events = [event async for event in agent.astream_run("How much sleep?", pet_data_reader=reader)]
 
     finals = [event for event in events if isinstance(event, AgentStreamFinal)]
     assert len(finals) == 1
-    assert finals[0].tool_calls == ["get_dog_sleep_summary"]
+    assert finals[0].tool_calls == ["get_dog_metric"]
     assert reader.requested_days == [7]
 
 
@@ -403,19 +424,19 @@ def test_run_invokes_clock_tool_without_reader_or_memory() -> None:
     assert "Today is noted." in answer.text
 
 
-async def test_arun_resolves_dated_sleep_via_clock_then_sleep_tool() -> None:
-    reader = FakeSleepReader(_sleep_summary())
+async def test_arun_resolves_dated_metric_via_clock_then_metric_tool() -> None:
+    reader = FakePetDataReader(_metric_rows())
     agent = build_test_agent(
         responses=[
             _current_date_tool_call(),
-            _sleep_tool_call(days=7),
+            _metric_tool_call(days=7),
             AIMessage(content=f"About 8 hours a night. {VET_DISCLAIMER}"),
         ],
     )
 
-    answer = await agent.arun("How much did my dog sleep last Tuesday?", sleep_reader=reader)
+    answer = await agent.arun("How much did my dog sleep last Tuesday?", pet_data_reader=reader)
 
-    assert answer.tool_calls == ["get_current_date", "get_dog_sleep_summary"]
+    assert answer.tool_calls == ["get_current_date", "get_dog_metric"]
 
 
 # --------------------------------------------------------------------------- #
