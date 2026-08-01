@@ -8,6 +8,12 @@ function today(): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
+function parseLocalDate(isoDate: string): Date {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if ([year, month, day].some(Number.isNaN)) return new Date(Number.NaN);
+  return new Date(year, month - 1, day);
+}
+
 function earliestAllowedBirthday(): Date {
   const reference = today();
   return new Date(
@@ -33,9 +39,9 @@ export const petFormSchema = z.object({
     .string({ error: "Birthday is required" })
     .min(1, "Birthday is required")
     .refine((value) => !Number.isNaN(Date.parse(value)), "Enter a valid date")
-    .refine((value) => new Date(value) <= today(), "Birthday must be in the past")
+    .refine((value) => parseLocalDate(value) <= today(), "Birthday must be in the past")
     .refine(
-      (value) => new Date(value) >= earliestAllowedBirthday(),
+      (value) => parseLocalDate(value) >= earliestAllowedBirthday(),
       `Birthday cannot be more than ${MAX_AGE_YEARS} years ago`,
     ),
   sex: z.enum(["male", "female"], { error: "Pick a sex" }),

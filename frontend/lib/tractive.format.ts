@@ -1,6 +1,6 @@
 import type { SleepSplitBar } from "@/app/_components/dashboard/SleepSplitBars";
 import type { TodayPanelData } from "@/app/_components/dashboard/TodayPanel/TodayPanel";
-import { formatMonthDay, formatWeekday } from "./date";
+import { formatFullDate, formatMonthDay, formatWeekday } from "./date";
 import type { TractiveDailySummary } from "./tractive";
 
 // Generic fallback target, used only until enough clean history exists to
@@ -20,9 +20,7 @@ export const MINIMUM_CLEAN_DAYS_FOR_PERSONAL_GOAL = 5;
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((first, second) => first - second);
   const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[middle - 1] + sorted[middle]) / 2
-    : sorted[middle];
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
 function hasCleanCoverage(rollup: TractiveDailySummary): boolean {
@@ -39,14 +37,13 @@ function hasCleanCoverage(rollup: TractiveDailySummary): boolean {
  * frontend only ever has the fetched days, so a fixed window is not available
  * client-side; a per-pet stored target is the eventual decoupled answer.
  */
-export function computePersonalActivityGoal(
-  preceding: readonly TractiveDailySummary[],
-): number {
+export function computePersonalActivityGoal(preceding: readonly TractiveDailySummary[]): number {
   const cleanDays = preceding.filter(hasCleanCoverage);
   if (cleanDays.length < MINIMUM_CLEAN_DAYS_FOR_PERSONAL_GOAL) {
     return DAILY_ACTIVE_TARGET_MINUTES;
   }
-  return Math.round(median(cleanDays.map((rollup) => rollup.minutes_active)));
+  const personalGoal = Math.round(median(cleanDays.map((rollup) => rollup.minutes_active)));
+  return personalGoal > 0 ? personalGoal : DAILY_ACTIVE_TARGET_MINUTES;
 }
 
 /**
@@ -85,8 +82,7 @@ type DailyVitalReading = {
 };
 
 function quartiles(sortedValues: readonly number[]): { low: number; high: number } {
-  const at = (fraction: number) =>
-    sortedValues[Math.floor(fraction * (sortedValues.length - 1))];
+  const at = (fraction: number) => sortedValues[Math.floor(fraction * (sortedValues.length - 1))];
   return { low: at(0.25), high: at(0.75) };
 }
 
@@ -198,9 +194,10 @@ export type SleepQualityData = {
   days: string[];
   dates: string[];
   latestLongestBoutMinutes: number | null;
-  averageBoutCount: number;
+  averageBoutCount: number | null;
   averageFragmentationIndex: number | null;
   lowCoverageDayCount: number;
+  unmeasuredDayCount: number;
 };
 
 /**
@@ -214,19 +211,25 @@ export function toSleepQualityData(
 ): SleepQualityData | undefined {
   if (rollups.length === 0) return undefined;
   const sorted = [...rollups].sort((first, second) => first.date.localeCompare(second.date));
-  const values = sorted.map((rollup) => rollup.sleep_longest_bout_minutes);
-  const boutCounts = sorted.map((rollup) => rollup.sleep_bout_count);
-  const fragmentationValues = sorted
+  const measured = sorted.filter((rollup) => rollup.sleep_longest_bout_minutes !== null);
+  if (measured.length === 0) return undefined;
+  const values = measured.map((rollup) => rollup.sleep_longest_bout_minutes as number);
+  const boutCounts = measured
+    .map((rollup) => rollup.sleep_bout_count)
+    .filter((count): count is number => count !== null);
+  const fragmentationValues = measured
     .map((rollup) => rollup.sleep_fragmentation_index)
     .filter((value): value is number => value !== null);
   return {
     values,
-    days: sorted.map((rollup) => formatWeekday(rollup.date)),
-    dates: sorted.map((rollup) => formatMonthDay(rollup.date)),
+    days: measured.map((rollup) => formatWeekday(rollup.date)),
+    dates: measured.map((rollup) => formatMonthDay(rollup.date)),
     latestLongestBoutMinutes: values.length > 0 ? values[values.length - 1] : null,
     averageBoutCount:
-      Math.round((boutCounts.reduce((sum, count) => sum + count, 0) / boutCounts.length) * 10) /
-      10,
+      boutCounts.length > 0
+        ? Math.round((boutCounts.reduce((sum, count) => sum + count, 0) / boutCounts.length) * 10) /
+          10
+        : null,
     averageFragmentationIndex:
       fragmentationValues.length > 0
         ? Math.round(
@@ -236,6 +239,7 @@ export function toSleepQualityData(
           ) / 10
         : null,
     lowCoverageDayCount: sorted.filter((rollup) => !hasCleanCoverage(rollup)).length,
+    unmeasuredDayCount: sorted.length - measured.length,
   };
 }
 
@@ -247,7 +251,7 @@ export type OutingRow = {
 
 export type OutingsCardData = {
   latestDayLabel: string;
-  latestCount: number;
+  latestCount: number | null;
   latestRows: OutingRow[];
   rangeDailyAverage: number | null;
   daysInRange: number;
@@ -275,7 +279,8 @@ export function toOutingsCardData(
   if (rollups.length === 0) return undefined;
   const sorted = [...rollups].sort((first, second) => first.date.localeCompare(second.date));
   const latest = sorted[sorted.length - 1];
-  const totalCount = sorted.reduce((sum, rollup) => sum + rollup.outings_count, 0);
+  const measured = sorted.filter((rollup) => rollup.outings_count !== null);
+  const totalCount = measured.reduce((sum, rollup) => sum + (rollup.outings_count as number), 0);
   return {
     latestDayLabel: formatMonthDay(latest.date),
     latestCount: latest.outings_count,
@@ -285,8 +290,8 @@ export function toOutingsCardData(
       distanceLabel: `up to ${(Math.round(outing.max_distance_meters / 100) / 10).toFixed(1)} km away`,
     })),
     rangeDailyAverage:
-      sorted.length > 1 ? Math.round((totalCount / sorted.length) * 10) / 10 : null,
-    daysInRange: sorted.length,
+      measured.length > 1 ? Math.round((totalCount / measured.length) * 10) / 10 : null,
+    daysInRange: measured.length,
   };
 }
 
@@ -320,10 +325,7 @@ export function toIntradayActivityMatrix(
       ),
       lowCoverage: !hasCleanCoverage(rollup),
     }));
-  const maxActiveMinutes = Math.max(
-    0,
-    ...rows.flatMap((row) => row.hourlyActiveMinutes),
-  );
+  const maxActiveMinutes = Math.max(0, ...rows.flatMap((row) => row.hourlyActiveMinutes));
   return { rows, maxActiveMinutes };
 }
 
@@ -435,6 +437,7 @@ export function toTodayPanelData(
   const sleepSplitCopy = `${formatHoursMinutes(today.minutes_night_sleep)} night · ${formatHoursMinutes(today.minutes_day_sleep)} naps`;
 
   return {
+    latestDate: today.date,
     activityPercent,
     activityLabel: formatHoursMinutes(today.minutes_active),
     activitySublabel: sublabel,
@@ -500,4 +503,9 @@ export function toSleepSplitBars(rollups: readonly TractiveDailySummary[]): Slee
       nightMinutes: rollup.minutes_night_sleep,
       dayMinutes: rollup.minutes_day_sleep,
     }));
+}
+
+export function toLatestDayEyebrow(latestDate: string | undefined, todayLabel: string): string {
+  if (latestDate === undefined) return `Today — ${todayLabel}`;
+  return `Latest tracker day — ${formatFullDate(latestDate)}`;
 }

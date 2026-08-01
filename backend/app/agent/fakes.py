@@ -88,18 +88,29 @@ class FakePetDataReader:
     reader; `fetch_on_date` picks the row matching the date, or reports no data.
     """
 
-    def __init__(self, rows: list[MetricDayRow] | None = None) -> None:
+    def __init__(
+        self,
+        rows: list[MetricDayRow] | None = None,
+        *,
+        rows_in_window: list[MetricDayRow] | None = None,
+    ) -> None:
         self._rows = rows if rows is not None else []
+        self._rows_in_window = rows_in_window
         self.requested_days: list[int] = []
         self.requested_dates: list[date] = []
 
     async def fetch_window(self, days: int) -> list[MetricDayRow]:
         self.requested_days.append(days)
+        if self._rows_in_window is not None:
+            return list(self._rows_in_window)
         return list(self._rows[-days:])
 
     async def fetch_on_date(self, day: date) -> MetricDayRow | None:
         self.requested_dates.append(day)
         return next((row for row in self._rows if row.date == day), None)
+
+    async def fetch_latest_date(self) -> date | None:
+        return max((row.date for row in self._rows), default=None)
 
 
 class FakePetFood:

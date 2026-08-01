@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { DAILY_ACTIVE_TARGET_MINUTES, toSleepSplitBars, toTodayPanelData } from "./tractive.format";
+import {
+  DAILY_ACTIVE_TARGET_MINUTES,
+  computePersonalActivityGoal,
+  toOutingsCardData,
+  toSleepQualityData,
+  toLatestDayEyebrow,
+  toSleepSplitBars,
+  toTodayPanelData,
+} from "./tractive.format";
 import type { TractiveDailySummary } from "./tractive";
 
 function makeRollup(overrides: Partial<TractiveDailySummary>): TractiveDailySummary {
@@ -255,5 +263,74 @@ describe("toSleepSplitBars", () => {
       nightMinutes: 500,
       dayMinutes: 60,
     });
+  });
+});
+
+describe("computePersonalActivityGoal", () => {
+  it("falls back to the generic target when the median is zero", () => {
+    const cratRestDays = Array.from({ length: 6 }, (_unused, index) =>
+      makeRollup({ date: `2024-05-0${index + 1}`, minutes_active: 0 }),
+    );
+
+    expect(computePersonalActivityGoal(cratRestDays)).toBe(DAILY_ACTIVE_TARGET_MINUTES);
+  });
+
+  it("uses the personal median once there is enough clean history", () => {
+    const days = Array.from({ length: 6 }, (_unused, index) =>
+      makeRollup({ date: `2024-05-0${index + 1}`, minutes_active: 90 }),
+    );
+
+    expect(computePersonalActivityGoal(days)).toBe(90);
+  });
+});
+
+describe("toSleepQualityData", () => {
+  it("omits days where continuity was never derived rather than plotting them as zero", () => {
+    const result = toSleepQualityData([
+      makeRollup({ date: "2024-05-14", sleep_longest_bout_minutes: 300, sleep_bout_count: 4 }),
+      makeRollup({
+        date: "2024-05-15",
+        sleep_longest_bout_minutes: null,
+        sleep_bout_count: null,
+      }),
+    ]);
+
+    expect(result?.values).toEqual([300]);
+    expect(result?.unmeasuredDayCount).toBe(1);
+    expect(result?.latestLongestBoutMinutes).toBe(300);
+    expect(result?.averageBoutCount).toBe(4);
+  });
+
+  it("returns undefined when no day has a derived bout", () => {
+    const result = toSleepQualityData([
+      makeRollup({ date: "2024-05-15", sleep_longest_bout_minutes: null }),
+    ]);
+
+    expect(result).toBeUndefined();
+  });
+});
+
+describe("toOutingsCardData", () => {
+  it("excludes underived days from the range average", () => {
+    const result = toOutingsCardData([
+      makeRollup({ date: "2024-05-14", outings_count: 3 }),
+      makeRollup({ date: "2024-05-15", outings_count: null }),
+      makeRollup({ date: "2024-05-16", outings_count: 1 }),
+    ]);
+
+    expect(result?.daysInRange).toBe(2);
+    expect(result?.rangeDailyAverage).toBe(2);
+  });
+});
+
+describe("toLatestDayEyebrow", () => {
+  it("names the day the figures come from, not the calendar date", () => {
+    expect(toLatestDayEyebrow("2024-07-15", "Sat, Aug 1")).toBe(
+      "Latest tracker day — Mon, Jul 15",
+    );
+  });
+
+  it("falls back to the calendar date when there is no tracker data", () => {
+    expect(toLatestDayEyebrow(undefined, "Sat, Aug 1")).toBe("Today — Sat, Aug 1");
   });
 });

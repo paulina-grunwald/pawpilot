@@ -238,6 +238,40 @@ async def test_average_of_a_vital_ignores_days_without_a_reading() -> None:
     assert "only 1 of the 2 days had data" in result
 
 
+async def test_average_of_a_rate_is_not_labelled_per_day() -> None:
+    """A heart rate is already a rate, so "70 bpm/day" is not a quantity."""
+    rows = [_row(date(2026, 5, 14), resting_heart_rate_bpm=70.0)]
+    tool, _reader, _invoked = _build(rows)
+
+    result = await _invoke(tool, metric=DogMetric.RESTING_HEART_RATE, days=1)
+
+    assert "70 bpm" in result
+    assert "bpm/day" not in result
+
+
+async def test_average_of_a_daily_total_is_labelled_per_day() -> None:
+    rows = [_row(date(2026, 5, 14), total_sleep_hours=8.0)]
+    tool, _reader, _invoked = _build(rows)
+
+    result = await _invoke(tool, metric=DogMetric.TOTAL_SLEEP, days=1)
+
+    assert "/day" in result
+
+
+async def test_average_skips_days_where_a_derived_metric_was_never_populated() -> None:
+    """A None outings count is unmeasured, not a measured zero."""
+    rows = [
+        _row(date(2026, 5, 14), outings_count=2),
+        _row(date(2026, 5, 15), outings_count=None),
+    ]
+    tool, _reader, _invoked = _build(rows)
+
+    result = await _invoke(tool, metric=DogMetric.OUTINGS_COUNT, days=2)
+
+    assert "only 1 of the 2 days had data" in result
+    assert "all 2 days had data" not in result
+
+
 async def test_average_reports_no_data_rather_than_zero() -> None:
     tool, _reader, _invoked = _build([])
 
@@ -568,3 +602,37 @@ async def test_a_metric_outside_the_registry_is_rejected() -> None:
 
     with pytest.raises(ValidationError):
         await tools[0].ainvoke({"metric": "blood_glucose"})
+
+
+async def test_empty_window_names_the_most_recent_data_date() -> None:
+    """A bare "no data" reads as "the tracker recorded nothing".
+
+    The usual cause is an export that predates the window, so say where it stops.
+    """
+    stale = FakePetDataReader([_row(date(2026, 5, 14), total_sleep_hours=8.0)], rows_in_window=[])
+    tool = build_pet_data_tools(stale, [])[0]
+    assert isinstance(tool, StructuredTool)
+
+    result = await _invoke(tool, metric=DogMetric.TOTAL_SLEEP, days=7)
+
+    assert "No total sleep is recorded" in result
+    assert "most recent tracker data for this dog is from 2026-05-14" in result
+
+
+async def test_empty_window_says_nothing_extra_when_there_is_no_data_at_all() -> None:
+    tool, _reader, _invoked = _build([])
+
+    result = await _invoke(tool, metric=DogMetric.TOTAL_SLEEP, days=7)
+
+    assert "No total sleep is recorded" in result
+    assert "most recent tracker data" not in result
+
+
+async def test_snapshot_on_an_empty_window_names_the_most_recent_data_date() -> None:
+    stale = FakePetDataReader([_row(date(2026, 5, 14), total_sleep_hours=8.0)], rows_in_window=[])
+    snapshot = build_pet_data_tools(stale, [])[1]
+    assert isinstance(snapshot, StructuredTool)
+
+    result = await _invoke(snapshot, days=7)
+
+    assert "most recent tracker data for this dog is from 2026-05-14" in result

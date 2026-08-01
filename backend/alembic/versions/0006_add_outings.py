@@ -24,14 +24,8 @@ _TABLE = "tractive_day_rollup"
 
 
 def upgrade() -> None:
-    op.add_column(
-        _TABLE,
-        sa.Column("outings_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
-    )
-    op.add_column(
-        _TABLE,
-        sa.Column("outings_total_minutes", sa.Float(), nullable=False, server_default=sa.text("0")),
-    )
+    op.add_column(_TABLE, sa.Column("outings_count", sa.Integer(), nullable=True))
+    op.add_column(_TABLE, sa.Column("outings_total_minutes", sa.Float(), nullable=True))
     op.add_column(
         _TABLE,
         sa.Column("outings", JSONB(), nullable=False, server_default=sa.text("'[]'::jsonb")),

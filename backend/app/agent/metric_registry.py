@@ -258,6 +258,14 @@ def render_metric_value(value: float, unit: MetricUnit) -> str:
             return f"{value:.2f}"
 
 
+_PER_DAY_UNITS = frozenset({MetricUnit.DURATION, MetricUnit.COUNT, MetricUnit.KILOMETERS})
+
+
+def render_window_average(value: float, unit: MetricUnit) -> str:
+    rendered = render_metric_value(value, unit)
+    return f"{rendered}/day" if unit in _PER_DAY_UNITS else rendered
+
+
 def metric_spec(metric: DogMetric) -> MetricSpec:
     """Return the spec for ``metric``. Every `DogMetric` has one by construction."""
     return METRIC_SPECS[metric]

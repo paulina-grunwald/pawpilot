@@ -18,3 +18,11 @@ export function formatWeekday(isoDate: string): string {
     .toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short" })
     .slice(0, 2);
 }
+
+export function formatFullDate(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}

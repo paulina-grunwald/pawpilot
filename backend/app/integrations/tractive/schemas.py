@@ -93,10 +93,14 @@ class SleepArchitecture(BaseModel):
     These describe how consolidated rest was, never clinical sleep stages:
     the tracker cannot see deep or light sleep and neither can we. Days with
     long no-signal stretches understate rest, so callers should caveat them.
+
+    None on every field means the day had no activity timeline to walk, so
+    continuity could not be derived at all. That is not the same as a derived
+    zero, which means the timeline was read and no rest reached the bout minimum.
     """
 
-    longest_bout_minutes: float = Field(ge=0.0, default=0.0)
-    bout_count: int = Field(ge=0, default=0)
+    longest_bout_minutes: float | None = Field(default=None, ge=0.0)
+    bout_count: int | None = Field(default=None, ge=0)
     fragmentation_index: float | None = Field(default=None, ge=0.0)
 
 
@@ -120,10 +124,14 @@ class OutingSummary(BaseModel):
     off time can hide whole outings, so zero detected does not mean the dog
     never left home. One caveat in the other direction: outings are detected
     per local day, so a walk spanning midnight counts once on each side.
+
+    A None count means outings could not be derived for that day at all, for
+    example because no home location could be established from the GPS. That is
+    not the same as a derived zero, which means the dog stayed home.
     """
 
-    count: int = Field(ge=0, default=0)
-    total_minutes: float = Field(ge=0.0, default=0.0)
+    count: int | None = Field(default=None, ge=0)
+    total_minutes: float | None = Field(default=None, ge=0.0)
     entries: list[OutingDetail] = Field(default_factory=list)
 
 

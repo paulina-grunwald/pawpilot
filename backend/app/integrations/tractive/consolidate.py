@@ -27,7 +27,7 @@ import math
 import statistics
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
 from typing import Any
@@ -116,6 +116,7 @@ SLEEP_MINUTE_REST_FRACTION = 0.75
 SLEEP_BOUT_GAP_TOLERANCE_MINUTES = 5
 SLEEP_BOUT_MINIMUM_MINUTES = 20
 MINUTES_PER_DAY = 1440
+MINUTES_PER_HOUR = 60
 SECONDS_PER_MINUTE = 60
 
 
@@ -408,7 +409,9 @@ def detect_outings(
     return outings
 
 
-def summarize_outings(outings: list[OutingDetail]) -> OutingSummary:
+def summarize_outings(outings: list[OutingDetail] | None) -> OutingSummary:
+    if outings is None:
+        return OutingSummary()
     return OutingSummary(
         count=len(outings),
         total_minutes=round(sum(outing.duration_minutes for outing in outings), 1),
@@ -470,7 +473,7 @@ def _rest_bouts(states: list[str]) -> list[tuple[int, int]]:
             start = None
             awake_gap = 0
     if start is not None:
-        bouts.append((start, MINUTES_PER_DAY - awake_gap))
+        bouts.append((start, len(states) - awake_gap))
     return [
         (bout_start, bout_end)
         for bout_start, bout_end in bouts
@@ -478,30 +481,75 @@ def _rest_bouts(states: list[str]) -> list[tuple[int, int]]:
     ]
 
 
+def _consecutive_date_runs(sorted_dates: list[str]) -> list[list[str]]:
+    runs: list[list[str]] = []
+    for date_str in sorted_dates:
+        current = date.fromisoformat(date_str)
+        if runs and date.fromisoformat(runs[-1][-1]) + timedelta(days=1) == current:
+            runs[-1].append(date_str)
+        else:
+            runs.append([date_str])
+    return runs
+
+
+def _bout_day_index(bout_start: int, bout_end: int) -> int:
+    minutes_by_day: dict[int, int] = defaultdict(int)
+    for minute_index in range(bout_start, bout_end):
+        minutes_by_day[minute_index // MINUTES_PER_DAY] += 1
+    return max(sorted(minutes_by_day), key=lambda day_index: minutes_by_day[day_index])
+
+
+def _architecture_from_bouts(bouts: list[tuple[int, int]], states: list[str]) -> SleepArchitecture:
+    if not bouts:
+        return SleepArchitecture(longest_bout_minutes=0.0, bout_count=0)
+    interruption_minutes = 0
+    bout_rest_minutes = 0
+    for bout_start, bout_end in bouts:
+        for minute_index in range(bout_start, bout_end):
+            if states[minute_index] == "awake":
+                interruption_minutes += 1
+            elif states[minute_index] == "rest":
+                bout_rest_minutes += 1
+    bout_rest_hours = bout_rest_minutes / MINUTES_PER_HOUR
+    return SleepArchitecture(
+        longest_bout_minutes=float(max(end - start for start, end in bouts)),
+        bout_count=len(bouts),
+        fragmentation_index=(
+            round(interruption_minutes / bout_rest_hours, 1) if bout_rest_hours > 0 else None
+        ),
+    )
+
+
+def sleep_architecture_by_local_date(
+    activity_data: list[dict[str, Any]],
+) -> dict[str, SleepArchitecture]:
+    states_by_date: dict[str, list[str]] = {}
+    for day in activity_data:
+        date_str, _minutes, _hourly = decode_activity_day(day)
+        states_by_date[date_str] = _minute_states(day["activityCategories"])
+
+    architecture_by_date: dict[str, SleepArchitecture] = {}
+    for run_dates in _consecutive_date_runs(sorted(states_by_date)):
+        states: list[str] = []
+        for date_str in run_dates:
+            states.extend(states_by_date[date_str])
+        bouts_by_day: dict[int, list[tuple[int, int]]] = defaultdict(list)
+        for bout_start, bout_end in _rest_bouts(states):
+            bouts_by_day[_bout_day_index(bout_start, bout_end)].append((bout_start, bout_end))
+        for day_index, date_str in enumerate(run_dates):
+            architecture_by_date[date_str] = _architecture_from_bouts(
+                bouts_by_day[day_index], states
+            )
+    return architecture_by_date
+
+
 def sleep_architecture_from_activity(
     activity_categories: list[list[Any]],
 ) -> SleepArchitecture:
-    """Sleep continuity from the activity RLE: longest consolidated bout,
-    bout count, and a fragmentation index of awake interruptions inside bouts
-    per hour of rest. Descriptive continuity only, never clinical stages.
-    """
+    if not activity_categories:
+        return SleepArchitecture()
     states = _minute_states(activity_categories)
-    bouts = _rest_bouts(states)
-    rest_minutes = sum(1 for state in states if state == "rest")
-    interruption_minutes = sum(
-        1
-        for bout_start, bout_end in bouts
-        for minute_index in range(bout_start, bout_end)
-        if states[minute_index] == "awake"
-    )
-    rest_hours = rest_minutes / 60
-    return SleepArchitecture(
-        longest_bout_minutes=float(max((end - start for start, end in bouts), default=0)),
-        bout_count=len(bouts),
-        fragmentation_index=round(interruption_minutes / rest_hours, 1)
-        if bouts and rest_hours > 0
-        else None,
-    )
+    return _architecture_from_bouts(_rest_bouts(states), states)
 
 
 def stats_from_samples(samples: list[float]) -> VitalStats:
@@ -618,6 +666,7 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
     ``MalformedTractivePayloadError``.
     """
     offset_selector = offset_selector_from_activity(payloads.activity_data)
+    architecture_by_date = sleep_architecture_by_local_date(payloads.activity_data)
     home_center = derive_home_center(payloads.position_reports)
     positions_by_date = index_by_local_date(payloads.position_reports, "time", offset_selector)
     hardware_by_date = index_by_local_date(payloads.hardware_reports, "time", offset_selector)
@@ -693,9 +742,9 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
                     temperature_max=max(temperatures) if temperatures else None,
                     n_charging_starts=charging_starts,
                 ),
-                sleep_architecture=sleep_architecture_from_activity(day["activityCategories"]),
+                sleep_architecture=architecture_by_date.get(date_str, SleepArchitecture()),
                 outings=summarize_outings(
-                    detect_outings(positions_today, home_center) if home_center else []
+                    detect_outings(positions_today, home_center) if home_center else None
                 ),
                 home_latitude=home_center[0] if home_center else None,
                 home_longitude=home_center[1] if home_center else None,

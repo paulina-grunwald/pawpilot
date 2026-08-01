@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date as date_type
+from datetime import timedelta
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
@@ -42,12 +43,12 @@ class TractiveDailySummary(BaseModel):
     respiratory_rate_day_record_count: int = 0
     respiratory_rate_day_record_mean: float | None = None
     # Sleep continuity, never clinical stages.
-    sleep_longest_bout_minutes: float = 0.0
-    sleep_bout_count: int = 0
+    sleep_longest_bout_minutes: float | None = None
+    sleep_bout_count: int | None = None
     sleep_fragmentation_index: float | None = None
     # Outing counts are floors: sampling gaps can hide whole outings.
-    outings_count: int = 0
-    outings_total_minutes: float = 0.0
+    outings_count: int | None = None
+    outings_total_minutes: float | None = None
     outings: list[OutingDetail] = Field(default_factory=list)
     gps_distance_km: float
 
@@ -81,6 +82,10 @@ def _hours_rounded(minutes: float) -> float:
     return round(minutes / _MINUTES_PER_HOUR, 2)
 
 
+def _hours_rounded_or_none(minutes: float | None) -> float | None:
+    return None if minutes is None else _hours_rounded(minutes)
+
+
 class MetricDayRow(BaseModel):
     """One day of a dog's metrics, already converted into the units we report.
 
@@ -98,8 +103,8 @@ class MetricDayRow(BaseModel):
     total_sleep_hours: float
     night_sleep_hours: float
     day_sleep_hours: float
-    longest_sleep_bout_hours: float
-    sleep_bout_count: int
+    longest_sleep_bout_hours: float | None
+    sleep_bout_count: int | None
     sleep_fragmentation_index: float | None
 
     active_hours: float
@@ -118,8 +123,8 @@ class MetricDayRow(BaseModel):
     day_resting_respiratory_rate_per_minute: float | None
     day_resting_respiratory_rate_reading_count: int
 
-    outings_count: int
-    outings_total_hours: float
+    outings_count: int | None
+    outings_total_hours: float | None
     walking_distance_km: float
 
 
@@ -162,7 +167,7 @@ def _to_metric_day_row(row: Any) -> MetricDayRow:
         total_sleep_hours=_hours_rounded(row.minutes_night_sleep + row.minutes_day_sleep),
         night_sleep_hours=_hours_rounded(row.minutes_night_sleep),
         day_sleep_hours=_hours_rounded(row.minutes_day_sleep),
-        longest_sleep_bout_hours=_hours_rounded(row.sleep_longest_bout_minutes),
+        longest_sleep_bout_hours=_hours_rounded_or_none(row.sleep_longest_bout_minutes),
         sleep_bout_count=row.sleep_bout_count,
         sleep_fragmentation_index=row.sleep_fragmentation_index,
         active_hours=_hours_rounded(row.minutes_active),
@@ -180,28 +185,45 @@ def _to_metric_day_row(row: Any) -> MetricDayRow:
         day_resting_respiratory_rate_per_minute=row.respiratory_rate_day_record_mean,
         day_resting_respiratory_rate_reading_count=row.respiratory_rate_day_record_count,
         outings_count=row.outings_count,
-        outings_total_hours=_hours_rounded(row.outings_total_minutes),
+        outings_total_hours=_hours_rounded_or_none(row.outings_total_minutes),
         walking_distance_km=row.gps_distance_km,
     )
 
 
-async def fetch_metric_window(
-    session: AsyncSession, pet_id: uuid.UUID, days: int
-) -> list[MetricDayRow]:
-    """Return ``pet_id``'s most recent ``days`` rollups, oldest-first.
+def window_start_date(days: int, today: date_type) -> date_type:
+    return today - timedelta(days=max(1, days) - 1)
 
-    Only days that actually have a rollup come back, so a caller can compare how
-    many it got against how many it asked for and caveat the gap.
-    """
+
+async def fetch_metric_window(
+    session: AsyncSession,
+    pet_id: uuid.UUID,
+    days: int,
+    today: date_type | None = None,
+) -> list[MetricDayRow]:
+    window_end = today if today is not None else date_type.today()
     statement = (
         select(*_METRIC_COLUMNS)
-        .where(TractiveDayRollup.pet_id == pet_id)
+        .where(
+            TractiveDayRollup.pet_id == pet_id,
+            TractiveDayRollup.date >= window_start_date(days, window_end),
+            TractiveDayRollup.date <= window_end,
+        )
         .order_by(TractiveDayRollup.date.desc())
         .limit(days)
     )
     rows = list((await session.execute(statement)).all())
     rows.sort(key=lambda row: row.date)
     return [_to_metric_day_row(row) for row in rows]
+
+
+async def fetch_latest_metric_date(session: AsyncSession, pet_id: uuid.UUID) -> date_type | None:
+    statement = (
+        select(TractiveDayRollup.date)
+        .where(TractiveDayRollup.pet_id == pet_id)
+        .order_by(TractiveDayRollup.date.desc())
+        .limit(1)
+    )
+    return (await session.execute(statement)).scalar_one_or_none()
 
 
 async def fetch_metric_on_date(
@@ -232,6 +254,9 @@ class TractivePetDataReader:
 
     async def fetch_on_date(self, day: date_type) -> MetricDayRow | None:
         return await fetch_metric_on_date(self._session, self._pet_id, day)
+
+    async def fetch_latest_date(self) -> date_type | None:
+        return await fetch_latest_metric_date(self._session, self._pet_id)
 
 
 async def fetch_recent_rollups(

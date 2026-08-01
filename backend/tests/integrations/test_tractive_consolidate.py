@@ -23,6 +23,7 @@ from app.integrations.tractive.consolidate import (
     parse_iso,
     record_stats_from_records,
     respiratory_night_day_split,
+    sleep_architecture_by_local_date,
     sleep_architecture_from_activity,
     stats_from_samples,
 )
@@ -715,8 +716,34 @@ def test_build_per_day_skips_outings_without_enough_home_fixes(
     rollups = build_per_day(sample_gdpr_payloads)
     day_one = rollups[0]
     assert day_one.home_latitude is None
-    assert day_one.outings.count == 0
+    assert day_one.outings.count is None
+    assert day_one.outings.total_minutes is None
     assert day_one.outings.entries == []
+
+
+def test_sleep_architecture_is_none_without_an_activity_timeline() -> None:
+    """No timeline means continuity was never derived, which is not a derived zero."""
+    architecture = sleep_architecture_from_activity([])
+    assert architecture.longest_bout_minutes is None
+    assert architecture.bout_count is None
+    assert architecture.fragmentation_index is None
+
+
+def test_fragmentation_ignores_rest_outside_any_retained_bout() -> None:
+    """Adding a nap too short to form a bout must not dilute the index.
+
+    Interruptions are only ever counted inside retained bouts, so dividing by
+    every rest minute in the day would make the index fall as rest got more broken.
+    """
+    broken = [[1200, 6], [300, -1], [1200, 6], [300, -1], [1200, 6]]
+    baseline = sleep_architecture_from_activity([*broken, [82_200, 0]])
+    with_extra_short_nap = sleep_architecture_from_activity(
+        [*broken, [3600, 0], [900, 6], [77_700, 0]]
+    )
+
+    assert baseline.fragmentation_index == 10.0
+    assert with_extra_short_nap.bout_count == baseline.bout_count
+    assert with_extra_short_nap.fragmentation_index == baseline.fragmentation_index
 
 
 def test_sleep_architecture_full_day_of_rest_is_one_bout() -> None:
@@ -814,3 +841,49 @@ def test_sleep_architecture_counts_day_naps_as_rest() -> None:
     architecture = sleep_architecture_from_activity([[3600, 7], [82_800, -1]])
     assert architecture.bout_count == 1
     assert architecture.longest_bout_minutes == 60.0
+
+
+def _activity_day(gmt_time_ms: int, categories: list[list[int | None]]) -> dict[str, object]:
+    return {
+        "gmtTime": gmt_time_ms,
+        "gmtOffset": 0,
+        "activityCategories": categories,
+    }
+
+
+def test_overnight_sleep_is_one_bout_not_split_at_midnight() -> None:
+    """A 22:30-07:00 sleep is one 8h30m stretch, not a 90m and a 420m stretch.
+
+    Detecting bouts inside a single 1440-minute day cuts the main overnight sleep
+    at local midnight, understating the headline every single day.
+    """
+    day_one_ms = 1_715_731_200_000  # 2024-05-15 00:00 UTC, offset 0
+    day_two_ms = day_one_ms + 86_400_000
+    architecture = sleep_architecture_by_local_date(
+        [
+            # awake until 22:30, then rest to midnight
+            _activity_day(day_one_ms, [[81_000, -1], [5_400, 6]]),
+            # rest until 07:00, then awake
+            _activity_day(day_two_ms, [[25_200, 6], [61_200, -1]]),
+        ]
+    )
+
+    day_two = architecture["2024-05-16"]
+    assert day_two.longest_bout_minutes == 510.0
+    assert day_two.bout_count == 1
+    assert architecture["2024-05-15"].bout_count == 0
+
+
+def test_bouts_are_not_stitched_across_a_gap_in_the_export() -> None:
+    """Non-adjacent days are not adjacent in time, so their minutes must not join."""
+    day_one_ms = 1_715_731_200_000
+    three_days_later_ms = day_one_ms + 3 * 86_400_000
+    architecture = sleep_architecture_by_local_date(
+        [
+            _activity_day(day_one_ms, [[81_000, -1], [5_400, 6]]),
+            _activity_day(three_days_later_ms, [[25_200, 6], [61_200, -1]]),
+        ]
+    )
+
+    assert architecture["2024-05-15"].longest_bout_minutes == 90.0
+    assert architecture["2024-05-18"].longest_bout_minutes == 420.0
