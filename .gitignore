@@ -33,3 +33,9 @@ specs/*
 # raw exports — real GPS + biometric data, never commit
 data/*
 !data/README.md
+
+# analysis notes derived from raw exports: same real GPS + biometric data
+explorations/*
+
+# local-only: review findings + recovery notes, names a privacy gap
+REVIEW_AND_RECOVERY.md
