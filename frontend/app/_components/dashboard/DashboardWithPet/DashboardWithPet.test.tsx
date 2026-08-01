@@ -58,6 +58,25 @@ function makePet(overrides: Partial<PetRead> = {}): PetRead {
 
 const USER_ID = "user-uuid";
 
+const recordLevelVitalFields = {
+  heart_rate_record_count: 0,
+  heart_rate_record_mean: null,
+  heart_rate_ci95_half_width: null,
+  respiratory_rate_record_count: 0,
+  respiratory_rate_record_mean: null,
+  respiratory_rate_ci95_half_width: null,
+  respiratory_rate_night_record_count: 0,
+  respiratory_rate_night_record_mean: null,
+  respiratory_rate_day_record_count: 0,
+  respiratory_rate_day_record_mean: null,
+  sleep_longest_bout_minutes: 0,
+  sleep_bout_count: 0,
+  sleep_fragmentation_index: null,
+  outings_count: 0,
+  outings_total_minutes: 0,
+  outings: [],
+};
+
 function twoPets(): PetRead[] {
   return [
     makePet({ id: "pet-1", name: "Luna" }),
@@ -187,6 +206,7 @@ describe("DashboardWithPet", () => {
       hourly_minutes_by_category: {},
       heart_rate_mean: 62,
       respiratory_rate_mean: 17,
+      ...recordLevelVitalFields,
       gps_distance_km: 3.0,
     };
     fetchRollupsMock.mockResolvedValueOnce({ daily: [loadedRollup] });
@@ -257,6 +277,7 @@ describe("DashboardWithPet", () => {
           hourly_minutes_by_category: {},
           heart_rate_mean: 62,
           respiratory_rate_mean: 17,
+          ...recordLevelVitalFields,
           gps_distance_km: 3.0,
         },
       ],

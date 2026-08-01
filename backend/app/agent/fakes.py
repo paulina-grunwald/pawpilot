@@ -21,7 +21,7 @@ from pydantic import PrivateAttr
 
 from app.agent.pet_food import PetFoodProduct
 from app.agent.web_search import WebSearchResult
-from app.integrations.tractive.read_service import DailySleep, SleepSummary
+from app.integrations.tractive.read_service import MetricDayRow
 
 
 class ScriptedChatModel(BaseChatModel):
@@ -80,35 +80,26 @@ class FakeWebSearch:
         return list(self._results)
 
 
-class FakeSleepReader:
-    """Returns preset sleep data, recording the windows and dates it was asked for.
+class FakePetDataReader:
+    """Returns preset metric days, recording the windows and dates it was asked for.
 
-    A network-free stand-in for `TractiveSleepReader` so the sleep tools can be
-    exercised without a database. ``daily`` is the `DailySleep` returned for any
-    date; when omitted, `sleep_on_date` reports the day as having no data.
+    A network-free stand-in for `TractivePetDataReader` so the metric tools can be
+    exercised without a database. Rows are returned oldest-first, like the real
+    reader; `fetch_on_date` picks the row matching the date, or reports no data.
     """
 
-    def __init__(self, summary: SleepSummary, daily: DailySleep | None = None) -> None:
-        self._summary = summary
-        self._daily = daily
+    def __init__(self, rows: list[MetricDayRow] | None = None) -> None:
+        self._rows = rows if rows is not None else []
         self.requested_days: list[int] = []
         self.requested_dates: list[date] = []
 
-    async def summarize_sleep(self, days: int) -> SleepSummary:
+    async def fetch_window(self, days: int) -> list[MetricDayRow]:
         self.requested_days.append(days)
-        return self._summary
+        return list(self._rows[-days:])
 
-    async def sleep_on_date(self, day: date) -> DailySleep:
+    async def fetch_on_date(self, day: date) -> MetricDayRow | None:
         self.requested_dates.append(day)
-        if self._daily is not None:
-            return self._daily
-        return DailySleep(
-            date=day,
-            has_data=False,
-            night_sleep_hours=None,
-            day_sleep_hours=None,
-            total_sleep_hours=None,
-        )
+        return next((row for row in self._rows if row.date == day), None)
 
 
 class FakePetFood:

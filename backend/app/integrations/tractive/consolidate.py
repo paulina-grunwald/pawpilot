@@ -12,8 +12,8 @@ Category mapping — empirically verified against the API's
   * ``-1`` sums match API "active minutes" within rounding → ``active``
   * ``None`` = collar off-body or out of sync (large blocks when charging)
     → ``no_signal``
-  * ``6``  = long contiguous block at start of GMT day (= 03:00 local)
-    → ``night_sleep``
+  * ``6``  = long inactive stretch bundling extended rest; split into
+    ``night_sleep`` / ``day_sleep`` by local hour-of-day (see below)
   * ``7``  = medium segments during midday → ``day_sleep``
   * ``0``, ``1`` = small scattered segments — provisionally ``low_intensity`` /
     ``moderate``; the Tractive UI doesn't expose these as separate buckets.
@@ -24,6 +24,7 @@ from __future__ import annotations
 import bisect
 import json
 import math
+import statistics
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -35,9 +36,14 @@ from pydantic import BaseModel, ValidationError
 
 from app.integrations.tractive.schemas import (
     ActivityMinutes,
+    OutingDetail,
+    OutingSummary,
     PerDayRollup,
     PositionSummary,
+    RespiratoryNightDaySplit,
+    SleepArchitecture,
     TrackerSummary,
+    VitalRecordStats,
     VitalStats,
 )
 
@@ -59,10 +65,8 @@ CATEGORY_LABEL: dict[int | None, str] = {
     # Category 6 is Tractive's "long inactive stretch" bucket. On real-world data
     # it routinely totals 12-18 h/day, which makes it obvious it's not literally
     # night sleep — it bundles all extended rest periods, overnight or not.
-    # We now split it by local hour-of-day: only the slice that falls in
-    # NIGHT_SLEEP_HOURS gets counted as `night_sleep`. Daytime cat-6 minutes are
-    # dropped from the named buckets (raw timeline is still in
-    # tractive_raw_payload.payload if we want them back).
+    # We split it by local hour-of-day: the slice inside NIGHT_SLEEP_HOURS is
+    # counted as `night_sleep`, everything else as `day_sleep`.
     6: "night_sleep",
     # Category 7 totals ~30-130 min/day on real data — empirically that matches
     # an owner's "my dog napped a couple hours in the afternoon" gut check,
@@ -83,6 +87,36 @@ SLEEP_RAW_CATEGORIES = frozenset({6, 7})
 EARTH_RADIUS_KM = 6371.0
 GPS_ACCURACY_METERS_MAX = 100
 GPS_SPEED_KMH_MAX = 50
+
+# Artifact ceilings for record-level vitals. A "resting" burst containing any
+# sample above the ceiling is motion contamination (e.g. a 146 bpm reading
+# taken mid-play), not a resting measurement, and is dropped whole.
+HEART_RATE_ARTIFACT_CEILING_BPM = 100.0
+RESPIRATORY_RATE_ARTIFACT_CEILING = 34.0
+
+CI95_Z_SCORE = 1.96
+
+# Outing detection. Home is derived from the data because the configured
+# geofence can be stale (the real export's fence points at a previous
+# address 3.5 km away). The grid precision of 3 decimal places is roughly a
+# 110 m cell at mid latitudes.
+HOME_CELL_DECIMAL_PLACES = 3
+HOME_MINIMUM_FIXES = 10
+HOME_RADIUS_METERS = 100.0
+OUTING_SPLIT_GAP_MINUTES = 15.0
+OUTING_MINIMUM_MINUTES = 5.0
+OUTING_MINIMUM_FIXES = 2
+
+# Sleep-architecture bout detection over the per-minute rest timeline.
+# A minute counts as rest when at least this fraction of its seconds are in
+# a sleep category; brief arousals up to the gap tolerance stay inside one
+# bout, and bouts shorter than the minimum are treated as fragmented rest
+# rather than a consolidated sleep stretch.
+SLEEP_MINUTE_REST_FRACTION = 0.75
+SLEEP_BOUT_GAP_TOLERANCE_MINUTES = 5
+SLEEP_BOUT_MINIMUM_MINUTES = 20
+MINUTES_PER_DAY = 1440
+SECONDS_PER_MINUTE = 60
 
 
 class GdprExportPayloads(BaseModel):
@@ -242,13 +276,20 @@ def decode_activity_day(
     total_seconds: dict[str, int] = defaultdict(int)
     hourly: dict[int, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
-    cursor = 0  # seconds since start of GMT day
+    # The activity run-length timeline starts at LOCAL midnight, not GMT midnight.
+    # Verified against GPS fixes, whose UTC timestamps are independent of this
+    # encoding: active minutes bucketed by cursor-hour correlate +0.95 with GPS
+    # "away from home" by UTC hour under the local-start alignment, and -0.14 under
+    # a GMT-start alignment (best alignment is local-start on 24/24 days). So the
+    # cursor hour already IS the local hour — adding offset_hours here would shift
+    # every bucket by the offset. offset_hours is still used above for date_str.
+    cursor = 0  # seconds since start of the local day
     for seconds, category in day["activityCategories"]:
         base_label = CATEGORY_LABEL.get(category, f"unknown_{category}")
         remaining = seconds
         while remaining > 0:
             chunk = min(remaining, 3600 - (cursor % 3600))
-            local_hour = int(((cursor // 3600) + offset_hours) % 24)
+            local_hour = int((cursor // 3600) % 24)
             # Both cat 6 and cat 7 are sleep categories. Tractive's app splits
             # them into "night sleep" vs "day sleep" by whether the block lies
             # inside the 20:00..09:59 window — NOT by raw category. We mirror
@@ -277,6 +318,192 @@ def decode_activity_day(
     return date_str, minutes, hourly_minutes
 
 
+def _usable_position_fixes(positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fixes trustworthy enough for geometry: collar-sourced, accurate, located."""
+    usable = []
+    for position in positions:
+        if position.get("sensor_used") == "PHONE":
+            continue
+        accuracy = position.get("hori_accuracy")
+        if accuracy is None or accuracy > GPS_ACCURACY_METERS_MAX:
+            continue
+        latlong = position.get("latlong")
+        if not isinstance(latlong, list) or len(latlong) != 2:
+            continue
+        usable.append(position)
+    return usable
+
+
+def derive_home_center(position_reports: list[dict[str, Any]]) -> tuple[float, float] | None:
+    """Home as the centroid of the densest ~110 m grid cell of usable fixes.
+
+    Returns None when there are too few fixes to call any cell home, in which
+    case outing detection is skipped rather than guessed.
+    """
+    fixes_by_cell: dict[tuple[float, float], list[tuple[float, float]]] = defaultdict(list)
+    for position in _usable_position_fixes(position_reports):
+        latitude, longitude = position["latlong"]
+        cell = (
+            round(latitude, HOME_CELL_DECIMAL_PLACES),
+            round(longitude, HOME_CELL_DECIMAL_PLACES),
+        )
+        fixes_by_cell[cell].append((latitude, longitude))
+    if not fixes_by_cell:
+        return None
+    densest = max(fixes_by_cell.values(), key=len)
+    if len(densest) < HOME_MINIMUM_FIXES:
+        return None
+    return (
+        sum(latitude for latitude, _ in densest) / len(densest),
+        sum(longitude for _, longitude in densest) / len(densest),
+    )
+
+
+def detect_outings(
+    positions: list[dict[str, Any]], home: tuple[float, float]
+) -> list[OutingDetail]:
+    """Outings for one local day: maximal runs of usable fixes beyond the home
+    radius, split when an at-home fix intervenes or the run has a sampling gap
+    of OUTING_SPLIT_GAP_MINUTES or more. Runs shorter than the minimums are
+    discarded as jitter. Fixes are sorted by time here so callers cannot skew
+    run detection with out-of-order input. A walk that truly spans local
+    midnight is bucketed per day upstream and therefore counts as two shorter
+    outings, one on each side of midnight.
+    """
+    ordered_fixes = sorted(_usable_position_fixes(positions), key=lambda fix: fix["time"])
+    away_runs: list[list[tuple[datetime, float]]] = []
+    current_run: list[tuple[datetime, float]] = []
+    for position in ordered_fixes:
+        latitude, longitude = position["latlong"]
+        distance_meters = haversine_km(latitude, longitude, home[0], home[1]) * 1000
+        moment = parse_iso(position["time"])
+        if distance_meters <= HOME_RADIUS_METERS:
+            if current_run:
+                away_runs.append(current_run)
+                current_run = []
+            continue
+        if current_run:
+            gap_minutes = (moment - current_run[-1][0]).total_seconds() / 60
+            if gap_minutes >= OUTING_SPLIT_GAP_MINUTES:
+                away_runs.append(current_run)
+                current_run = []
+        current_run.append((moment, distance_meters))
+    if current_run:
+        away_runs.append(current_run)
+
+    outings = []
+    for run in away_runs:
+        duration_minutes = (run[-1][0] - run[0][0]).total_seconds() / 60
+        if len(run) < OUTING_MINIMUM_FIXES or duration_minutes < OUTING_MINIMUM_MINUTES:
+            continue
+        outings.append(
+            OutingDetail(
+                started_at=run[0][0],
+                ended_at=run[-1][0],
+                duration_minutes=round(duration_minutes, 1),
+                max_distance_meters=round(max(distance for _, distance in run), 0),
+                fix_count=len(run),
+            )
+        )
+    return outings
+
+
+def summarize_outings(outings: list[OutingDetail]) -> OutingSummary:
+    return OutingSummary(
+        count=len(outings),
+        total_minutes=round(sum(outing.duration_minutes for outing in outings), 1),
+        entries=outings,
+    )
+
+
+def _minute_states(activity_categories: list[list[Any]]) -> list[str]:
+    """Collapse the RLE second timeline into per-minute rest/awake/no_signal
+    states, majority-classified per minute.
+    """
+    rest_seconds = [0] * MINUTES_PER_DAY
+    no_signal_seconds = [0] * MINUTES_PER_DAY
+    cursor = 0
+    for seconds, category in activity_categories:
+        remaining = int(seconds)
+        while remaining > 0 and cursor < MINUTES_PER_DAY * SECONDS_PER_MINUTE:
+            minute_index = cursor // SECONDS_PER_MINUTE
+            chunk = min(remaining, SECONDS_PER_MINUTE - (cursor % SECONDS_PER_MINUTE))
+            if category in SLEEP_RAW_CATEGORIES:
+                rest_seconds[minute_index] += chunk
+            elif category is None:
+                no_signal_seconds[minute_index] += chunk
+            cursor += chunk
+            remaining -= chunk
+    states = []
+    for minute_index in range(MINUTES_PER_DAY):
+        if no_signal_seconds[minute_index] > SECONDS_PER_MINUTE / 2:
+            states.append("no_signal")
+        elif rest_seconds[minute_index] >= SECONDS_PER_MINUTE * SLEEP_MINUTE_REST_FRACTION:
+            states.append("rest")
+        else:
+            states.append("awake")
+    return states
+
+
+def _rest_bouts(states: list[str]) -> list[tuple[int, int]]:
+    """Maximal rest bouts as (start, end_exclusive) minute spans, tolerating
+    awake gaps up to the tolerance and keeping only bouts at the minimum
+    length. No-signal minutes end a bout: unclassified time is never scored
+    as sleep.
+    """
+    bouts = []
+    start: int | None = None
+    awake_gap = 0
+    for minute_index, state in enumerate(states):
+        if state == "rest":
+            if start is None:
+                start = minute_index
+            awake_gap = 0
+        elif state == "awake" and start is not None:
+            awake_gap += 1
+            if awake_gap > SLEEP_BOUT_GAP_TOLERANCE_MINUTES:
+                bouts.append((start, minute_index - awake_gap + 1))
+                start = None
+                awake_gap = 0
+        elif state == "no_signal" and start is not None:
+            bouts.append((start, minute_index - awake_gap))
+            start = None
+            awake_gap = 0
+    if start is not None:
+        bouts.append((start, MINUTES_PER_DAY - awake_gap))
+    return [
+        (bout_start, bout_end)
+        for bout_start, bout_end in bouts
+        if bout_end - bout_start >= SLEEP_BOUT_MINIMUM_MINUTES
+    ]
+
+
+def sleep_architecture_from_activity(
+    activity_categories: list[list[Any]],
+) -> SleepArchitecture:
+    """Sleep continuity from the activity RLE: longest consolidated bout,
+    bout count, and a fragmentation index of awake interruptions inside bouts
+    per hour of rest. Descriptive continuity only, never clinical stages.
+    """
+    states = _minute_states(activity_categories)
+    bouts = _rest_bouts(states)
+    rest_minutes = sum(1 for state in states if state == "rest")
+    interruption_minutes = sum(
+        1
+        for bout_start, bout_end in bouts
+        for minute_index in range(bout_start, bout_end)
+        if states[minute_index] == "awake"
+    )
+    rest_hours = rest_minutes / 60
+    return SleepArchitecture(
+        longest_bout_minutes=float(max((end - start for start, end in bouts), default=0)),
+        bout_count=len(bouts),
+        fragmentation_index=round(interruption_minutes / rest_hours, 1)
+        if bouts and rest_hours > 0
+        else None,
+    )
+
+
 def stats_from_samples(samples: list[float]) -> VitalStats:
     if not samples:
         return VitalStats(n_samples=0, mean=None, min=None, max=None, samples=[])
@@ -286,6 +513,79 @@ def stats_from_samples(samples: list[float]) -> VitalStats:
         min=min(samples),
         max=max(samples),
         samples=samples,
+    )
+
+
+def _record_means(records: list[dict[str, Any]], artifact_ceiling: float) -> list[float]:
+    """One mean per accepted record; records with any sample above the ceiling
+    (or with no samples) are dropped whole.
+    """
+    means: list[float] = []
+    for record in records:
+        samples = [float(sample) for sample in record.get("samples", [])]
+        if not samples or max(samples) > artifact_ceiling:
+            continue
+        means.append(sum(samples) / len(samples))
+    return means
+
+
+def _ci95_half_width(record_means: list[float]) -> float | None:
+    if len(record_means) < 2:
+        return None
+    standard_error = statistics.stdev(record_means) / math.sqrt(len(record_means))
+    return round(CI95_Z_SCORE * standard_error, 2)
+
+
+def record_stats_from_records(
+    records: list[dict[str, Any]], artifact_ceiling: float
+) -> VitalRecordStats:
+    """Record-level daily stats: each measurement event counts once, however
+    many samples its burst repeated, and contaminated bursts are rejected.
+    """
+    record_means = _record_means(records, artifact_ceiling)
+    if not record_means:
+        return VitalRecordStats()
+    return VitalRecordStats(
+        record_count=len(record_means),
+        mean=round(statistics.mean(record_means), 1),
+        ci95_half_width=_ci95_half_width(record_means),
+    )
+
+
+def _record_local_hour(record: dict[str, Any]) -> int | None:
+    """Hour of day from a record's local_time, e.g. "12:23:31+03:00".
+
+    Some records carry "HH:MM" without seconds, so the hour is whatever comes
+    before the first colon rather than a fixed two-character slice.
+    """
+    local_time = record.get("local_time")
+    if not isinstance(local_time, str) or not local_time:
+        return None
+    try:
+        hour = int(local_time.split(":", 1)[0])
+    except ValueError:
+        return None
+    return hour if 0 <= hour <= 23 else None
+
+
+def respiratory_night_day_split(records: list[dict[str, Any]]) -> RespiratoryNightDaySplit:
+    """Record-level resting respiratory rate split into the night-sleep window
+    vs daytime, with the same artifact rejection as the daily record stats.
+    """
+    night_records: list[dict[str, Any]] = []
+    day_records: list[dict[str, Any]] = []
+    for record in records:
+        hour = _record_local_hour(record)
+        if hour is None:
+            continue
+        (night_records if hour in NIGHT_SLEEP_HOURS else day_records).append(record)
+    night_means = _record_means(night_records, RESPIRATORY_RATE_ARTIFACT_CEILING)
+    day_means = _record_means(day_records, RESPIRATORY_RATE_ARTIFACT_CEILING)
+    return RespiratoryNightDaySplit(
+        night_record_count=len(night_means),
+        night_mean=round(statistics.mean(night_means), 1) if night_means else None,
+        day_record_count=len(day_means),
+        day_mean=round(statistics.mean(day_means), 1) if day_means else None,
     )
 
 
@@ -318,6 +618,7 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
     ``MalformedTractivePayloadError``.
     """
     offset_selector = offset_selector_from_activity(payloads.activity_data)
+    home_center = derive_home_center(payloads.position_reports)
     positions_by_date = index_by_local_date(payloads.position_reports, "time", offset_selector)
     hardware_by_date = index_by_local_date(payloads.hardware_reports, "time", offset_selector)
     heart_rates_by_date = {
@@ -331,15 +632,13 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
     for day in payloads.activity_data:
         date_str, minutes, hourly = decode_activity_day(day)
 
+        heart_rate_records = heart_rates_by_date.get(date_str, [])
+        respiratory_rate_records = respiratory_rates_by_date.get(date_str, [])
         heart_rate_samples = [
-            sample
-            for record in heart_rates_by_date.get(date_str, [])
-            for sample in record["samples"]
+            sample for record in heart_rate_records for sample in record["samples"]
         ]
         respiratory_rate_samples = [
-            sample
-            for record in respiratory_rates_by_date.get(date_str, [])
-            for sample in record["samples"]
+            sample for record in respiratory_rate_records for sample in record["samples"]
         ]
         positions_today = positions_by_date.get(date_str, [])
         hardware_today = hardware_by_date.get(date_str, [])
@@ -371,6 +670,13 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
                 hourly_minutes_by_category=hourly,
                 resting_heart_rate=stats_from_samples(heart_rate_samples),
                 resting_respiratory_rate=stats_from_samples(respiratory_rate_samples),
+                resting_heart_rate_records=record_stats_from_records(
+                    heart_rate_records, HEART_RATE_ARTIFACT_CEILING_BPM
+                ),
+                resting_respiratory_rate_records=record_stats_from_records(
+                    respiratory_rate_records, RESPIRATORY_RATE_ARTIFACT_CEILING
+                ),
+                respiratory_night_day=respiratory_night_day_split(respiratory_rate_records),
                 positions=PositionSummary(
                     count=len(positions_today),
                     by_sensor=dict(sensor_counts),
@@ -387,6 +693,12 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
                     temperature_max=max(temperatures) if temperatures else None,
                     n_charging_starts=charging_starts,
                 ),
+                sleep_architecture=sleep_architecture_from_activity(day["activityCategories"]),
+                outings=summarize_outings(
+                    detect_outings(positions_today, home_center) if home_center else []
+                ),
+                home_latitude=home_center[0] if home_center else None,
+                home_longitude=home_center[1] if home_center else None,
             )
         )
 

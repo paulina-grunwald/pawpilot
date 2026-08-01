@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.tractive.models import TractiveDayRollup
+from app.integrations.tractive.schemas import OutingDetail
 
 
 class TractiveDailySummary(BaseModel):
@@ -30,6 +31,24 @@ class TractiveDailySummary(BaseModel):
     hourly_minutes_by_category: dict[int, dict[str, float]] = Field(default_factory=dict)
     heart_rate_mean: float | None
     respiratory_rate_mean: float | None
+    heart_rate_record_count: int = 0
+    heart_rate_record_mean: float | None = None
+    heart_rate_ci95_half_width: float | None = None
+    respiratory_rate_record_count: int = 0
+    respiratory_rate_record_mean: float | None = None
+    respiratory_rate_ci95_half_width: float | None = None
+    respiratory_rate_night_record_count: int = 0
+    respiratory_rate_night_record_mean: float | None = None
+    respiratory_rate_day_record_count: int = 0
+    respiratory_rate_day_record_mean: float | None = None
+    # Sleep continuity, never clinical stages.
+    sleep_longest_bout_minutes: float = 0.0
+    sleep_bout_count: int = 0
+    sleep_fragmentation_index: float | None = None
+    # Outing counts are floors: sampling gaps can hide whole outings.
+    outings_count: int = 0
+    outings_total_minutes: float = 0.0
+    outings: list[OutingDetail] = Field(default_factory=list)
     gps_distance_km: float
 
     @field_validator("hourly_minutes_by_category", mode="before")
@@ -57,136 +76,162 @@ class TractiveRollupsResponse(BaseModel):
 _MINUTES_PER_HOUR = 60.0
 
 
-class SleepSummary(BaseModel):
-    """Averaged sleep over a recent window, computed server-side.
-
-    Averages are taken over the days that actually have a rollup, and
-    ``days_with_data`` is reported next to ``days_requested`` so a caller can
-    caveat missing days instead of pretending the window was fully covered. All
-    three averages are None exactly when there is no data in the window.
-    """
-
-    days_requested: int
-    days_with_data: int
-    average_total_sleep_hours: float | None
-    average_night_sleep_hours: float | None
-    average_day_sleep_hours: float | None
-    start_date: date_type | None
-    end_date: date_type | None
-
-
-class DailySleep(BaseModel):
-    """One calendar day's sleep for a dog, or a marker that the day has no rollup.
-
-    ``has_data`` is False exactly when no rollup exists for that date, in which case
-    all three hour figures are None so a caller can say "no data" rather than report
-    a misleading zero.
-    """
-
-    date: date_type
-    has_data: bool
-    night_sleep_hours: float | None
-    day_sleep_hours: float | None
-    total_sleep_hours: float | None
-
-
 def _hours_rounded(minutes: float) -> float:
     """Convert a minute total to hours, rounded to 2dp."""
     return round(minutes / _MINUTES_PER_HOUR, 2)
 
 
-def _mean_hours_rounded(minutes: list[float]) -> float:
-    """Average a list of per-day minute totals and return hours, rounded to 2dp."""
-    return round(sum(minutes) / len(minutes) / _MINUTES_PER_HOUR, 2)
+class MetricDayRow(BaseModel):
+    """One day of a dog's metrics, already converted into the units we report.
+
+    Durations arrive from the rollup in minutes and leave here in hours, and
+    ``total_sleep_hours`` is summed here, so no caller and no language model ever
+    does unit arithmetic. Field names are the contract the metric registry reads by.
+
+    A value of None means the tracker recorded nothing for that metric that day,
+    which is not the same as zero. The vitals are None on plenty of real days:
+    readings taken while the dog was moving get dropped as contaminated.
+    """
+
+    date: date_type
+
+    total_sleep_hours: float
+    night_sleep_hours: float
+    day_sleep_hours: float
+    longest_sleep_bout_hours: float
+    sleep_bout_count: int
+    sleep_fragmentation_index: float | None
+
+    active_hours: float
+    moderate_hours: float
+    low_intensity_hours: float
+    no_signal_hours: float
+
+    resting_heart_rate_bpm: float | None
+    resting_heart_rate_reading_count: int
+    resting_heart_rate_ci95_half_width: float | None
+    resting_respiratory_rate_per_minute: float | None
+    resting_respiratory_rate_reading_count: int
+    resting_respiratory_rate_ci95_half_width: float | None
+    night_resting_respiratory_rate_per_minute: float | None
+    night_resting_respiratory_rate_reading_count: int
+    day_resting_respiratory_rate_per_minute: float | None
+    day_resting_respiratory_rate_reading_count: int
+
+    outings_count: int
+    outings_total_hours: float
+    walking_distance_km: float
 
 
-async def summarize_sleep(session: AsyncSession, pet_id: uuid.UUID, days: int) -> SleepSummary:
-    """Average night, day, and total sleep over ``pet_id``'s most recent ``days`` rollups.
+_METRIC_COLUMNS = (
+    TractiveDayRollup.date,
+    TractiveDayRollup.minutes_night_sleep,
+    TractiveDayRollup.minutes_day_sleep,
+    TractiveDayRollup.minutes_active,
+    TractiveDayRollup.minutes_moderate,
+    TractiveDayRollup.minutes_low_intensity,
+    TractiveDayRollup.minutes_no_signal,
+    TractiveDayRollup.sleep_longest_bout_minutes,
+    TractiveDayRollup.sleep_bout_count,
+    TractiveDayRollup.sleep_fragmentation_index,
+    TractiveDayRollup.heart_rate_record_mean,
+    TractiveDayRollup.heart_rate_record_count,
+    TractiveDayRollup.heart_rate_ci95_half_width,
+    TractiveDayRollup.respiratory_rate_record_mean,
+    TractiveDayRollup.respiratory_rate_record_count,
+    TractiveDayRollup.respiratory_rate_ci95_half_width,
+    TractiveDayRollup.respiratory_rate_night_record_mean,
+    TractiveDayRollup.respiratory_rate_night_record_count,
+    TractiveDayRollup.respiratory_rate_day_record_mean,
+    TractiveDayRollup.respiratory_rate_day_record_count,
+    TractiveDayRollup.outings_count,
+    TractiveDayRollup.outings_total_minutes,
+    TractiveDayRollup.gps_distance_km,
+)
 
-    The average is computed here, not by the caller, so a language model never has
-    to do the arithmetic. Callers bound ``days`` to a sensible window before calling.
+
+def _to_metric_day_row(row: Any) -> MetricDayRow:
+    """Map one selected rollup row into the reported units.
+
+    The vitals read the record-level means rather than the sample-level ones: a
+    measurement burst repeats near-identical values, so averaging samples overstates
+    precision, and bursts contaminated by movement are dropped upstream.
+    """
+    return MetricDayRow(
+        date=row.date,
+        total_sleep_hours=_hours_rounded(row.minutes_night_sleep + row.minutes_day_sleep),
+        night_sleep_hours=_hours_rounded(row.minutes_night_sleep),
+        day_sleep_hours=_hours_rounded(row.minutes_day_sleep),
+        longest_sleep_bout_hours=_hours_rounded(row.sleep_longest_bout_minutes),
+        sleep_bout_count=row.sleep_bout_count,
+        sleep_fragmentation_index=row.sleep_fragmentation_index,
+        active_hours=_hours_rounded(row.minutes_active),
+        moderate_hours=_hours_rounded(row.minutes_moderate),
+        low_intensity_hours=_hours_rounded(row.minutes_low_intensity),
+        no_signal_hours=_hours_rounded(row.minutes_no_signal),
+        resting_heart_rate_bpm=row.heart_rate_record_mean,
+        resting_heart_rate_reading_count=row.heart_rate_record_count,
+        resting_heart_rate_ci95_half_width=row.heart_rate_ci95_half_width,
+        resting_respiratory_rate_per_minute=row.respiratory_rate_record_mean,
+        resting_respiratory_rate_reading_count=row.respiratory_rate_record_count,
+        resting_respiratory_rate_ci95_half_width=row.respiratory_rate_ci95_half_width,
+        night_resting_respiratory_rate_per_minute=row.respiratory_rate_night_record_mean,
+        night_resting_respiratory_rate_reading_count=row.respiratory_rate_night_record_count,
+        day_resting_respiratory_rate_per_minute=row.respiratory_rate_day_record_mean,
+        day_resting_respiratory_rate_reading_count=row.respiratory_rate_day_record_count,
+        outings_count=row.outings_count,
+        outings_total_hours=_hours_rounded(row.outings_total_minutes),
+        walking_distance_km=row.gps_distance_km,
+    )
+
+
+async def fetch_metric_window(
+    session: AsyncSession, pet_id: uuid.UUID, days: int
+) -> list[MetricDayRow]:
+    """Return ``pet_id``'s most recent ``days`` rollups, oldest-first.
+
+    Only days that actually have a rollup come back, so a caller can compare how
+    many it got against how many it asked for and caveat the gap.
     """
     statement = (
-        select(
-            TractiveDayRollup.date,
-            TractiveDayRollup.minutes_night_sleep,
-            TractiveDayRollup.minutes_day_sleep,
-        )
+        select(*_METRIC_COLUMNS)
         .where(TractiveDayRollup.pet_id == pet_id)
         .order_by(TractiveDayRollup.date.desc())
         .limit(days)
     )
     rows = list((await session.execute(statement)).all())
-    if not rows:
-        return SleepSummary(
-            days_requested=days,
-            days_with_data=0,
-            average_total_sleep_hours=None,
-            average_night_sleep_hours=None,
-            average_day_sleep_hours=None,
-            start_date=None,
-            end_date=None,
-        )
-    night_minutes = [row.minutes_night_sleep for row in rows]
-    day_minutes = [row.minutes_day_sleep for row in rows]
-    total_minutes = [night + day for night, day in zip(night_minutes, day_minutes, strict=True)]
-    dates = [row.date for row in rows]
-    return SleepSummary(
-        days_requested=days,
-        days_with_data=len(rows),
-        average_total_sleep_hours=_mean_hours_rounded(total_minutes),
-        average_night_sleep_hours=_mean_hours_rounded(night_minutes),
-        average_day_sleep_hours=_mean_hours_rounded(day_minutes),
-        start_date=min(dates),
-        end_date=max(dates),
+    rows.sort(key=lambda row: row.date)
+    return [_to_metric_day_row(row) for row in rows]
+
+
+async def fetch_metric_on_date(
+    session: AsyncSession, pet_id: uuid.UUID, day: date_type
+) -> MetricDayRow | None:
+    """Return ``pet_id``'s metrics for one calendar day, or None when it has no rollup."""
+    statement = select(*_METRIC_COLUMNS).where(
+        TractiveDayRollup.pet_id == pet_id, TractiveDayRollup.date == day
     )
-
-
-async def sleep_on_date(session: AsyncSession, pet_id: uuid.UUID, day: date_type) -> DailySleep:
-    """Return ``pet_id``'s sleep for one calendar ``day``, or a no-data marker.
-
-    Hours are computed here, not by the caller, so a language model never has to do
-    the arithmetic.
-    """
-    statement = select(
-        TractiveDayRollup.minutes_night_sleep,
-        TractiveDayRollup.minutes_day_sleep,
-    ).where(TractiveDayRollup.pet_id == pet_id, TractiveDayRollup.date == day)
     row = (await session.execute(statement)).first()
-    if row is None:
-        return DailySleep(
-            date=day,
-            has_data=False,
-            night_sleep_hours=None,
-            day_sleep_hours=None,
-            total_sleep_hours=None,
-        )
-    return DailySleep(
-        date=day,
-        has_data=True,
-        night_sleep_hours=_hours_rounded(row.minutes_night_sleep),
-        day_sleep_hours=_hours_rounded(row.minutes_day_sleep),
-        total_sleep_hours=_hours_rounded(row.minutes_night_sleep + row.minutes_day_sleep),
-    )
+    return None if row is None else _to_metric_day_row(row)
 
 
-class TractiveSleepReader:
-    """Per-request, pet-scoped adapter that the agent's sleep tools depend on.
+class TractivePetDataReader:
+    """Per-request, pet-scoped adapter that the agent's metric tools depend on.
 
     Binds the request session and the owner-verified pet, so a tool can choose only
-    the time window or date and never widen its scope to another owner's pet. Built
-    fresh per request, so no session is ever shared across concurrent requests.
+    the metric and the time window, never whose data it reads. Built fresh per
+    request, so no session is ever shared across concurrent requests.
     """
 
     def __init__(self, session: AsyncSession, pet_id: uuid.UUID) -> None:
         self._session = session
         self._pet_id = pet_id
 
-    async def summarize_sleep(self, days: int) -> SleepSummary:
-        return await summarize_sleep(self._session, self._pet_id, days)
+    async def fetch_window(self, days: int) -> list[MetricDayRow]:
+        return await fetch_metric_window(self._session, self._pet_id, days)
 
-    async def sleep_on_date(self, day: date_type) -> DailySleep:
-        return await sleep_on_date(self._session, self._pet_id, day)
+    async def fetch_on_date(self, day: date_type) -> MetricDayRow | None:
+        return await fetch_metric_on_date(self._session, self._pet_id, day)
 
 
 async def fetch_recent_rollups(
@@ -216,6 +261,23 @@ async def fetch_recent_rollups(
                 hourly_minutes_by_category=row.hourly_minutes_by_category,  # type: ignore[arg-type]
                 heart_rate_mean=row.heart_rate_mean,
                 respiratory_rate_mean=row.respiratory_rate_mean,
+                heart_rate_record_count=row.heart_rate_record_count,
+                heart_rate_record_mean=row.heart_rate_record_mean,
+                heart_rate_ci95_half_width=row.heart_rate_ci95_half_width,
+                respiratory_rate_record_count=row.respiratory_rate_record_count,
+                respiratory_rate_record_mean=row.respiratory_rate_record_mean,
+                respiratory_rate_ci95_half_width=row.respiratory_rate_ci95_half_width,
+                respiratory_rate_night_record_count=row.respiratory_rate_night_record_count,
+                respiratory_rate_night_record_mean=row.respiratory_rate_night_record_mean,
+                respiratory_rate_day_record_count=row.respiratory_rate_day_record_count,
+                respiratory_rate_day_record_mean=row.respiratory_rate_day_record_mean,
+                sleep_longest_bout_minutes=row.sleep_longest_bout_minutes,
+                sleep_bout_count=row.sleep_bout_count,
+                sleep_fragmentation_index=row.sleep_fragmentation_index,
+                outings_count=row.outings_count,
+                outings_total_minutes=row.outings_total_minutes,
+                # JSONB hands back dicts; pydantic parses them into OutingDetail.
+                outings=row.outings,  # type: ignore[arg-type]
                 gps_distance_km=row.gps_distance_km,
             )
             for row in rows

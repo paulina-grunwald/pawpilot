@@ -74,11 +74,22 @@ def sample_gdpr_payloads() -> GdprExportPayloads:
     ]
 
     resting_heart_rates: list[dict[str, Any]] = [
-        {"local_date": "2024-05-15", "records": [{"samples": [60.0, 62.0, 64.0]}]},
+        {
+            "local_date": "2024-05-15",
+            "records": [{"local_time": "08:15:00+03:00", "samples": [60.0, 62.0, 64.0]}],
+        },
     ]
 
+    # Two records so record-level stats differ from sample-level ones; the
+    # second uses the no-seconds local_time variant seen in real exports.
     resting_respiratory_rates: list[dict[str, Any]] = [
-        {"local_date": "2024-05-15", "records": [{"samples": [16.0, 18.0]}]},
+        {
+            "local_date": "2024-05-15",
+            "records": [
+                {"local_time": "04:10:00+03:00", "samples": [16.0]},
+                {"local_time": "14:05+03:00", "samples": [18.0]},
+            ],
+        },
     ]
 
     return GdprExportPayloads(

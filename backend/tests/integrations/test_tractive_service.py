@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import User
 from app.integrations.tractive.consolidate import GdprExportPayloads
 from app.integrations.tractive.models import TractiveDayRollup, TractiveRawPayload
+from app.integrations.tractive.read_service import fetch_recent_rollups
 from app.integrations.tractive.schemas import TractivePayloadType, TractiveSource
 from app.integrations.tractive.service import TractiveIngestService
 from app.pets.models import Pet
@@ -138,8 +139,21 @@ async def test_ingest_persists_expected_rollup_columns(
     assert day_one.n_charging_starts == 1
     assert day_one.source == TractiveSource.GDPR_EXPORT.value
     # Hourly bucket keys round-trip as strings through JSONB.
-    assert "3" in day_one.hourly_minutes_by_category
-    assert day_one.hourly_minutes_by_category["3"]["night_sleep"] == 60.0
+    assert "0" in day_one.hourly_minutes_by_category
+    assert day_one.hourly_minutes_by_category["0"]["night_sleep"] == 60.0
+    assert day_one.heart_rate_record_count == 1
+    assert day_one.heart_rate_record_mean == 62.0
+    assert day_one.heart_rate_ci95_half_width is None
+    assert day_one.respiratory_rate_record_count == 2
+    assert day_one.respiratory_rate_record_mean == 17.0
+    assert day_one.respiratory_rate_ci95_half_width == 1.96
+    assert day_one.respiratory_rate_night_record_count == 1
+    assert day_one.respiratory_rate_night_record_mean == 16.0
+    assert day_one.respiratory_rate_day_record_count == 1
+    assert day_one.respiratory_rate_day_record_mean == 18.0
+    assert day_one.sleep_longest_bout_minutes == 60.0
+    assert day_one.sleep_bout_count == 1
+    assert day_one.sleep_fragmentation_index == 0.0
 
 
 async def test_re_ingest_upserts_rollups_and_appends_raw_payloads(
@@ -209,3 +223,62 @@ async def test_ingest_empty_export_stores_raw_payloads_but_no_rollups(
         .where(TractiveRawPayload.pet_id == pet_id)
     )
     assert raw_count == 5
+
+
+async def test_ingest_round_trips_outings_through_the_database(
+    db_session: AsyncSession,
+    pet_id: uuid.UUID,
+) -> None:
+    home_fixes: list[dict[str, object]] = [
+        {
+            "time": f"2024-05-15T06:{minute:02d}:00Z",
+            "latlong": [44.4488, 26.0221],
+            "hori_accuracy": 5,
+            "sensor_used": "GNSS",
+        }
+        for minute in range(12)
+    ]
+    away_fixes: list[dict[str, object]] = [
+        {
+            "time": f"2024-05-15T08:{minute:02d}:00Z",
+            "latlong": [44.4538, 26.0221],
+            "hori_accuracy": 5,
+            "sensor_used": "GNSS",
+        }
+        for minute in (0, 10, 20)
+    ]
+    payloads = GdprExportPayloads(
+        activity_data=[
+            {
+                "gmtTime": 1_715_731_200_000,
+                "gmtOffset": 3 * 3_600_000,
+                "activityCategories": [[86_400, 6]],
+            }
+        ],
+        position_reports=[*home_fixes, *away_fixes],
+        hardware_reports=[],
+        resting_heart_rates=[],
+        resting_respiratory_rates=[],
+    )
+    service = TractiveIngestService(db_session)
+    await service.ingest_gdpr_export(pet_id, payloads)
+
+    response = await fetch_recent_rollups(db_session, pet_id, days=7)
+    day = response.daily[0]
+    assert day.outings_count == 1
+    assert day.outings_total_minutes == 20.0
+    assert len(day.outings) == 1
+    outing = day.outings[0]
+    assert outing.fix_count == 3
+    assert outing.duration_minutes == 20.0
+    assert outing.started_at.isoformat() == "2024-05-15T08:00:00+00:00"
+
+    stored = await db_session.scalar(
+        select(TractiveDayRollup).where(TractiveDayRollup.pet_id == pet_id)
+    )
+    assert stored is not None
+    assert stored.home_latitude is not None
+    assert round(stored.home_latitude, 4) == 44.4488
+    assert stored.home_longitude is not None
+    assert round(stored.home_longitude, 4) == 26.0221
+    assert stored.outings[0]["max_distance_meters"] > 100

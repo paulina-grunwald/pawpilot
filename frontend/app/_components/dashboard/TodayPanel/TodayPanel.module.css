@@ -55,6 +55,17 @@
   color: var(--paper-on-dark-sub);
 }
 
+.coverageNote {
+  margin: 20px 0 0 0;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--paper-on-dark-strong);
+  background: var(--paper-on-dark-track);
+  border: 1px dashed var(--paper-on-dark-faint);
+  border-radius: 10px;
+}
+
 .trends {
   display: grid;
   grid-template-columns: 1fr 1fr;
