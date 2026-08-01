@@ -30,6 +30,9 @@ backend/media/*
 
 specs/*
 
-# raw exports — real GPS + biometric data, never commit
+# raw exports - real GPS + biometric data, never commit
 data/*
 !data/README.md
+
+# analysis notes derived from the raw exports: same real GPS + biometric data
+explorations/*
