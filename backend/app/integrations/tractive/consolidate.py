@@ -82,6 +82,11 @@ CATEGORY_LABEL: dict[int | None, str] = {
 # 24h timeline only depends on whether the sleep block is inside that window.
 # TODO: make this per-pet user-configurable.
 NIGHT_SLEEP_HOURS = frozenset({20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
+
+# Resting vitals use a narrower window than the sleep-UI one above. NIGHT_SLEEP_HOURS
+# spans 14 h to match Tractive's timeline colouring and takes in the 08:00 activity
+# peak, so averaging "night resting" over it folds in post-walk readings.
+NIGHT_RESTING_VITALS_HOURS = frozenset({22, 23, 0, 1, 2, 3, 4, 5})
 SLEEP_RAW_CATEGORIES = frozenset({6, 7})
 
 EARTH_RADIUS_KM = 6371.0
@@ -90,8 +95,11 @@ GPS_SPEED_KMH_MAX = 50
 
 # Artifact ceilings for record-level vitals. A "resting" burst containing any
 # sample above the ceiling is motion contamination (e.g. a 146 bpm reading
-# taken mid-play), not a resting measurement, and is dropped whole.
-HEART_RATE_ARTIFACT_CEILING_BPM = 100.0
+# taken mid-play), not a resting measurement, and is dropped whole. The heart
+# rate ceiling is the top of the resting range the dashboard itself calls normal
+# (VITAL_RANGES.restingHeartRateBpm): below that a reading may well be a small or
+# young dog at rest, and discarding it drops every record such a dog produces.
+HEART_RATE_ARTIFACT_CEILING_BPM = 130.0
 RESPIRATORY_RATE_ARTIFACT_CEILING = 34.0
 
 CI95_Z_SCORE = 1.96
@@ -102,6 +110,10 @@ CI95_Z_SCORE = 1.96
 # 110 m cell at mid latitudes.
 HOME_CELL_DECIMAL_PLACES = 3
 HOME_MINIMUM_FIXES = 10
+# Home is re-derived per day over a centred window of surrounding days, so an
+# export spanning a house move tracks the move instead of calling every fix at
+# the new address an outing from the old one.
+HOME_WINDOW_DAYS = 7
 HOME_RADIUS_METERS = 100.0
 OUTING_SPLIT_GAP_MINUTES = 15.0
 OUTING_MINIMUM_MINUTES = 5.0
@@ -179,13 +191,7 @@ def compute_distance_km(positions: list[dict[str, Any]]) -> tuple[float, int, in
     (almost always a bad GPS fix — dogs don't run that fast); drop points
     with horizontal accuracy worse than 100 m.
     """
-    points = [
-        position
-        for position in positions
-        if position.get("sensor_used") != "PHONE"
-        and position.get("latlong")
-        and (position.get("hori_accuracy") or 999) <= GPS_ACCURACY_METERS_MAX
-    ]
+    points = _usable_position_fixes(positions)
     points.sort(key=lambda position: position["time"])
 
     total_km = 0.0
@@ -358,6 +364,25 @@ def derive_home_center(position_reports: list[dict[str, Any]]) -> tuple[float, f
         sum(latitude for latitude, _ in densest) / len(densest),
         sum(longitude for _, longitude in densest) / len(densest),
     )
+
+
+def home_center_by_local_date(
+    positions_by_date: dict[str, list[dict[str, Any]]],
+) -> dict[str, tuple[float, float] | None]:
+    """Home per local date, derived from a centred window of nearby days."""
+    dates = sorted(positions_by_date)
+    ordinals = [date.fromisoformat(date_str).toordinal() for date_str in dates]
+    centers: dict[str, tuple[float, float] | None] = {}
+    for index, date_str in enumerate(dates):
+        low = bisect.bisect_left(ordinals, ordinals[index] - HOME_WINDOW_DAYS)
+        high = bisect.bisect_right(ordinals, ordinals[index] + HOME_WINDOW_DAYS)
+        window = [
+            position
+            for neighbour in range(low, high)
+            for position in positions_by_date[dates[neighbour]]
+        ]
+        centers[date_str] = derive_home_center(window)
+    return centers
 
 
 def detect_outings(
@@ -626,7 +651,7 @@ def respiratory_night_day_split(records: list[dict[str, Any]]) -> RespiratoryNig
         hour = _record_local_hour(record)
         if hour is None:
             continue
-        (night_records if hour in NIGHT_SLEEP_HOURS else day_records).append(record)
+        (night_records if hour in NIGHT_RESTING_VITALS_HOURS else day_records).append(record)
     night_means = _record_means(night_records, RESPIRATORY_RATE_ARTIFACT_CEILING)
     day_means = _record_means(day_records, RESPIRATORY_RATE_ARTIFACT_CEILING)
     return RespiratoryNightDaySplit(
@@ -667,8 +692,8 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
     """
     offset_selector = offset_selector_from_activity(payloads.activity_data)
     architecture_by_date = sleep_architecture_by_local_date(payloads.activity_data)
-    home_center = derive_home_center(payloads.position_reports)
     positions_by_date = index_by_local_date(payloads.position_reports, "time", offset_selector)
+    home_by_date = home_center_by_local_date(positions_by_date)
     hardware_by_date = index_by_local_date(payloads.hardware_reports, "time", offset_selector)
     heart_rates_by_date = {
         entry["local_date"]: entry["records"] for entry in payloads.resting_heart_rates
@@ -690,6 +715,7 @@ def _consolidate_payloads(payloads: GdprExportPayloads) -> list[PerDayRollup]:
             sample for record in respiratory_rate_records for sample in record["samples"]
         ]
         positions_today = positions_by_date.get(date_str, [])
+        home_center = home_by_date.get(date_str)
         hardware_today = hardware_by_date.get(date_str, [])
 
         battery = [

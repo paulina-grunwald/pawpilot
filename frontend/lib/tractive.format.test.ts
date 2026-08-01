@@ -101,8 +101,8 @@ describe("toTodayPanelData", () => {
         minutes_low_intensity: 200,
         minutes_night_sleep: 400,
         minutes_day_sleep: 80,
-        heart_rate_mean: 62,
-        respiratory_rate_mean: 17,
+        heart_rate_record_mean: 62,
+        respiratory_rate_record_mean: 17,
         gps_distance_km: 3.4,
       }),
     ]);
@@ -139,7 +139,7 @@ describe("toTodayPanelData", () => {
 
   it("shows em-dash for missing vitals", () => {
     const result = toTodayPanelData([
-      makeRollup({ heart_rate_mean: null, respiratory_rate_mean: null }),
+      makeRollup({ heart_rate_record_mean: null, respiratory_rate_record_mean: null }),
     ]);
     expect(result?.metrics.find((metric) => metric.label === "Resting HR")?.value).toBe("—");
     expect(result?.metrics.find((metric) => metric.label === "Respiratory")?.value).toBe("—");
@@ -147,7 +147,7 @@ describe("toTodayPanelData", () => {
 
   it("rounds vitals to nearest integer", () => {
     const result = toTodayPanelData([
-      makeRollup({ heart_rate_mean: 62.6, respiratory_rate_mean: 18.4 }),
+      makeRollup({ heart_rate_record_mean: 62.6, respiratory_rate_record_mean: 18.4 }),
     ]);
     expect(result?.metrics.find((metric) => metric.label === "Resting HR")?.value).toBe("63");
     expect(result?.metrics.find((metric) => metric.label === "Respiratory")?.value).toBe("18");
@@ -206,26 +206,26 @@ describe("toTodayPanelData", () => {
 
   it("reports 'All vitals normal' when HR and RR are inside generic safe ranges", () => {
     const result = toTodayPanelData([
-      makeRollup({ heart_rate_mean: 70, respiratory_rate_mean: 20 }),
+      makeRollup({ heart_rate_record_mean: 70, respiratory_rate_record_mean: 20 }),
     ]);
     expect(result?.vitalsStatus).toEqual({ label: "All vitals normal", tone: "positive" });
   });
 
   it("flags caution when any vital is outside generic safe ranges", () => {
     const lowHr = toTodayPanelData([
-      makeRollup({ heart_rate_mean: 30, respiratory_rate_mean: 20 }),
+      makeRollup({ heart_rate_record_mean: 30, respiratory_rate_record_mean: 20 }),
     ]);
     expect(lowHr?.vitalsStatus).toEqual({ label: "Vitals out of range", tone: "caution" });
 
     const highRr = toTodayPanelData([
-      makeRollup({ heart_rate_mean: 70, respiratory_rate_mean: 90 }),
+      makeRollup({ heart_rate_record_mean: 70, respiratory_rate_record_mean: 90 }),
     ]);
     expect(highRr?.vitalsStatus).toEqual({ label: "Vitals out of range", tone: "caution" });
   });
 
   it("reports 'No vitals yet' when neither HR nor RR is measured", () => {
     const result = toTodayPanelData([
-      makeRollup({ heart_rate_mean: null, respiratory_rate_mean: null }),
+      makeRollup({ heart_rate_record_mean: null, respiratory_rate_record_mean: null }),
     ]);
     expect(result?.vitalsStatus).toEqual({ label: "No vitals yet", tone: "neutral" });
   });
@@ -325,12 +325,33 @@ describe("toOutingsCardData", () => {
 
 describe("toLatestDayEyebrow", () => {
   it("names the day the figures come from, not the calendar date", () => {
-    expect(toLatestDayEyebrow("2024-07-15", "Sat, Aug 1")).toBe(
-      "Latest tracker day — Mon, Jul 15",
-    );
+    expect(toLatestDayEyebrow("2024-07-15", "Sat, Aug 1")).toBe("Latest tracker day — Mon, Jul 15");
   });
 
   it("falls back to the calendar date when there is no tracker data", () => {
     expect(toLatestDayEyebrow(undefined, "Sat, Aug 1")).toBe("Today — Sat, Aug 1");
+  });
+});
+
+describe("activity goal is independent of the plotted range", () => {
+  function daysWithActive(count: number, minutes: number) {
+    return Array.from({ length: count }, (_unused, index) =>
+      makeRollup({
+        date: `2024-05-${String(index + 1).padStart(2, "0")}`,
+        minutes_active: minutes,
+        minutes_night_sleep: 400,
+      }),
+    );
+  }
+
+  it("uses the supplied baseline rather than the days on screen", () => {
+    const plotted = daysWithActive(7, 300);
+    const baseline = daysWithActive(28, 120);
+
+    const narrow = toTodayPanelData(plotted, baseline);
+    const wide = toTodayPanelData(daysWithActive(90, 300), baseline);
+
+    expect(narrow?.activityGoal).toBe(120);
+    expect(wide?.activityGoal).toBe(120);
   });
 });
