@@ -355,3 +355,20 @@ describe("activity goal is independent of the plotted range", () => {
     expect(wide?.activityGoal).toBe(120);
   });
 });
+
+describe("goal baseline is a fixed window, not the fetched array", () => {
+  it("ignores days beyond the baseline window", () => {
+    const recent = Array.from({ length: 28 }, (_unused, index) =>
+      makeRollup({ date: `2024-06-${String(index + 1).padStart(2, "0")}`, minutes_active: 100 }),
+    );
+    const older = Array.from({ length: 60 }, (_unused, index) =>
+      makeRollup({ date: `2024-04-${String(index + 1).padStart(2, "0")}`, minutes_active: 400 }),
+    );
+
+    const fixedWindow = toTodayPanelData(recent, recent);
+    const wholeFetchedArray = toTodayPanelData(recent, [...older, ...recent]);
+
+    expect(fixedWindow?.activityGoal).toBe(100);
+    expect(wholeFetchedArray?.activityGoal).not.toBe(100);
+  });
+});

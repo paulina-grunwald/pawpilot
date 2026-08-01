@@ -88,7 +88,8 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
   }
 
   const plotted = rollups ? rollups.slice(-rangeDays) : null;
-  const todayData = plotted ? toTodayPanelData(plotted, rollups ?? undefined) : undefined;
+  const goalBaseline = rollups ? rollups.slice(-GOAL_BASELINE_DAYS) : undefined;
+  const todayData = plotted ? toTodayPanelData(plotted, goalBaseline) : undefined;
   const sleepSplitBars = plotted ? toSleepSplitBars(plotted) : [];
   const intradayMatrix = plotted ? toIntradayActivityMatrix(plotted) : undefined;
   const vitalsTrends = plotted ? toVitalsTrends(plotted) : undefined;
