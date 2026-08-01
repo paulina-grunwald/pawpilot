@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { DAILY_ACTIVE_TARGET_MINUTES, toSleepSplitBars, toTodayPanelData } from "./tractive.format";
+import {
+  DAILY_ACTIVE_TARGET_MINUTES,
+  computePersonalActivityGoal,
+  toOutingsCardData,
+  toSleepQualityData,
+  toLatestDayEyebrow,
+  toSleepSplitBars,
+  toTodayPanelData,
+} from "./tractive.format";
 import type { TractiveDailySummary } from "./tractive";
 
 function makeRollup(overrides: Partial<TractiveDailySummary>): TractiveDailySummary {
@@ -93,8 +101,8 @@ describe("toTodayPanelData", () => {
         minutes_low_intensity: 200,
         minutes_night_sleep: 400,
         minutes_day_sleep: 80,
-        heart_rate_mean: 62,
-        respiratory_rate_mean: 17,
+        heart_rate_record_mean: 62,
+        respiratory_rate_record_mean: 17,
         gps_distance_km: 3.4,
       }),
     ]);
@@ -131,7 +139,7 @@ describe("toTodayPanelData", () => {
 
   it("shows em-dash for missing vitals", () => {
     const result = toTodayPanelData([
-      makeRollup({ heart_rate_mean: null, respiratory_rate_mean: null }),
+      makeRollup({ heart_rate_record_mean: null, respiratory_rate_record_mean: null }),
     ]);
     expect(result?.metrics.find((metric) => metric.label === "Resting HR")?.value).toBe("—");
     expect(result?.metrics.find((metric) => metric.label === "Respiratory")?.value).toBe("—");
@@ -139,7 +147,7 @@ describe("toTodayPanelData", () => {
 
   it("rounds vitals to nearest integer", () => {
     const result = toTodayPanelData([
-      makeRollup({ heart_rate_mean: 62.6, respiratory_rate_mean: 18.4 }),
+      makeRollup({ heart_rate_record_mean: 62.6, respiratory_rate_record_mean: 18.4 }),
     ]);
     expect(result?.metrics.find((metric) => metric.label === "Resting HR")?.value).toBe("63");
     expect(result?.metrics.find((metric) => metric.label === "Respiratory")?.value).toBe("18");
@@ -198,26 +206,26 @@ describe("toTodayPanelData", () => {
 
   it("reports 'All vitals normal' when HR and RR are inside generic safe ranges", () => {
     const result = toTodayPanelData([
-      makeRollup({ heart_rate_mean: 70, respiratory_rate_mean: 20 }),
+      makeRollup({ heart_rate_record_mean: 70, respiratory_rate_record_mean: 20 }),
     ]);
     expect(result?.vitalsStatus).toEqual({ label: "All vitals normal", tone: "positive" });
   });
 
   it("flags caution when any vital is outside generic safe ranges", () => {
     const lowHr = toTodayPanelData([
-      makeRollup({ heart_rate_mean: 30, respiratory_rate_mean: 20 }),
+      makeRollup({ heart_rate_record_mean: 30, respiratory_rate_record_mean: 20 }),
     ]);
     expect(lowHr?.vitalsStatus).toEqual({ label: "Vitals out of range", tone: "caution" });
 
     const highRr = toTodayPanelData([
-      makeRollup({ heart_rate_mean: 70, respiratory_rate_mean: 90 }),
+      makeRollup({ heart_rate_record_mean: 70, respiratory_rate_record_mean: 90 }),
     ]);
     expect(highRr?.vitalsStatus).toEqual({ label: "Vitals out of range", tone: "caution" });
   });
 
   it("reports 'No vitals yet' when neither HR nor RR is measured", () => {
     const result = toTodayPanelData([
-      makeRollup({ heart_rate_mean: null, respiratory_rate_mean: null }),
+      makeRollup({ heart_rate_record_mean: null, respiratory_rate_record_mean: null }),
     ]);
     expect(result?.vitalsStatus).toEqual({ label: "No vitals yet", tone: "neutral" });
   });
@@ -255,5 +263,112 @@ describe("toSleepSplitBars", () => {
       nightMinutes: 500,
       dayMinutes: 60,
     });
+  });
+});
+
+describe("computePersonalActivityGoal", () => {
+  it("falls back to the generic target when the median is zero", () => {
+    const cratRestDays = Array.from({ length: 6 }, (_unused, index) =>
+      makeRollup({ date: `2024-05-0${index + 1}`, minutes_active: 0 }),
+    );
+
+    expect(computePersonalActivityGoal(cratRestDays)).toBe(DAILY_ACTIVE_TARGET_MINUTES);
+  });
+
+  it("uses the personal median once there is enough clean history", () => {
+    const days = Array.from({ length: 6 }, (_unused, index) =>
+      makeRollup({ date: `2024-05-0${index + 1}`, minutes_active: 90 }),
+    );
+
+    expect(computePersonalActivityGoal(days)).toBe(90);
+  });
+});
+
+describe("toSleepQualityData", () => {
+  it("omits days where continuity was never derived rather than plotting them as zero", () => {
+    const result = toSleepQualityData([
+      makeRollup({ date: "2024-05-14", sleep_longest_bout_minutes: 300, sleep_bout_count: 4 }),
+      makeRollup({
+        date: "2024-05-15",
+        sleep_longest_bout_minutes: null,
+        sleep_bout_count: null,
+      }),
+    ]);
+
+    expect(result?.values).toEqual([300]);
+    expect(result?.unmeasuredDayCount).toBe(1);
+    expect(result?.latestLongestBoutMinutes).toBe(300);
+    expect(result?.averageBoutCount).toBe(4);
+  });
+
+  it("returns undefined when no day has a derived bout", () => {
+    const result = toSleepQualityData([
+      makeRollup({ date: "2024-05-15", sleep_longest_bout_minutes: null }),
+    ]);
+
+    expect(result).toBeUndefined();
+  });
+});
+
+describe("toOutingsCardData", () => {
+  it("excludes underived days from the range average", () => {
+    const result = toOutingsCardData([
+      makeRollup({ date: "2024-05-14", outings_count: 3 }),
+      makeRollup({ date: "2024-05-15", outings_count: null }),
+      makeRollup({ date: "2024-05-16", outings_count: 1 }),
+    ]);
+
+    expect(result?.daysInRange).toBe(2);
+    expect(result?.rangeDailyAverage).toBe(2);
+  });
+});
+
+describe("toLatestDayEyebrow", () => {
+  it("names the day the figures come from, not the calendar date", () => {
+    expect(toLatestDayEyebrow("2024-07-15", "Sat, Aug 1")).toBe("Latest tracker day — Mon, Jul 15");
+  });
+
+  it("falls back to the calendar date when there is no tracker data", () => {
+    expect(toLatestDayEyebrow(undefined, "Sat, Aug 1")).toBe("Today — Sat, Aug 1");
+  });
+});
+
+describe("activity goal is independent of the plotted range", () => {
+  function daysWithActive(count: number, minutes: number) {
+    return Array.from({ length: count }, (_unused, index) =>
+      makeRollup({
+        date: `2024-05-${String(index + 1).padStart(2, "0")}`,
+        minutes_active: minutes,
+        minutes_night_sleep: 400,
+      }),
+    );
+  }
+
+  it("uses the supplied baseline rather than the days on screen", () => {
+    const plotted = daysWithActive(7, 300);
+    const baseline = daysWithActive(28, 120);
+
+    const narrow = toTodayPanelData(plotted, baseline);
+    const wide = toTodayPanelData(daysWithActive(90, 300), baseline);
+
+    expect(narrow?.activityGoal).toBe(120);
+    expect(wide?.activityGoal).toBe(120);
+  });
+});
+
+describe("goal baseline is a fixed window, not the fetched array", () => {
+  it("ignores days beyond the baseline window", () => {
+    const recent = Array.from({ length: 28 }, (_unused, index) =>
+      makeRollup({ date: `2024-06-${String(index + 1).padStart(2, "0")}`, minutes_active: 100 }),
+    );
+    const older = Array.from({ length: 60 }, (_unused, index) =>
+      makeRollup({ date: `2024-04-${String(index + 1).padStart(2, "0")}`, minutes_active: 400 }),
+    );
+
+    const fixedWindow = toTodayPanelData(recent, recent);
+    const wholeFetchedArray = toTodayPanelData(recent, [...older, ...recent]);
+
+    expect(fixedWindow?.activityGoal).toBe(100);
+    expect(wholeFetchedArray?.activityGoal).not.toBe(100);
   });
 });

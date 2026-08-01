@@ -96,22 +96,14 @@ class TractiveDayRollup(Base):
 
     # Sleep continuity from the activity timeline: consolidated bouts, never
     # clinical stages. Fragmentation is awake interruptions per hour of rest.
-    sleep_longest_bout_minutes: Mapped[float] = mapped_column(
-        Float, nullable=False, default=0.0, server_default="0"
-    )
-    sleep_bout_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    sleep_longest_bout_minutes: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sleep_bout_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sleep_fragmentation_index: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Outings derived from GPS against a data-derived home (the configured
     # geofence can be stale). Counts are a floor, not an exact tally.
-    outings_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
-    outings_total_minutes: Mapped[float] = mapped_column(
-        Float, nullable=False, default=0.0, server_default="0"
-    )
+    outings_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    outings_total_minutes: Mapped[float | None] = mapped_column(Float, nullable=True)
     outings: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     home_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     home_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)

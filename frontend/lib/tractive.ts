@@ -105,15 +105,15 @@ export type TractiveDailySummary = {
    * Sleep continuity from the activity timeline: consolidated rest bouts,
    * never clinical sleep stages.
    */
-  sleep_longest_bout_minutes: number;
-  sleep_bout_count: number;
+  sleep_longest_bout_minutes: number | null;
+  sleep_bout_count: number | null;
   sleep_fragmentation_index: number | null;
   /**
    * GPS-detected outings against a data-derived home. Counts and durations
    * are floors: sampling gaps and collar-off time can hide whole outings.
    */
-  outings_count: number;
-  outings_total_minutes: number;
+  outings_count: number | null;
+  outings_total_minutes: number | null;
   outings: TractiveOuting[];
   gps_distance_km: number;
 };

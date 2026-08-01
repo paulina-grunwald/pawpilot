@@ -12,6 +12,7 @@ function makeData(overrides: Partial<SleepQualityData> = {}): SleepQualityData {
     averageBoutCount: 7.7,
     averageFragmentationIndex: 9.8,
     lowCoverageDayCount: 0,
+    unmeasuredDayCount: 0,
     ...overrides,
   };
 }

@@ -1,3 +1,4 @@
+import { toLatestDayEyebrow } from "@/lib/tractive.format";
 import { Chip } from "../../pets/Chip";
 import { ActivityRing } from "../ActivityRing";
 import { LineChart } from "../LineChart";
@@ -19,6 +20,7 @@ export type VitalsStatus = {
 };
 
 export type TodayPanelData = {
+  latestDate?: string;
   activityPercent: number;
   activityLabel: string;
   activitySublabel: string;
@@ -69,6 +71,7 @@ export function TodayPanel({
   const activityPercent = data?.activityPercent ?? 0;
   const activityLabel = data?.activityLabel ?? "—";
   const activitySublabel = data?.activitySublabel ?? "awaiting Tractive";
+  const eyebrowText = toLatestDayEyebrow(data?.latestDate, todayLabel);
   const headingText = isPlaceholder
     ? `Connect Tractive to see ${petName}'s day`
     : `${petName}’s on track`;
@@ -78,7 +81,7 @@ export function TodayPanel({
       <section aria-label="Today's stats" className={styles.hero}>
         <div className={styles.heroHeader}>
           <div>
-            <p className={styles.heroEyebrow}>Today — {todayLabel}</p>
+            <p className={styles.heroEyebrow}>{eyebrowText}</p>
             <h2 className={`${styles.heroHeading} display`}>{headingText}</h2>
           </div>
           <Chip variant="dark">

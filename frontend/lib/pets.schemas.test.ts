@@ -126,3 +126,41 @@ describe("petReadToFormInput", () => {
     expect(formInput.weightKg).toBe(22.5);
   });
 });
+
+describe("birthday bounds are timezone-safe", () => {
+  function isoLocalToday(): string {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${now.getFullYear()}-${month}-${day}`;
+  }
+
+  it("accepts a puppy born today", () => {
+    const result = petFormSchema.safeParse({
+      name: "Luna",
+      birthday: isoLocalToday(),
+      sex: "female",
+      spayedNeutered: false,
+      weightKg: 3,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("still rejects tomorrow", () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
+    const day = String(tomorrow.getDate()).padStart(2, "0");
+
+    const result = petFormSchema.safeParse({
+      name: "Luna",
+      birthday: `${tomorrow.getFullYear()}-${month}-${day}`,
+      sex: "female",
+      spayedNeutered: false,
+      weightKg: 3,
+    });
+
+    expect(result.success).toBe(false);
+  });
+});

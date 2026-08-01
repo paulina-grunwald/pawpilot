@@ -19,10 +19,12 @@ from app.integrations.tractive.consolidate import (
     derive_home_center,
     detect_outings,
     haversine_km,
+    home_center_by_local_date,
     load_gdpr_export,
     parse_iso,
     record_stats_from_records,
     respiratory_night_day_split,
+    sleep_architecture_by_local_date,
     sleep_architecture_from_activity,
     stats_from_samples,
 )
@@ -224,14 +226,25 @@ def test_record_stats_single_burst_counts_once() -> None:
 
 
 def test_record_stats_drops_contaminated_bursts_whole() -> None:
-    # The [60, 125] burst contains a sample above the ceiling, so the entire
-    # record is rejected, including its in-range sample.
     stats = record_stats_from_records(
-        [{"samples": [60.0, 125.0]}, {"samples": [64.0]}],
+        [{"samples": [60.0, 146.0]}, {"samples": [64.0]}],
         HEART_RATE_ARTIFACT_CEILING_BPM,
     )
     assert stats.record_count == 1
     assert stats.mean == 64.0
+
+
+def test_heart_rate_ceiling_keeps_a_small_dog_at_rest() -> None:
+    """A 110-120 bpm resting burst is normal for a small dog, not motion artifact.
+
+    VITAL_RANGES calls 50-130 normal, so a ceiling inside that band silently
+    discards every record such a dog produces.
+    """
+    stats = record_stats_from_records(
+        [{"samples": [112.0, 118.0]}], HEART_RATE_ARTIFACT_CEILING_BPM
+    )
+    assert stats.record_count == 1
+    assert stats.mean == 115.0
 
 
 def test_record_stats_keeps_bursts_at_exactly_the_ceiling() -> None:
@@ -264,16 +277,26 @@ def test_respiratory_split_buckets_by_night_window() -> None:
     split = respiratory_night_day_split(
         [
             {"local_time": "04:10:00+03:00", "samples": [14.0]},
-            {"local_time": "09:59:00+03:00", "samples": [16.0]},
+            {"local_time": "23:30:00+03:00", "samples": [16.0]},
             {"local_time": "10:00:00+03:00", "samples": [22.0]},
-            {"local_time": "20:01:00+03:00", "samples": [18.0]},
+            {"local_time": "08:30:00+03:00", "samples": [26.0]},
         ]
     )
-    # Hours 4, 9, and 20 are inside the 20:00-09:59 night window; hour 10 is not.
-    assert split.night_record_count == 3
-    assert split.night_mean == 16.0
+    assert split.night_record_count == 2
+    assert split.night_mean == 15.0
+    assert split.day_record_count == 2
+    assert split.day_mean == 24.0
+
+
+def test_respiratory_night_window_excludes_the_morning_activity_peak() -> None:
+    """08:00 is the peak active hour, so a post-walk reading is not resting-at-night.
+
+    The 14-hour NIGHT_SLEEP_HOURS window exists to match Tractive's timeline
+    colouring and takes in that peak.
+    """
+    split = respiratory_night_day_split([{"local_time": "08:30:00+03:00", "samples": [28.0]}])
+    assert split.night_record_count == 0
     assert split.day_record_count == 1
-    assert split.day_mean == 22.0
 
 
 def test_respiratory_split_parses_no_seconds_local_time() -> None:
@@ -283,7 +306,7 @@ def test_respiratory_split_parses_no_seconds_local_time() -> None:
 
 
 def test_respiratory_split_parses_single_digit_hour() -> None:
-    split = respiratory_night_day_split([{"local_time": "9:15:00+03:00", "samples": [15.0]}])
+    split = respiratory_night_day_split([{"local_time": "4:15:00+03:00", "samples": [15.0]}])
     assert split.night_record_count == 1
     assert split.night_mean == 15.0
 
@@ -715,8 +738,34 @@ def test_build_per_day_skips_outings_without_enough_home_fixes(
     rollups = build_per_day(sample_gdpr_payloads)
     day_one = rollups[0]
     assert day_one.home_latitude is None
-    assert day_one.outings.count == 0
+    assert day_one.outings.count is None
+    assert day_one.outings.total_minutes is None
     assert day_one.outings.entries == []
+
+
+def test_sleep_architecture_is_none_without_an_activity_timeline() -> None:
+    """No timeline means continuity was never derived, which is not a derived zero."""
+    architecture = sleep_architecture_from_activity([])
+    assert architecture.longest_bout_minutes is None
+    assert architecture.bout_count is None
+    assert architecture.fragmentation_index is None
+
+
+def test_fragmentation_ignores_rest_outside_any_retained_bout() -> None:
+    """Adding a nap too short to form a bout must not dilute the index.
+
+    Interruptions are only ever counted inside retained bouts, so dividing by
+    every rest minute in the day would make the index fall as rest got more broken.
+    """
+    broken = [[1200, 6], [300, -1], [1200, 6], [300, -1], [1200, 6]]
+    baseline = sleep_architecture_from_activity([*broken, [82_200, 0]])
+    with_extra_short_nap = sleep_architecture_from_activity(
+        [*broken, [3600, 0], [900, 6], [77_700, 0]]
+    )
+
+    assert baseline.fragmentation_index == 10.0
+    assert with_extra_short_nap.bout_count == baseline.bout_count
+    assert with_extra_short_nap.fragmentation_index == baseline.fragmentation_index
 
 
 def test_sleep_architecture_full_day_of_rest_is_one_bout() -> None:
@@ -814,3 +863,81 @@ def test_sleep_architecture_counts_day_naps_as_rest() -> None:
     architecture = sleep_architecture_from_activity([[3600, 7], [82_800, -1]])
     assert architecture.bout_count == 1
     assert architecture.longest_bout_minutes == 60.0
+
+
+def _activity_day(gmt_time_ms: int, categories: list[list[int | None]]) -> dict[str, object]:
+    return {
+        "gmtTime": gmt_time_ms,
+        "gmtOffset": 0,
+        "activityCategories": categories,
+    }
+
+
+def test_overnight_sleep_is_one_bout_not_split_at_midnight() -> None:
+    """A 22:30-07:00 sleep is one 8h30m stretch, not a 90m and a 420m stretch.
+
+    Detecting bouts inside a single 1440-minute day cuts the main overnight sleep
+    at local midnight, understating the headline every single day.
+    """
+    day_one_ms = 1_715_731_200_000  # 2024-05-15 00:00 UTC, offset 0
+    day_two_ms = day_one_ms + 86_400_000
+    architecture = sleep_architecture_by_local_date(
+        [
+            # awake until 22:30, then rest to midnight
+            _activity_day(day_one_ms, [[81_000, -1], [5_400, 6]]),
+            # rest until 07:00, then awake
+            _activity_day(day_two_ms, [[25_200, 6], [61_200, -1]]),
+        ]
+    )
+
+    day_two = architecture["2024-05-16"]
+    assert day_two.longest_bout_minutes == 510.0
+    assert day_two.bout_count == 1
+    assert architecture["2024-05-15"].bout_count == 0
+
+
+def test_bouts_are_not_stitched_across_a_gap_in_the_export() -> None:
+    """Non-adjacent days are not adjacent in time, so their minutes must not join."""
+    day_one_ms = 1_715_731_200_000
+    three_days_later_ms = day_one_ms + 3 * 86_400_000
+    architecture = sleep_architecture_by_local_date(
+        [
+            _activity_day(day_one_ms, [[81_000, -1], [5_400, 6]]),
+            _activity_day(three_days_later_ms, [[25_200, 6], [61_200, -1]]),
+        ]
+    )
+
+    assert architecture["2024-05-15"].longest_bout_minutes == 90.0
+    assert architecture["2024-05-18"].longest_bout_minutes == 420.0
+
+
+def _fix_at(date_str: str, latitude: float, longitude: float, index: int) -> dict[str, object]:
+    return {
+        "time": f"{date_str}T{index // 60:02d}:{index % 60:02d}:00Z",
+        "latlong": [latitude, longitude],
+        "hori_accuracy": 5,
+        "sensor_used": "GPS",
+    }
+
+
+def test_home_follows_a_relocation_within_the_export() -> None:
+    """A single home for the whole batch calls every fix at the new address 'away'."""
+    old_home = (44.100, 26.100)
+    new_home = (44.500, 26.500)
+    positions_by_date: dict[str, list[dict[str, object]]] = {}
+    for day in range(1, 11):
+        positions_by_date[f"2024-05-{day:02d}"] = [
+            _fix_at(f"2024-05-{day:02d}", *old_home, index) for index in range(20)
+        ]
+    for day in range(20, 31):
+        positions_by_date[f"2024-05-{day:02d}"] = [
+            _fix_at(f"2024-05-{day:02d}", *new_home, index) for index in range(20)
+        ]
+
+    centers = home_center_by_local_date(positions_by_date)
+
+    early = centers["2024-05-05"]
+    late = centers["2024-05-25"]
+    assert early is not None and late is not None
+    assert round(early[0], 2) == 44.10
+    assert round(late[0], 2) == 44.50

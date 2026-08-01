@@ -14,6 +14,7 @@ import {
   toSleepSplitBars,
   toTodayPanelData,
   toVitalsTrends,
+  GOAL_BASELINE_DAYS,
 } from "@/lib/tractive.format";
 import { fetchPetWeightSeries, type WeightSeriesPoint } from "@/lib/weight";
 import { PetPicker } from "../../pets/PetPicker";
@@ -52,7 +53,7 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
 
   useEffect(() => {
     let cancelled = false;
-    fetchTractiveRollups(activePet.id, rangeDays)
+    fetchTractiveRollups(activePet.id, Math.max(rangeDays, GOAL_BASELINE_DAYS))
       .then((response) => {
         if (!cancelled) setRollups(response.daily);
       })
@@ -86,12 +87,14 @@ export function DashboardWithPet({ pets, activePetId, userId, todayLabel }: Dash
     router.push(`/dashboard/${petId}`);
   }
 
-  const todayData = rollups ? toTodayPanelData(rollups) : undefined;
-  const sleepSplitBars = rollups ? toSleepSplitBars(rollups) : [];
-  const intradayMatrix = rollups ? toIntradayActivityMatrix(rollups) : undefined;
-  const vitalsTrends = rollups ? toVitalsTrends(rollups) : undefined;
-  const outingsData = rollups ? toOutingsCardData(rollups) : undefined;
-  const sleepQuality = rollups ? toSleepQualityData(rollups) : undefined;
+  const plotted = rollups ? rollups.slice(-rangeDays) : null;
+  const goalBaseline = rollups ? rollups.slice(-GOAL_BASELINE_DAYS) : undefined;
+  const todayData = plotted ? toTodayPanelData(plotted, goalBaseline) : undefined;
+  const sleepSplitBars = plotted ? toSleepSplitBars(plotted) : [];
+  const intradayMatrix = plotted ? toIntradayActivityMatrix(plotted) : undefined;
+  const vitalsTrends = plotted ? toVitalsTrends(plotted) : undefined;
+  const outingsData = plotted ? toOutingsCardData(plotted) : undefined;
+  const sleepQuality = plotted ? toSleepQualityData(plotted) : undefined;
   const pickerOptions = pets.map((pet) => ({
     id: pet.id,
     name: pet.name,

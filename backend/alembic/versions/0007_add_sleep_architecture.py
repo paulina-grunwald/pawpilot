@@ -23,19 +23,8 @@ _TABLE = "tractive_day_rollup"
 
 
 def upgrade() -> None:
-    op.add_column(
-        _TABLE,
-        sa.Column(
-            "sleep_longest_bout_minutes",
-            sa.Float(),
-            nullable=False,
-            server_default=sa.text("0"),
-        ),
-    )
-    op.add_column(
-        _TABLE,
-        sa.Column("sleep_bout_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
-    )
+    op.add_column(_TABLE, sa.Column("sleep_longest_bout_minutes", sa.Float(), nullable=True))
+    op.add_column(_TABLE, sa.Column("sleep_bout_count", sa.Integer(), nullable=True))
     op.add_column(_TABLE, sa.Column("sleep_fragmentation_index", sa.Float(), nullable=True))
 
 

@@ -74,7 +74,7 @@ async def test_window_converts_minutes_to_hours_and_sums_total_sleep(
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
     await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 420.0, 120.0)])
 
-    rows = await fetch_metric_window(db_session, pet_id, days=7)
+    rows = await fetch_metric_window(db_session, pet_id, days=7, today=date(2024, 5, 22))
 
     assert len(rows) == 1
     assert rows[0].night_sleep_hours == 7.0
@@ -98,7 +98,7 @@ async def test_window_returns_days_oldest_first(
         ],
     )
 
-    rows = await fetch_metric_window(db_session, pet_id, days=7)
+    rows = await fetch_metric_window(db_session, pet_id, days=7, today=date(2024, 5, 16))
 
     assert [row.date for row in rows] == [
         date(2024, 5, 14),
@@ -123,7 +123,7 @@ async def test_window_limits_to_the_most_recent_days(
         ],
     )
 
-    rows = await fetch_metric_window(db_session, pet_id, days=2)
+    rows = await fetch_metric_window(db_session, pet_id, days=2, today=date(2024, 5, 16))
 
     assert [row.date for row in rows] == [date(2024, 5, 15), date(2024, 5, 16)]
 
@@ -136,7 +136,7 @@ async def test_window_rounds_hours_to_two_decimals(
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
     await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 100.0, 0.0)])
 
-    rows = await fetch_metric_window(db_session, pet_id, days=7)
+    rows = await fetch_metric_window(db_session, pet_id, days=7, today=date(2024, 5, 22))
 
     assert rows[0].night_sleep_hours == 1.67
     assert rows[0].total_sleep_hours == 1.67
@@ -204,24 +204,68 @@ async def test_on_date_ignores_other_pets(
     assert await fetch_metric_on_date(db_session, pet_id, date(2024, 5, 22)) is None
 
 
-async def test_defaults_are_zero_not_null_for_the_new_rollup_columns(
+async def test_underived_columns_read_as_none_not_zero(
     authenticated_client: AsyncClient,
     db_session: AsyncSession,
     valid_pet_payload: Callable[..., dict[str, object]],
 ) -> None:
-    """A rollup written before the sleep/outing columns existed still reads cleanly."""
+    """A rollup written before the sleep/outing columns existed reads as unmeasured.
+
+    Reporting these as 0 would let the agent state "0 outings" and "all 7 days had
+    data" for a column that was never populated.
+    """
     pet_id = await _create_pet(authenticated_client, valid_pet_payload)
     await _insert_rollups(db_session, pet_id, [(date(2024, 5, 22), 420.0, 120.0)])
 
     row = await fetch_metric_on_date(db_session, pet_id, date(2024, 5, 22))
 
     assert row is not None
-    assert row.sleep_bout_count == 0
-    assert row.outings_count == 0
-    assert row.outings_total_hours == 0.0
-    assert row.walking_distance_km == 0.0
+    assert row.sleep_bout_count is None
+    assert row.longest_sleep_bout_hours is None
+    assert row.outings_count is None
+    assert row.outings_total_hours is None
     assert row.sleep_fragmentation_index is None
     assert row.resting_heart_rate_bpm is None
+    assert row.walking_distance_km == 0.0
+
+
+async def test_window_excludes_rollups_older_than_the_requested_days(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    """A stale export must not be reported as the last N days.
+
+    Limiting by row count returns the newest rollups however old they are, so a
+    dog whose export ended months ago would have that data narrated as this week's.
+    """
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(
+        db_session,
+        pet_id,
+        [
+            (date(2024, 2, 1), 400.0, 60.0),
+            (date(2024, 5, 20), 420.0, 120.0),
+            (date(2024, 5, 22), 430.0, 110.0),
+        ],
+    )
+
+    rows = await fetch_metric_window(db_session, pet_id, days=7, today=date(2024, 5, 22))
+
+    assert [row.date for row in rows] == [date(2024, 5, 20), date(2024, 5, 22)]
+
+
+async def test_window_is_empty_when_every_rollup_predates_the_window(
+    authenticated_client: AsyncClient,
+    db_session: AsyncSession,
+    valid_pet_payload: Callable[..., dict[str, object]],
+) -> None:
+    pet_id = await _create_pet(authenticated_client, valid_pet_payload)
+    await _insert_rollups(db_session, pet_id, [(date(2024, 2, 1), 400.0, 60.0)])
+
+    rows = await fetch_metric_window(db_session, pet_id, days=7, today=date(2024, 5, 22))
+
+    assert rows == []
 
 
 # --------------------------------------------------------------------------- #

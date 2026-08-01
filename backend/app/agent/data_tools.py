@@ -30,6 +30,7 @@ from app.agent.metric_registry import (
     MetricSpec,
     metric_spec,
     render_metric_value,
+    render_window_average,
 )
 from app.integrations.tractive.read_service import MetricDayRow
 
@@ -71,6 +72,8 @@ class PetDataReader(Protocol):
     async def fetch_window(self, days: int) -> list[MetricDayRow]: ...
 
     async def fetch_on_date(self, day: date_type) -> MetricDayRow | None: ...
+
+    async def fetch_latest_date(self) -> date_type | None: ...
 
 
 class MetricSample(BaseModel):
@@ -143,13 +146,18 @@ def _coverage_note(days_with_data: int, days_requested: int) -> str:
     return f"only {days_with_data} of the {days_requested} days had data"
 
 
-def render_average(samples: list[MetricSample], spec: MetricSpec, days_requested: int) -> str:
+def render_average(
+    samples: list[MetricSample],
+    spec: MetricSpec,
+    days_requested: int,
+    latest_date: date_type | None = None,
+) -> str:
     """Average a metric over the window and say what the average rests on."""
     if not samples:
-        return _no_data_over_window(spec, days_requested)
+        return _no_data_over_window(spec, days_requested, latest_date)
     average = sum(sample.value for sample in samples) / len(samples)
     return (
-        f"Average {spec.label}: {render_metric_value(average, spec.unit)}/day over the "
+        f"Average {spec.label}: {render_window_average(average, spec.unit)} over the "
         f"last {days_requested} days ({_coverage_note(len(samples), days_requested)}, "
         f"{samples[0].date} to {samples[-1].date}).\n"
         f"{spec.description}"
@@ -168,10 +176,15 @@ def render_on_date(sample: MetricSample | None, spec: MetricSpec, day: date_type
     )
 
 
-def render_daily_series(samples: list[MetricSample], spec: MetricSpec, days_requested: int) -> str:
+def render_daily_series(
+    samples: list[MetricSample],
+    spec: MetricSpec,
+    days_requested: int,
+    latest_date: date_type | None = None,
+) -> str:
     """List a metric day by day, so the model can spot a trend without inventing one."""
     if not samples:
-        return _no_data_over_window(spec, days_requested)
+        return _no_data_over_window(spec, days_requested, latest_date)
     lines = [
         f"- {sample.date}: {render_metric_value(sample.value, spec.unit)}" for sample in samples
     ]
@@ -183,11 +196,16 @@ def render_daily_series(samples: list[MetricSample], spec: MetricSpec, days_requ
 
 
 def render_extreme(
-    samples: list[MetricSample], spec: MetricSpec, days_requested: int, *, highest: bool
+    samples: list[MetricSample],
+    spec: MetricSpec,
+    days_requested: int,
+    *,
+    highest: bool,
+    latest_date: date_type | None = None,
 ) -> str:
     """Render the highest or lowest day for a metric, naming the date."""
     if not samples:
-        return _no_data_over_window(spec, days_requested)
+        return _no_data_over_window(spec, days_requested, latest_date)
     chosen = (
         max(samples, key=lambda sample: sample.value)
         if highest
@@ -203,14 +221,24 @@ def render_extreme(
     )
 
 
-def _no_data_over_window(spec: MetricSpec, days_requested: int) -> str:
-    return f"No {spec.label} is recorded for this dog in the last {days_requested} days."
+def _no_data_over_window(
+    spec: MetricSpec, days_requested: int, latest_date: date_type | None = None
+) -> str:
+    message = f"No {spec.label} is recorded for this dog in the last {days_requested} days."
+    if latest_date is not None:
+        message += f" The most recent tracker data for this dog is from {latest_date}."
+    return message
 
 
-def render_snapshot(rows: list[MetricDayRow], days_requested: int) -> str:
+def render_snapshot(
+    rows: list[MetricDayRow], days_requested: int, latest_date: date_type | None = None
+) -> str:
     """Average every metric over the window, one line each."""
     if not rows:
-        return f"No tracker data is recorded for this dog in the last {days_requested} days."
+        message = f"No tracker data is recorded for this dog in the last {days_requested} days."
+        if latest_date is not None:
+            message += f" The most recent tracker data for this dog is from {latest_date}."
+        return message
     lines: list[str] = []
     for spec in METRIC_SPECS.values():
         samples = collect_samples(rows, spec)
@@ -258,22 +286,25 @@ def build_pet_data_tools(reader: PetDataReader, invoked_tools: list[str]) -> lis
 
         window = clamp_days(days)
         samples = collect_samples(await reader.fetch_window(window), spec)
+        latest_date = None if samples else await reader.fetch_latest_date()
         match aggregation:
             case MetricAggregation.AVERAGE:
-                return render_average(samples, spec, window)
+                return render_average(samples, spec, window, latest_date)
             case MetricAggregation.DAILY_SERIES:
-                return render_daily_series(samples, spec, window)
+                return render_daily_series(samples, spec, window, latest_date)
             case MetricAggregation.HIGHEST_DAY:
-                return render_extreme(samples, spec, window, highest=True)
+                return render_extreme(samples, spec, window, highest=True, latest_date=latest_date)
             case MetricAggregation.LOWEST_DAY:
-                return render_extreme(samples, spec, window, highest=False)
+                return render_extreme(samples, spec, window, highest=False, latest_date=latest_date)
             case MetricAggregation.ON_DATE:  # pragma: no cover - handled above
                 raise AssertionError("on_date is handled before the window is fetched")
 
     async def get_dog_health_snapshot(days: int = DEFAULT_WINDOW_DAYS) -> str:
         invoked_tools.append(SNAPSHOT_TOOL_NAME)
         window = clamp_days(days)
-        return render_snapshot(await reader.fetch_window(window), window)
+        rows = await reader.fetch_window(window)
+        latest_date = None if rows else await reader.fetch_latest_date()
+        return render_snapshot(rows, window, latest_date)
 
     return [
         StructuredTool.from_function(
