@@ -191,7 +191,26 @@ describe("DashboardWithPet", () => {
 
     await user.click(screen.getByRole("button", { name: "30d" }));
 
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 30));
+  });
+
+  it("widens a narrow range up to the goal baseline, and never narrows a wide one", async () => {
+    const user = userEvent.setup();
+    render(
+      <DashboardWithPet
+        pets={[makePet()]}
+        activePetId="pet-1"
+        userId={USER_ID}
+        todayLabel="Sat, May 23"
+      />,
+    );
+
     await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", GOAL_BASELINE_DAYS));
+
+    await user.click(screen.getByRole("button", { name: "90d" }));
+
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 90));
+    expect(fetchRollupsMock).not.toHaveBeenCalledWith("pet-1", 7);
   });
 
   it("keeps the loaded banner visible while a range switch is refetching", async () => {
@@ -212,7 +231,7 @@ describe("DashboardWithPet", () => {
     };
     fetchRollupsMock.mockResolvedValueOnce({ daily: [loadedRollup] });
     // Leave the range-switch fetch pending so we observe the in-flight state.
-    let resolvePending: (value: { daily: typeof loadedRollup[] }) => void = () => {};
+    let resolvePending: (value: { daily: (typeof loadedRollup)[] }) => void = () => {};
     fetchRollupsMock.mockReturnValueOnce(
       new Promise((resolve) => {
         resolvePending = resolve;
@@ -230,7 +249,7 @@ describe("DashboardWithPet", () => {
     await waitFor(() => expect(screen.getAllByText(/1h 30m/i).length).toBeGreaterThan(0));
 
     await user.click(screen.getByRole("button", { name: "30d" }));
-    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", GOAL_BASELINE_DAYS));
+    await waitFor(() => expect(fetchRollupsMock).toHaveBeenCalledWith("pet-1", 30));
 
     // The banner must not flash back to its "not connected" placeholder while
     // the new range is still loading.
