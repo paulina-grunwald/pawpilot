@@ -1,6 +1,6 @@
 import { getApiBaseUrl } from "./auth";
 
-export type CitationKind = "corpus" | "web";
+export type CitationKind = "corpus" | "web" | "food" | "reference";
 
 export type Citation = {
   ref: string;

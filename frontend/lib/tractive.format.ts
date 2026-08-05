@@ -14,7 +14,7 @@ export const DAILY_ACTIVE_TARGET_MINUTES = 140;
 // TODO: replace with breed/age/size-aware norms (see specs/006-tractive-integration.md
 // follow-ups + the planned breed_norms table). For now we use generic adult-dog
 // safe ranges so the chip is at least directionally honest.
-export const VITAL_RANGES = {
+const VITAL_RANGES = {
   restingHeartRateBpm: { low: 50, high: 130 },
   restingRespiratoryRpm: { low: 8, high: 40 },
 } as const;

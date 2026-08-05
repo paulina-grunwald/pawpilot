@@ -18,8 +18,10 @@ from app.agent.citations import CitationRegistry
 from app.agent.fakes import FakePetFood, FakeWebSearch
 from app.agent.pet_food import PetFoodProduct
 from app.agent.tools import (
+    _NO_BREED_NORM_MATCH,
     _NO_CORPUS_RESULTS,
     _NO_PET_FOOD_RESULTS,
+    _NO_TOXICITY_MATCH,
     _NO_WEB_RESULTS,
     build_agent_tools,
 )
@@ -104,6 +106,16 @@ def get_pet_food_tool(tools: list[BaseTool]) -> BaseTool:
     return next(tool for tool in tools if tool.name == "lookup_pet_food")
 
 
+def get_toxicity_tool(tools: list[BaseTool]) -> BaseTool:
+    """The ``lookup_toxic_substance`` tool from a built set."""
+    return next(tool for tool in tools if tool.name == "lookup_toxic_substance")
+
+
+def get_breed_norms_tool(tools: list[BaseTool]) -> BaseTool:
+    """The ``lookup_breed_norms`` tool from a built set."""
+    return next(tool for tool in tools if tool.name == "lookup_breed_norms")
+
+
 def invoke_tool(tool: BaseTool, query: str) -> str:
     """Invoke a tool with a single ``query`` argument and assert it returns text."""
     result = tool.invoke({"query": query})
@@ -116,9 +128,9 @@ def invoke_tool(tool: BaseTool, query: str) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def test_build_agent_tools_returns_three_tools() -> None:
+def test_build_agent_tools_returns_five_tools() -> None:
     tools, _registry, _invoked_tools = build_tools()
-    assert len(tools) == 3
+    assert len(tools) == 5
     assert all(isinstance(tool, BaseTool) for tool in tools)
 
 
@@ -128,6 +140,8 @@ def test_build_agent_tools_returns_expected_tool_names() -> None:
         "retrieve_vet_corpus",
         "web_search",
         "lookup_pet_food",
+        "lookup_toxic_substance",
+        "lookup_breed_norms",
     ]
 
 
@@ -418,3 +432,94 @@ def test_all_tools_register_independent_id_series() -> None:
     assert "[F1]" in food_result
     resolved = registry.resolve(["S1", "W1", "F1"])
     assert [citation.kind for citation in resolved] == ["corpus", "web", "food"]
+
+
+# --------------------------------------------------------------------------- #
+# lookup_toxic_substance
+# --------------------------------------------------------------------------- #
+
+
+def test_lookup_toxic_substance_returns_numbered_reference() -> None:
+    tools, _registry, _invoked_tools = build_tools()
+    result = get_toxicity_tool(tools).invoke({"name": "chocolate"})
+    assert "[R1]" in result
+    assert "chocolate" in result.lower()
+    assert "Severity:" in result
+
+
+def test_lookup_toxic_substance_matches_alias_case_insensitively() -> None:
+    tools, _registry, _invoked_tools = build_tools()
+    by_alias = get_toxicity_tool(tools).invoke({"name": "  ThEoBrOmInE  "})
+    assert "[R1]" in by_alias
+    assert "chocolate" in by_alias.lower()
+
+
+def test_lookup_toxic_substance_registers_a_resolvable_citation() -> None:
+    tools, registry, _invoked_tools = build_tools()
+    get_toxicity_tool(tools).invoke({"name": "xylitol"})
+    resolved = registry.resolve(["R1"])
+    assert [citation.kind for citation in resolved] == ["reference"]
+    assert resolved[0].url
+
+
+def test_lookup_toxic_substance_unknown_says_unlisted_is_not_safe() -> None:
+    tools, registry, _invoked_tools = build_tools()
+    result = get_toxicity_tool(tools).invoke({"name": "definitely-not-a-substance"})
+    assert result == _NO_TOXICITY_MATCH
+    assert registry.resolve(["R1"]) == []
+
+
+def test_lookup_toxic_substance_records_its_name_when_invoked() -> None:
+    tools, _registry, invoked_tools = build_tools()
+    get_toxicity_tool(tools).invoke({"name": "grapes"})
+    assert invoked_tools == ["lookup_toxic_substance"]
+
+
+# --------------------------------------------------------------------------- #
+# lookup_breed_norms
+# --------------------------------------------------------------------------- #
+
+
+def test_lookup_breed_norms_returns_numbered_reference_for_known_breed() -> None:
+    tools, _registry, _invoked_tools = build_tools()
+    result = get_breed_norms_tool(tools).invoke({"breed": "Border Collie"})
+    assert "[R1]" in result
+    assert "Resting heart rate:" in result
+    assert "Considered senior from:" in result
+
+
+def test_lookup_breed_norms_falls_back_to_size_category_from_weight() -> None:
+    tools, _registry, _invoked_tools = build_tools()
+    result = get_breed_norms_tool(tools).invoke({"breed": "", "weight_grams": 3000})
+    assert "[R1]" in result
+    assert "toy" in result
+
+
+def test_lookup_breed_norms_prefers_breed_over_weight() -> None:
+    tools, _registry, _invoked_tools = build_tools()
+    result = get_breed_norms_tool(tools).invoke(
+        {"breed": "Chihuahua", "weight_grams": 40000},
+    )
+    assert "Chihuahua" in result
+
+
+def test_lookup_breed_norms_unknown_breed_without_weight_reports_no_match() -> None:
+    tools, registry, _invoked_tools = build_tools()
+    result = get_breed_norms_tool(tools).invoke({"breed": "Nonexistent Hound"})
+    assert result == _NO_BREED_NORM_MATCH
+    assert registry.resolve(["R1"]) == []
+
+
+def test_lookup_breed_norms_records_its_name_when_invoked() -> None:
+    tools, _registry, invoked_tools = build_tools()
+    get_breed_norms_tool(tools).invoke({"breed": "Labrador Retriever"})
+    assert invoked_tools == ["lookup_breed_norms"]
+
+
+def test_reference_ids_increment_across_both_lookup_tools() -> None:
+    tools, registry, _invoked_tools = build_tools()
+    first = get_toxicity_tool(tools).invoke({"name": "chocolate"})
+    second = get_breed_norms_tool(tools).invoke({"breed": "Border Collie"})
+    assert "[R1]" in first
+    assert "[R2]" in second
+    assert [citation.ref for citation in registry.resolve(["R1", "R2"])] == ["R1", "R2"]

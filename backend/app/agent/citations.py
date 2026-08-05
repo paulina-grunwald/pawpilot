@@ -12,12 +12,28 @@ from __future__ import annotations
 
 import re
 
+from pydantic import BaseModel, ConfigDict
+
 from app.agent.pet_food import PetFoodProduct
 from app.agent.schemas import Citation
 from app.agent.web_search import WebSearchResult
 from app.rag.schemas import RetrievedChunk
 
-_REFERENCE_PATTERN = re.compile(r"\[([SWF]\d+)\]")
+_REFERENCE_PATTERN = re.compile(r"\[([SWFR]\d+)\]")
+
+
+class ReferenceEntry(BaseModel):
+    """One exact-match reference row, ready to cite.
+
+    Keeps the registry independent of the lookup tables it renders: a tool
+    converts its own row into this shape before registering it.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    title: str
+    url: str
+    body: str
 
 
 def extract_referenced_ids(text: str) -> list[str]:
@@ -35,8 +51,8 @@ class CitationRegistry:
 
     Ids continue across multiple tool calls in the same run (``S1``, ``S2``, …
     for the corpus; ``W1``, ``W2``, … for the web; ``F1``, ``F2``, … for pet
-    food), so every referenced id is unambiguous no matter how many times a tool
-    ran.
+    food; ``R1``, ``R2``, … for the exact-match reference tables), so every
+    referenced id is unambiguous no matter how many times a tool ran.
     """
 
     def __init__(self) -> None:
@@ -44,6 +60,7 @@ class CitationRegistry:
         self._corpus_count = 0
         self._web_count = 0
         self._food_count = 0
+        self._reference_count = 0
         self._retrieved_contexts: list[str] = []
 
     def register_corpus_chunks(self, chunks: list[RetrievedChunk]) -> str:
@@ -96,6 +113,22 @@ class CitationRegistry:
             body = product.describe()
             passages.append(f"[{ref}] {product.display_title} ({product.url})\n{body}")
             self._retrieved_contexts.append(body)
+        return "\n\n".join(passages)
+
+    def register_reference_entries(self, entries: list[ReferenceEntry]) -> str:
+        """Assign ``[R#]`` ids to exact-match rows and return them as passages."""
+        passages: list[str] = []
+        for entry in entries:
+            self._reference_count += 1
+            ref = f"R{self._reference_count}"
+            self._citations[ref] = Citation(
+                ref=ref,
+                kind="reference",
+                title=entry.title,
+                url=entry.url,
+            )
+            passages.append(f"[{ref}] {entry.title} ({entry.url})\n{entry.body}")
+            self._retrieved_contexts.append(entry.body)
         return "\n\n".join(passages)
 
     def resolve(self, referenced_ids: list[str]) -> list[Citation]:

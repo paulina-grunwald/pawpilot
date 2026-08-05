@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.rag.schemas import SourceTier
 
-CitationKind = Literal["corpus", "web", "food"]
+CitationKind = Literal["corpus", "web", "food", "reference"]
 
 
 class AgentAskRequest(BaseModel):

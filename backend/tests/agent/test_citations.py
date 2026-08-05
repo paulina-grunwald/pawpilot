@@ -8,7 +8,7 @@ resolution of referenced ids back to `Citation` objects.
 
 from __future__ import annotations
 
-from app.agent.citations import CitationRegistry, extract_referenced_ids
+from app.agent.citations import CitationRegistry, ReferenceEntry, extract_referenced_ids
 from app.agent.schemas import Citation
 from tests.agent.conftest import make_chunk, make_pet_food_product, make_web_result
 
@@ -353,3 +353,71 @@ def test_corpus_web_and_food_counters_are_independent() -> None:
     resolved = registry.resolve(["S1", "W1", "F1"])
     assert [citation.ref for citation in resolved] == ["S1", "W1", "F1"]
     assert [citation.kind for citation in resolved] == ["corpus", "web", "food"]
+
+
+# --------------------------------------------------------------------------- #
+# CitationRegistry.register_reference_entries
+# --------------------------------------------------------------------------- #
+
+
+def make_reference_entry(title: str = "Chocolate (food, severe)") -> ReferenceEntry:
+    """A reference entry standing in for one exact-match lookup row."""
+    return ReferenceEntry(
+        title=title,
+        url="https://example.org/toxic/chocolate",
+        body="Chocolate is toxic to dogs.\n- Severity: severe",
+    )
+
+
+def test_extract_finds_single_reference_id() -> None:
+    assert extract_referenced_ids("Chocolate is toxic [R1].") == ["R1"]
+
+
+def test_extract_finds_reference_ids_alongside_every_other_kind() -> None:
+    text = "See [S1], [W1], [F1] and [R1]."
+    assert extract_referenced_ids(text) == ["S1", "W1", "F1", "R1"]
+
+
+def test_register_reference_entries_returns_numbered_passage() -> None:
+    registry = CitationRegistry()
+    passage = registry.register_reference_entries([make_reference_entry()])
+    assert passage.startswith("[R1] Chocolate (food, severe)")
+    assert "Severity: severe" in passage
+
+
+def test_register_reference_entries_resolves_to_a_reference_citation() -> None:
+    registry = CitationRegistry()
+    registry.register_reference_entries([make_reference_entry()])
+    citations = registry.resolve(["R1"])
+    assert len(citations) == 1
+    assert citations[0].ref == "R1"
+    assert citations[0].kind == "reference"
+    assert citations[0].url == "https://example.org/toxic/chocolate"
+
+
+def test_register_reference_entries_numbers_multiple_entries() -> None:
+    registry = CitationRegistry()
+    passage = registry.register_reference_entries(
+        [make_reference_entry(), make_reference_entry(title="Xylitol (food, emergency)")]
+    )
+    assert "[R1]" in passage
+    assert "[R2]" in passage
+
+
+def test_register_reference_entries_continues_ids_across_calls() -> None:
+    registry = CitationRegistry()
+    first = registry.register_reference_entries([make_reference_entry()])
+    second = registry.register_reference_entries([make_reference_entry()])
+    assert "[R1]" in first
+    assert "[R2]" in second
+
+
+def test_register_reference_entries_accumulates_retrieved_contexts() -> None:
+    registry = CitationRegistry()
+    registry.register_reference_entries([make_reference_entry()])
+    assert registry.retrieved_contexts == ["Chocolate is toxic to dogs.\n- Severity: severe"]
+
+
+def test_register_reference_entries_with_no_entries_returns_empty_string() -> None:
+    registry = CitationRegistry()
+    assert registry.register_reference_entries([]) == ""

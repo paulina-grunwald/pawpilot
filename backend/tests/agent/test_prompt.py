@@ -67,6 +67,22 @@ def test_system_prompt_mentions_both_tools() -> None:
     assert "web_search" in SYSTEM_PROMPT
 
 
+def test_system_prompt_mentions_the_exact_match_lookup_tools() -> None:
+    assert "lookup_toxic_substance" in SYSTEM_PROMPT
+    assert "lookup_breed_norms" in SYSTEM_PROMPT
+    assert "lookup_pet_food" in SYSTEM_PROMPT
+
+
+def test_system_prompt_forbids_stopping_at_an_empty_tool_result() -> None:
+    """An empty lookup must send the model to the next source, not to the owner.
+
+    Guards the reported behaviour where a pet-food miss ended the turn instead of
+    falling through to `web_search`.
+    """
+    assert "Never stop at an empty tool result." in SYSTEM_PROMPT
+    assert "Do not wait to be asked to search again." in SYSTEM_PROMPT
+
+
 def test_system_prompt_mentions_the_always_on_clock_tool() -> None:
     assert "get_current_date" in SYSTEM_PROMPT
 

@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-export const emailField = z
+const emailField = z
   .string({ error: "Email is required" })
   .min(1, "Email is required")
   .pipe(z.email({ error: "Enter a valid email address" }));
 
-export const passwordField = z
+const passwordField = z
   .string({ error: "Password is required" })
   .min(1, "Password is required")
   .min(8, "Password must be at least 8 characters");

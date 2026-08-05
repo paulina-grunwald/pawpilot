@@ -9,14 +9,60 @@ from __future__ import annotations
 
 from langchain_core.tools import BaseTool, tool
 
-from app.agent.citations import CitationRegistry
+from app.agent.citations import CitationRegistry, ReferenceEntry
 from app.agent.pet_food import PetFoodLookup
 from app.agent.web_search import WebSearch
+from app.rag.lookups import lookup_breed_norm, lookup_toxicity, size_category_for_weight
 from app.rag.retriever import VetCorpusRetriever
+from app.rag.schemas import BreedNorm, ToxicSubstance
 
 _NO_CORPUS_RESULTS = "No matching passages found in the veterinary corpus."
 _NO_WEB_RESULTS = "No web results found."
-_NO_PET_FOOD_RESULTS = "No matching pet-food product found in Open Pet Food Facts."
+_NO_PET_FOOD_RESULTS = (
+    "No matching pet-food product found in Open Pet Food Facts. That database is "
+    "incomplete, so this does not mean the product does not exist. Call `web_search` "
+    "for the product name before telling the owner you could not find it."
+)
+_NO_TOXICITY_MATCH = (
+    "That substance is not in the curated toxicity table. This means it is unlisted, "
+    "not that it is safe. Search the veterinary corpus before saying anything about it."
+)
+_NO_BREED_NORM_MATCH = (
+    "No norms for that breed or size in the curated table. Search the veterinary corpus instead."
+)
+
+
+def _describe_toxicity(substance: ToxicSubstance) -> ReferenceEntry:
+    """Render a toxic-substance row as a citable reference entry."""
+    return ReferenceEntry(
+        title=f"{substance.name} ({substance.category}, {substance.severity})",
+        url=substance.source_url,
+        body=(
+            f"{substance.name} is toxic to dogs.\n"
+            f"- Category: {substance.category}\n"
+            f"- Severity: {substance.severity}\n"
+            f"- Notes: {substance.notes}"
+        ),
+    )
+
+
+def _describe_breed_norm(norm: BreedNorm) -> ReferenceEntry:
+    """Render a breed-norm row as a citable reference entry."""
+    heart_rate_low, heart_rate_high = norm.resting_heart_rate_range_bpm
+    walk_low, walk_high = norm.daily_walk_target_km_range
+    label = norm.breed if norm.breed is not None else f"{norm.size_category} dogs"
+    return ReferenceEntry(
+        title=f"Physiological norms for {label}",
+        url=norm.source_url,
+        body=(
+            f"Norms for {label} (size category: {norm.size_category}).\n"
+            f"- Resting heart rate: {heart_rate_low}-{heart_rate_high} bpm\n"
+            f"- Sleeping respiratory rate: up to {norm.sleeping_respiratory_rate_max_bpm} "
+            "breaths per minute\n"
+            f"- Daily walk target: {walk_low}-{walk_high} km\n"
+            f"- Considered senior from: {norm.senior_age_years} years"
+        ),
+    )
 
 
 def build_agent_tools(
@@ -28,7 +74,7 @@ def build_agent_tools(
     *,
     top_k: int,
 ) -> list[BaseTool]:
-    """Build the corpus, web-search, and pet-food tools for one agent run."""
+    """Build the corpus, web-search, pet-food, and exact-match lookup tools for one run."""
 
     @tool
     def retrieve_vet_corpus(query: str) -> str:
@@ -65,4 +111,41 @@ def build_agent_tools(
             return _NO_PET_FOOD_RESULTS
         return registry.register_food_products(products)
 
-    return [retrieve_vet_corpus, web_search, lookup_pet_food]
+    @tool
+    def lookup_toxic_substance(name: str) -> str:
+        """Check whether a named substance is toxic to dogs, using a curated
+        exact-match table (foods, plants, medications, household chemicals — e.g.
+        "xylitol", "chocolate", "grapes", "ibuprofen"). Returns its category,
+        severity, and clinical notes tagged [R1], [R2], … to cite. Prefer this over
+        searching for any "is X poisonous/toxic to dogs" question. An unlisted
+        substance is not a safe substance."""
+        invoked_tools.append("lookup_toxic_substance")
+        substance = lookup_toxicity(name)
+        if substance is None:
+            return _NO_TOXICITY_MATCH
+        return registry.register_reference_entries([_describe_toxicity(substance)])
+
+    @tool
+    def lookup_breed_norms(breed: str = "", weight_grams: int = 0) -> str:
+        """Look up healthy physiological ranges for a dog — resting heart rate,
+        sleeping respiratory rate, daily walk target, and senior age. Pass the breed
+        name when known; pass weight_grams as well (or instead, for a mixed or
+        unknown breed) to fall back to the matching size category. Returns the norms
+        tagged [R1], [R2], … to cite. Use it to judge whether one of this dog's
+        measured vitals is actually abnormal."""
+        invoked_tools.append("lookup_breed_norms")
+        norm = lookup_breed_norm(
+            breed=breed.strip() or None,
+            size_category=size_category_for_weight(weight_grams) if weight_grams > 0 else None,
+        )
+        if norm is None:
+            return _NO_BREED_NORM_MATCH
+        return registry.register_reference_entries([_describe_breed_norm(norm)])
+
+    return [
+        retrieve_vet_corpus,
+        web_search,
+        lookup_pet_food,
+        lookup_toxic_substance,
+        lookup_breed_norms,
+    ]
