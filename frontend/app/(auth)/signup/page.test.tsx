@@ -24,6 +24,16 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe("SignupPage", () => {
+  it("posts rather than gets, so a pre-hydration submit cannot leak credentials into the URL", () => {
+    const { container } = render(<SignupPage />);
+    expect(container.querySelector("form")).toHaveAttribute("method", "post");
+  });
+
+  it("enables the submit button once hydrated", () => {
+    render(<SignupPage />);
+    expect(screen.getByRole("button", { name: /create account/i })).toBeEnabled();
+  });
+
   it("shows inline errors on empty submit", async () => {
     const user = userEvent.setup();
     render(<SignupPage />);
