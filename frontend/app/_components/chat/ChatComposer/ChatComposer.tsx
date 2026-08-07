@@ -1,7 +1,8 @@
 "use client";
 
-import { type KeyboardEvent, useRef, useState } from "react";
+import { type KeyboardEvent, useLayoutEffect, useRef, useState } from "react";
 import styles from "./ChatComposer.module.css";
+import { COMPOSER_MAX_HEIGHT, resolveComposerSizing } from "./composerSizing";
 
 type ChatComposerProps = {
   onSend: (query: string) => void;
@@ -13,6 +14,18 @@ type ChatComposerProps = {
 export function ChatComposer({ onSend, onStop, streaming, disabled }: ChatComposerProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    const { height, overflowY } = resolveComposerSizing(
+      textarea.scrollHeight,
+      COMPOSER_MAX_HEIGHT,
+    );
+    textarea.style.height = `${height}px`;
+    textarea.style.overflowY = overflowY;
+  }, [value]);
 
   function submit() {
     const query = value.trim();

@@ -17,9 +17,11 @@
   font-size: 15px;
   line-height: 1.5;
   color: var(--ink);
-  max-height: 160px;
+  overflow-y: hidden;
+  overscroll-behavior: contain;
   outline: none;
   padding: 6px 0;
+  min-width: 0;
 }
 .input::placeholder {
   color: var(--muted-2);
