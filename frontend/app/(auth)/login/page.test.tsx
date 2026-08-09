@@ -24,6 +24,17 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe("LoginPage", () => {
+  it("posts rather than gets, so a pre-hydration submit cannot leak credentials into the URL", () => {
+    const { container } = render(<LoginPage />);
+    const form = container.querySelector("form");
+    expect(form).toHaveAttribute("method", "post");
+  });
+
+  it("enables the submit button once hydrated", () => {
+    render(<LoginPage />);
+    expect(screen.getByRole("button", { name: /log in/i })).toBeEnabled();
+  });
+
   it("shows inline 'required' errors on empty submit and skips the network call", async () => {
     let called = false;
     server.use(

@@ -11,9 +11,11 @@ import { SubmitButton } from "@/components/auth/SubmitButton";
 import { loginErrorCopy } from "@/components/auth/errorCopy";
 import { AuthError, login } from "@/lib/auth";
 import { loginSchema, type LoginInput } from "@/lib/auth.schemas";
+import { useIsHydrated } from "@/lib/useIsHydrated";
 
 export default function LoginPage() {
   const router = useRouter();
+  const isHydrated = useIsHydrated();
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -54,7 +56,12 @@ export default function LoginPage() {
         </span>
       }
     >
-      <form noValidate className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
+      <form
+        noValidate
+        method="post"
+        className="mt-4 flex flex-col gap-4"
+        onSubmit={handleSubmit(onSubmit)}
+      >
         <Field
           label="Email"
           type="email"
@@ -82,7 +89,11 @@ export default function LoginPage() {
             {formError}
           </p>
         )}
-        <SubmitButton isSubmitting={isSubmitting} loadingLabel="Logging in…">
+        <SubmitButton
+          isSubmitting={isSubmitting}
+          isHydrating={!isHydrated}
+          loadingLabel="Logging in…"
+        >
           {isSubmitting ? "Logging in…" : "Log in"}
         </SubmitButton>
       </form>

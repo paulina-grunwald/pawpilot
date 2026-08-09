@@ -11,9 +11,11 @@ import { SubmitButton } from "@/components/auth/SubmitButton";
 import { signupErrorCopy } from "@/components/auth/errorCopy";
 import { AuthError, login, signup } from "@/lib/auth";
 import { signupSchema, type SignupInput } from "@/lib/auth.schemas";
+import { useIsHydrated } from "@/lib/useIsHydrated";
 
 export default function SignupPage() {
   const router = useRouter();
+  const isHydrated = useIsHydrated();
   const [formError, setFormError] = useState<string | null>(null);
   const [accountExists, setAccountExists] = useState(false);
 
@@ -60,7 +62,12 @@ export default function SignupPage() {
         </span>
       }
     >
-      <form noValidate className="mt-4 flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)}>
+      <form
+        noValidate
+        method="post"
+        className="mt-4 flex flex-col gap-4"
+        onSubmit={handleSubmit(onSubmit)}
+      >
         <Field
           label="Email"
           type="email"
@@ -102,7 +109,11 @@ export default function SignupPage() {
             )}
           </p>
         )}
-        <SubmitButton isSubmitting={isSubmitting} loadingLabel="Creating account…">
+        <SubmitButton
+          isSubmitting={isSubmitting}
+          isHydrating={!isHydrated}
+          loadingLabel="Creating account…"
+        >
           {isSubmitting ? "Creating account…" : "Create account"}
         </SubmitButton>
       </form>
