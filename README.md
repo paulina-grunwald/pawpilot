@@ -34,28 +34,6 @@ Conversation state and long-term memory persist to Postgres through LangGraph's 
 
 The response path also runs red-flag detection over the answer text, so symptom descriptions that warrant an actual vet get marked as urgent rather than answered casually.
 
-## Evaluation
-
-The RAG stack is measured, not assumed. Harness lives in `backend/evals/rag/`, and runs push to LangSmith as datasets and experiments.
-
-Retrieval, against a hand-curated golden set:
-
-| recall@5 | recall@8 | recall@10 | recall@20 |
-| --- | --- | --- | --- |
-| 0.74 | 0.84 | 0.89 | 0.95 |
-
-Generation, RAGAS metrics over 18 curated cases, comparing dense retrieval against dense plus rerank:
-
-| Metric | dense | rerank |
-| --- | --- | --- |
-| faithfulness | 0.61 | 0.64 |
-| answer accuracy | 0.64 | 0.61 |
-| answer relevancy | 0.82 | 0.80 |
-| noise sensitivity (lower is better) | 0.24 | 0.23 |
-
-Eighteen cases is a small set, and the dense-versus-rerank differences here are inside the noise. Treat these as a working baseline to move, not a claim that the system is solved.
-
-Targets: `make retrieval-report`, `make rag-eval`, `make agent-eval`, `make langsmith-experiments`.
 
 ## Stack
 
@@ -122,10 +100,3 @@ make check
 Other targets: `make format`, `make lint`, `make typecheck`, `make test`, `make db-upgrade`, `make db-revision name="describe change"`, `make corpus-ingest`.
 
 Loading the vet corpus into a deployed backend's private Qdrant: see [backend/docs/corpus-admin.md](backend/docs/corpus-admin.md).
-
-## Known limits
-
-- Tractive data arrives by uploading a GDPR export zip. There is no live collar sync, so the dashboard is as fresh as your last upload.
-- Nothing pushes alerts. The agent will tell you a metric has drifted if you ask, but it does not watch for drift on its own.
-- The corpus is open-access veterinary literature. Coverage is uneven, and retrieval recall on the golden set tops out around 0.95 at k=20.
-- PawPilot is not a veterinarian and does not diagnose. It surfaces cited literature, your dog's own numbers, and a red-flag warning when a described symptom needs a real clinic.
